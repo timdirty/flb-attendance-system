@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript 調試頁面</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>JavaScript 調試頁面</h1>
+    
+    <div class="debug-section">
+        <h3>基本 JavaScript 測試</h3>
+        <div id="basic-test"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>DOM 載入測試</h3>
+        <div id="dom-test"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>API 呼叫測試</h3>
+        <div id="api-test"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>錯誤日誌</h3>
+        <div id="error-log"></div>
+    </div>
+    
+    <script>
+        // 錯誤日誌函數
+        function logError(message) {
+            const errorLog = document.getElementById('error-log');
+            errorLog.innerHTML += '<div class="error">' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+            console.error(message);
+        }
+        
+        function logSuccess(message) {
+            const errorLog = document.getElementById('error-log');
+            errorLog.innerHTML += '<div class="success">' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+            console.log(message);
+        }
+        
+        function logInfo(message) {
+            const errorLog = document.getElementById('error-log');
+            errorLog.innerHTML += '<div class="info">' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+            console.log(message);
+        }
+        
+        // 基本 JavaScript 測試
+        try {
+            document.getElementById('basic-test').innerHTML = '<span class="success">✓ JavaScript 引擎正常</span>';
+            logSuccess('基本 JavaScript 功能正常');
+        } catch (error) {
+            document.getElementById('basic-test').innerHTML = '<span class="error">✗ JavaScript 引擎錯誤: ' + error.message + '</span>';
+            logError('基本 JavaScript 功能錯誤: ' + error.message);
+        }
+        
+        // DOM 載入測試
+        try {
+            if (document.readyState === 'loading') {
+                document.getElementById('dom-test').innerHTML = '<span class="info">⏳ DOM 正在載入...</span>';
+                logInfo('DOM 正在載入');
+            } else if (document.readyState === 'interactive') {
+                document.getElementById('dom-test').innerHTML = '<span class="info">⏳ DOM 已解析</span>';
+                logInfo('DOM 已解析');
+            } else if (document.readyState === 'complete') {
+                document.getElementById('dom-test').innerHTML = '<span class="success">✓ DOM 已完全載入</span>';
+                logSuccess('DOM 已完全載入');
+            }
+        } catch (error) {
+            document.getElementById('dom-test').innerHTML = '<span class="error">✗ DOM 測試錯誤: ' + error.message + '</span>';
+            logError('DOM 測試錯誤: ' + error.message);
+        }
+        
+        // API 呼叫測試
+        try {
+            fetch('/api/teachers')
+                .then(response => {
+                    logInfo('API 回應狀態: ' + response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('api-test').innerHTML = '<span class="success">✓ API 呼叫成功，載入 ' + data.teachers.length + ' 位講師</span>';
+                        logSuccess('API 呼叫成功，載入 ' + data.teachers.length + ' 位講師');
+                    } else {
+                        document.getElementById('api-test').innerHTML = '<span class="error">✗ API 呼叫失敗: ' + (data.error || '未知錯誤') + '</span>';
+                        logError('API 呼叫失敗: ' + (data.error || '未知錯誤'));
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('api-test').innerHTML = '<span class="error">✗ API 呼叫錯誤: ' + error.message + '</span>';
+                    logError('API 呼叫錯誤: ' + error.message);
+                });
+        } catch (error) {
+            document.getElementById('api-test').innerHTML = '<span class="error">✗ API 測試錯誤: ' + error.message + '</span>';
+            logError('API 測試錯誤: ' + error.message);
+        }
+        
+        // 監聽頁面載入事件
+        window.addEventListener('load', function() {
+            logInfo('頁面完全載入完成');
+        });
+        
+        // 監聽錯誤事件
+        window.addEventListener('error', function(event) {
+            logError('JavaScript 錯誤: ' + event.message + ' at ' + event.filename + ':' + event.lineno);
+        });
+        
+        // 監聽未處理的 Promise 拒絕
+        window.addEventListener('unhandledrejection', function(event) {
+            logError('未處理的 Promise 拒絕: ' + event.reason);
+        });
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLB 講師簽到系統</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- 標題 -->
+        <header class="header">
+            <div class="logo-container">
+                <img src="logo.jpg" alt="FLB Logo" class="logo">
+            </div>
+            <div class="header-text">
+                <h1>FLB 講師簽到系統</h1>
+            </div>
+            <p>學生簽到管理系統</p>
+            <!-- 即時日期時間顯示 -->
+            <div class="datetime-display">
+                <div class="date-info">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span id="current-date"></span>
+                </div>
+                <div class="time-info">
+                    <i class="fas fa-clock"></i>
+                    <span id="current-time"></span>
+                </div>
+                <div class="week-info">
+                    <i class="fas fa-calendar-week"></i>
+                    <span id="current-week"></span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 步驟指示器 -->
+        <div class="steps">
+            <div class="step active" id="step1">
+                <div class="step-number">1</div>
+                <div class="step-text">選擇講師</div>
+            </div>
+            <div class="step" id="step2">
+                <div class="step-number">2</div>
+                <div class="step-text">選擇課程</div>
+            </div>
+            <div class="step" id="step3">
+                <div class="step-number">3</div>
+                <div class="step-text">學生簽到</div>
+            </div>
+        </div>
+
+        <!-- 步驟1：講師選擇 -->
+        <div class="step-content active" id="step1-content">
+            <div class="card">
+                <h2><i class="fas fa-user-tie"></i> 選擇講師</h2>
+                <div class="loading" id="teacher-loading">
+                    <i class="fas fa-spinner"></i>
+                    <div class="loading-text">載入講師列表中...</div>
+                </div>
+                <div class="teacher-grid" id="teacher-grid"></div>
+            </div>
+        </div>
+
+        <!-- 步驟2：課程選擇 -->
+        <div class="step-content" id="step2-content">
+            <div class="card">
+                <h2><i class="fas fa-book"></i> 選擇課程</h2>
+                <div class="selected-teacher">
+                    <strong>已選擇講師：</strong><span id="selected-teacher-name"></span>
+                    <button class="btn-secondary" onclick="backToStep1()">
+                        <i class="fas fa-arrow-left"></i> 重新選擇
+                    </button>
+                </div>
+                <div class="loading" id="course-loading">
+                    <i class="fas fa-spinner"></i>
+                    <div class="loading-text">載入課程中...</div>
+                </div>
+                <div class="course-grid" id="course-grid"></div>
+            </div>
+        </div>
+
+        <!-- 步驟3：學生簽到 -->
+        <div class="step-content" id="step3-content">
+            <div class="card">
+                <h2><i class="fas fa-users"></i> 學生簽到</h2>
+                <div class="course-info">
+                    <strong>課程：</strong><span id="selected-course-name"></span><br>
+                    <strong>時段：</strong><span id="selected-course-time"></span>
+                    <button class="btn-secondary" onclick="backToStep2()">
+                        <i class="fas fa-arrow-left"></i> 重新選擇
+                    </button>
+                </div>
+                
+
+
+                <!-- 學生列表 -->
+                <div class="student-section">
+                    <h3><i class="fas fa-list"></i> 學生名單</h3>
+                    <div class="loading" id="student-loading">
+                        <i class="fas fa-spinner"></i>
+                        <div class="loading-text">載入學生名單中...</div>
+                    </div>
+                    <div class="student-list" id="student-list"></div>
+                </div>
+
+                <!-- 補簽到功能 -->
+                <div class="makeup-attendance-section">
+                    <div class="makeup-toggle" onclick="toggleMakeupSection()">
+                        <h3><i class="fas fa-calendar-plus"></i> 學生補簽到</h3>
+                        <i class="fas fa-chevron-down makeup-toggle-icon" id="makeup-toggle-icon"></i>
+                    </div>
+                    <div class="makeup-form" id="makeup-form" style="display: none;">
+                        <div class="form-group">
+                            <label for="makeup-date">補簽到日期：</label>
+                            <input 
+                                type="date" 
+                                id="makeup-date" 
+                                max=""
+                                onchange="loadMakeupCourses()"
+                            >
+                            <small class="form-help">選擇需要補簽到的日期</small>
+                        </div>
+                        <div class="makeup-courses" id="makeup-courses" style="display: none;">
+                            <h4><i class="fas fa-list"></i> 可補簽到的課程</h4>
+                            <div class="makeup-course-list" id="makeup-course-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 講師報表與補簽到 -->
+                <div class="teacher-section">
+                    <h3><i class="fas fa-clipboard-list"></i> 講師報表</h3>
+                    
+                    <!-- 今日報表 -->
+                    <div class="today-report-section">
+                        <h4><i class="fas fa-calendar-day"></i> 今日報表</h4>
+                        <div class="report-form">
+                            <div class="form-group">
+                                <label for="course-content">課程內容：</label>
+                                <textarea 
+                                    id="course-content" 
+                                    placeholder="請描述今天的課程內容..."
+                                    rows="4"
+                                    maxlength="500"
+                                ></textarea>
+                                <div class="char-count">
+                                    <span id="char-count">0</span>/500
+                                </div>
+                            </div>
+                            <div class="assistant-toggle">
+                                <div class="mode-header">
+                                    <h4><i class="fas fa-users"></i> 身份選擇</h4>
+                                    <p class="mode-description">請選擇您的身份以正確設定人數</p>
+                                </div>
+                                <div class="mode-buttons">
+                                    <button class="mode-btn teacher-mode" id="teacher-mode-btn" onclick="setTeacherMode()">
+                                        <i class="fas fa-chalkboard-teacher"></i>
+                                        <span class="mode-title">講師模式</span>
+                                        <span class="mode-desc">人數根據學生數量計算</span>
+                                    </button>
+                                    <button class="mode-btn assistant-mode" id="assistant-mode-btn" onclick="setAssistantMode()">
+                                        <i class="fas fa-user-graduate"></i>
+                                        <span class="mode-title">助教模式</span>
+                                        <span class="mode-desc">人數自動設為 0</span>
+                                    </button>
+                                </div>
+                                <div class="current-mode-display">
+                                    <span class="mode-label">目前模式：</span>
+                                    <span class="mode-value" id="current-mode-display">講師模式</span>
+                                </div>
+                            </div>
+                            <button class="btn-primary complete" id="submit-report-btn" onclick="submitTeacherReport()">
+                                <i class="fas fa-paper-plane"></i> 提交報表
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 補簽到報表 -->
+                    <div class="makeup-report-section">
+                        <div class="makeup-report-toggle" onclick="toggleMakeupReport()">
+                            <h4><i class="fas fa-calendar-plus"></i> 補簽到報表</h4>
+                            <i class="fas fa-chevron-down toggle-icon" id="makeup-report-toggle-icon"></i>
+                        </div>
+                        <div class="makeup-report-form" id="makeup-report-form" style="display: none;">
+                            <div class="form-group">
+                                <label for="teacher-makeup-date">補簽到日期：</label>
+                                <input 
+                                    type="date" 
+                                    id="teacher-makeup-date" 
+                                    max=""
+                                    placeholder="請選擇日期"
+                                    onchange="loadTeacherMakeupCourses()"
+                                >
+                                <small class="form-help">請先選擇需要補簽到的日期</small>
+                            </div>
+                            
+                            <!-- 身份選擇 -->
+                            <div class="teacher-makeup-identity">
+                                <h4><i class="fas fa-users"></i> 身份選擇</h4>
+                                <p class="identity-description">請選擇您的身份以正確設定人數</p>
+                                <div class="identity-buttons">
+                                    <button class="identity-btn teacher-identity" id="teacher-identity-btn" onclick="setTeacherMakeupIdentity(false)">
+                                        <i class="fas fa-chalkboard-teacher"></i>
+                                        <span class="identity-title">講師模式</span>
+                                        <span class="identity-desc">人數根據課程類型計算</span>
+                                    </button>
+                                    <button class="identity-btn assistant-identity" id="assistant-identity-btn" onclick="setTeacherMakeupIdentity(true)">
+                                        <i class="fas fa-user-graduate"></i>
+                                        <span class="identity-title">助教模式</span>
+                                        <span class="identity-desc">人數自動設為 0</span>
+                                    </button>
+                                </div>
+                                <div class="current-identity-display">
+                                    <span class="identity-label">目前身份：</span>
+                                    <span class="identity-value" id="current-identity-display">講師模式</span>
+                                </div>
+                            </div>
+                            
+                            <!-- 課程內容輸入 -->
+                            <div class="form-group">
+                                <label for="teacher-makeup-content">課程內容：</label>
+                                <textarea 
+                                    id="teacher-makeup-content" 
+                                    placeholder="請描述補簽到課程的內容..."
+                                    rows="4"
+                                    maxlength="500"
+                                ></textarea>
+                                <div class="char-count">
+                                    <span id="teacher-makeup-char-count">0</span>/500
+                                </div>
+                            </div>
+                            
+                            <div class="teacher-makeup-courses" id="teacher-makeup-courses" style="display: none;">
+                                <h4><i class="fas fa-list"></i> 可補簽到的課程</h4>
+                                <div class="teacher-makeup-course-list" id="teacher-makeup-course-list"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 導航按鈕 -->
+        <div class="navigation">
+            <button class="btn-secondary" id="prev-btn" onclick="previousStep()" style="display: none;">
+                <i class="fas fa-arrow-left"></i> 上一步
+            </button>
+            <div class="nav-buttons-right">
+                <button class="btn-report-query" onclick="openReportQueryModal()">
+                    <i class="fas fa-chart-line"></i> 查詢報表
+                </button>
+                <button class="btn-primary" id="next-btn" onclick="nextStep()" style="display: none;">
+                    下一步 <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 成功提示 -->
+    <div class="toast" id="toast">
+        <div class="toast-content">
+            <i class="fas fa-check-circle"></i>
+            <span id="toast-message"></span>
+        </div>
+    </div>
+
+    <!-- 報表查詢彈窗 -->
+    <div class="modal" id="report-query-modal">
+        <div class="modal-content report-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-chart-line"></i> 查詢報表</h3>
+                <button class="modal-close" onclick="closeReportQueryModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- 選擇講師並查詢 -->
+                <div class="query-step" id="step-select-teacher">
+                    <h4><i class="fas fa-user-tie"></i> 選擇講師查詢報表</h4>
+                    <div class="form-group">
+                        <label for="report-teacher-select">選擇講師：</label>
+                        <select id="report-teacher-select" onchange="onTeacherSelectChange()">
+                            <option value="">請選擇講師</option>
+                        </select>
+                        <small class="form-help">選擇要查詢報表的講師，將直接查詢所有資料</small>
+                    </div>
+                    
+                    <!-- 進階篩選選項（可選） -->
+                    <div class="advanced-filters" id="advanced-filters" style="display: none;">
+                        <div class="filter-toggle">
+                            <button class="btn-toggle-filters" onclick="toggleAdvancedFilters()">
+                                <i class="fas fa-chevron-down"></i> 進階篩選選項
+                            </button>
+                        </div>
+                        
+                        <div class="query-filters" id="query-filters" style="display: none;">
+                            <div class="form-group">
+                                <label for="name-contains">課程名稱（模糊搜尋）：</label>
+                                <input type="text" id="name-contains" placeholder="例如：SPM" maxlength="50">
+                                <small class="form-help">找出所有「課程名稱」包含該字串的資料</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="topic-contains">課程主題（模糊搜尋）：</label>
+                                <input type="text" id="topic-contains" placeholder="例如：海盜" maxlength="50">
+                                <small class="form-help">找出所有「課程內容/主題」包含該字串的資料</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="query-date">日期（精準比對）：</label>
+                                <input type="date" id="query-date">
+                                <small class="form-help">只回傳指定日期的課程（格式：yyyy-MM-dd），若同時設定日期區間則以區間為優先</small>
+                            </div>
+                            
+                            <div class="date-range-group">
+                                <div class="form-group">
+                                    <label for="date-range-start">日期區間開始：</label>
+                                    <input type="date" id="date-range-start">
+                                    <small class="form-help">起始日期（含）</small>
+                                </div>
+                                <div class="date-range-separator">至</div>
+                                <div class="form-group">
+                                    <label for="date-range-end">日期區間結束：</label>
+                                    <input type="date" id="date-range-end">
+                                    <small class="form-help">結束日期（含）</small>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="course-time">上課時間（精準比對）：</label>
+                                <input type="text" id="course-time" placeholder="例如：14:30-15:30" maxlength="20">
+                                <small class="form-help">只回傳指定上課時間的課程</small>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="query-limit">回傳筆數限制：</label>
+                                    <input type="number" id="query-limit" placeholder="0=不限制" min="0" max="1000">
+                                </div>
+                                <div class="form-group">
+                                    <label for="query-offset">從第幾筆開始：</label>
+                                    <input type="number" id="query-offset" placeholder="0=從頭開始" min="0">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button class="btn-secondary" onclick="closeReportQueryModal()">取消</button>
+                        <button class="btn-primary" onclick="queryReport()" id="query-report-btn" disabled>
+                            <i class="fas fa-search"></i> 查詢報表
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+            
+            <div class="modal-footer" id="report-query-results" style="display: none;">
+                <div class="results-header">
+                    <h4><i class="fas fa-list"></i> 查詢結果</h4>
+                    <!-- 月份快速選擇 -->
+                    <div class="month-filter-section">
+                        <div class="month-filter-label">
+                            <i class="fas fa-calendar-alt"></i> 快速篩選月份：
+                        </div>
+                        <div class="month-buttons" id="month-buttons">
+                            <!-- 月份按鈕將由 JavaScript 動態生成 -->
+                        </div>
+                        <div class="filter-actions">
+                            <button class="btn-secondary btn-sm" onclick="clearMonthFilter()">
+                                <i class="fas fa-times"></i> 清除篩選
+                            </button>
+                            <button class="btn-primary btn-sm" onclick="showAllResults()">
+                                <i class="fas fa-eye"></i> 顯示全部
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="report-results" id="report-results-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 版本號 -->
+    <div class="version-info">
+                        <span class="version-text">Tim感恩戴德版本號: 20250903</span>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 

@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  flb-attendance:
+    build: .
+    container_name: flb-attendance-system
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - flb-network
+
+networks:
+  flb-network:
+    driver: bridge 
