@@ -485,6 +485,32 @@ app.post('/api/query-report', async (req, res) => {
     }
 });
 
+// LINE Webhook 端點
+app.post('/webhook', (req, res) => {
+    console.log('收到 LINE Webhook 請求:', req.body);
+    
+    // 回傳 200 狀態碼給 LINE
+    res.status(200).send('OK');
+    
+    // 處理 webhook 事件
+    const events = req.body.events;
+    if (events && events.length > 0) {
+        events.forEach(event => {
+            if (event.type === 'message' && event.message.type === 'text') {
+                console.log('收到訊息:', event.message.text);
+                console.log('用戶 ID:', event.source.userId);
+                
+                // 這裡可以處理收到的訊息
+                // 例如：儲存 User ID 到環境變數
+                if (event.source.userId) {
+                    console.log('請將此 User ID 設定到 Railway 環境變數:');
+                    console.log('LINE_USER_ID =', event.source.userId);
+                }
+            }
+        });
+    }
+});
+
 // 啟動伺服器
 app.listen(PORT, () => {
     console.log(`伺服器運行在 http://localhost:${PORT}`);
