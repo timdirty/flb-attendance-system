@@ -603,6 +603,73 @@ app.post('/webhook', (req, res) => {
     }
 });
 
+// API路由：檢查講師綁定狀態
+app.post('/api/check-teacher-binding', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        
+        if (!userId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少使用者ID' 
+            });
+        }
+
+        const bindingInfo = await db.isTeacherBound(userId);
+        
+        res.json({ 
+            success: true, 
+            isBound: bindingInfo.isBound,
+            teacherName: bindingInfo.teacherName,
+            teacherId: bindingInfo.teacherId
+        });
+        
+    } catch (error) {
+        console.error('檢查講師綁定狀態錯誤:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '檢查講師綁定狀態失敗' 
+        });
+    }
+});
+
+// API路由：綁定講師身份
+app.post('/api/bind-teacher', async (req, res) => {
+    try {
+        const { userId, teacherName, teacherId } = req.body;
+        
+        if (!userId || !teacherName || !teacherId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必要參數' 
+            });
+        }
+
+        const success = await db.bindTeacher(userId, teacherName, teacherId);
+        
+        if (success) {
+            res.json({ 
+                success: true, 
+                message: '講師身份綁定成功',
+                teacherName: teacherName,
+                teacherId: teacherId
+            });
+        } else {
+            res.status(404).json({ 
+                success: false, 
+                error: '使用者不存在' 
+            });
+        }
+        
+    } catch (error) {
+        console.error('綁定講師身份錯誤:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '綁定講師身份失敗' 
+        });
+    }
+});
+
 // 啟動伺服器
 async function startServer() {
     try {

@@ -29,6 +29,9 @@ class DatabaseManager {
                     pictureUrl TEXT,
                     userName TEXT NOT NULL,
                     email TEXT,
+                    teacherName TEXT,
+                    teacherId TEXT,
+                    isTeacherBound BOOLEAN DEFAULT 0,
                     registeredAt DATETIME DEFAULT CURRENT_TIMESTAMP,
                     lastLogin DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
@@ -130,6 +133,40 @@ class DatabaseManager {
             return row || { totalUsers: 0, todayActiveUsers: 0, todayNewUsers: 0 };
         } catch (error) {
             console.error('獲取使用者統計失敗:', error);
+            throw error;
+        }
+    }
+
+    // 綁定講師身份
+    bindTeacher(userId, teacherName, teacherId) {
+        try {
+            const stmt = this.db.prepare(`
+                UPDATE users 
+                SET teacherName = ?, teacherId = ?, isTeacherBound = 1 
+                WHERE userId = ?
+            `);
+            
+            const result = stmt.run(teacherName, teacherId, userId);
+            console.log(`講師綁定成功: ${teacherName} (${teacherId}) -> ${userId}`);
+            return result.changes > 0;
+        } catch (error) {
+            console.error('綁定講師失敗:', error);
+            throw error;
+        }
+    }
+
+    // 檢查講師是否已綁定
+    isTeacherBound(userId) {
+        try {
+            const stmt = this.db.prepare('SELECT isTeacherBound, teacherName, teacherId FROM users WHERE userId = ?');
+            const row = stmt.get(userId);
+            return row ? {
+                isBound: row.isTeacherBound === 1,
+                teacherName: row.teacherName,
+                teacherId: row.teacherId
+            } : { isBound: false, teacherName: null, teacherId: null };
+        } catch (error) {
+            console.error('檢查講師綁定狀態失敗:', error);
             throw error;
         }
     }
