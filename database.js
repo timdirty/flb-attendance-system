@@ -1,7 +1,7 @@
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const path = require('path');
 
-class Database {
+class DatabaseManager {
     constructor() {
         this.db = null;
         this.dbPath = path.join(__dirname, 'users.db');
@@ -9,22 +9,19 @@ class Database {
 
     // 初始化資料庫
     async init() {
-        return new Promise((resolve, reject) => {
-            this.db = new sqlite3.Database(this.dbPath, (err) => {
-                if (err) {
-                    console.error('資料庫連線失敗:', err);
-                    reject(err);
-                } else {
-                    console.log('資料庫連線成功');
-                    this.createTables().then(resolve).catch(reject);
-                }
-            });
-        });
+        try {
+            this.db = new Database(this.dbPath);
+            console.log('資料庫連線成功');
+            this.createTables();
+        } catch (error) {
+            console.error('資料庫連線失敗:', error);
+            throw error;
+        }
     }
 
     // 建立資料表
-    async createTables() {
-        return new Promise((resolve, reject) => {
+    createTables() {
+        try {
             const createUsersTable = `
                 CREATE TABLE IF NOT EXISTS users (
                     userId TEXT PRIMARY KEY,
@@ -37,71 +34,59 @@ class Database {
                 )
             `;
 
-            this.db.run(createUsersTable, (err) => {
-                if (err) {
-                    console.error('建立使用者表失敗:', err);
-                    reject(err);
-                } else {
-                    console.log('資料表建立成功');
-                    resolve();
-                }
-            });
-        });
+            this.db.exec(createUsersTable);
+            console.log('資料表建立成功');
+        } catch (error) {
+            console.error('建立使用者表失敗:', error);
+            throw error;
+        }
     }
 
     // 檢查使用者是否已註冊
-    async checkUser(userId) {
-        return new Promise((resolve, reject) => {
-            const sql = 'SELECT * FROM users WHERE userId = ?';
-            this.db.get(sql, [userId], (err, row) => {
-                if (err) {
-                    console.error('檢查使用者失敗:', err);
-                    reject(err);
-                } else {
-                    resolve(row || null);
-                }
-            });
-        });
+    checkUser(userId) {
+        try {
+            const stmt = this.db.prepare('SELECT * FROM users WHERE userId = ?');
+            const row = stmt.get(userId);
+            return row || null;
+        } catch (error) {
+            console.error('檢查使用者失敗:', error);
+            throw error;
+        }
     }
 
     // 更新使用者登入時間
-    async updateLastLogin(userId) {
-        return new Promise((resolve, reject) => {
-            const sql = 'UPDATE users SET lastLogin = CURRENT_TIMESTAMP WHERE userId = ?';
-            this.db.run(sql, [userId], function(err) {
-                if (err) {
-                    console.error('更新登入時間失敗:', err);
-                    reject(err);
-                } else {
-                    resolve(this.changes > 0);
-                }
-            });
-        });
+    updateLastLogin(userId) {
+        try {
+            const stmt = this.db.prepare('UPDATE users SET lastLogin = CURRENT_TIMESTAMP WHERE userId = ?');
+            const result = stmt.run(userId);
+            return result.changes > 0;
+        } catch (error) {
+            console.error('更新登入時間失敗:', error);
+            throw error;
+        }
     }
 
     // 更新使用者資訊
-    async updateUserInfo(userId, displayName, pictureUrl) {
-        return new Promise((resolve, reject) => {
-            const sql = 'UPDATE users SET displayName = ?, pictureUrl = ?, lastLogin = CURRENT_TIMESTAMP WHERE userId = ?';
-            this.db.run(sql, [displayName, pictureUrl, userId], function(err) {
-                if (err) {
-                    console.error('更新使用者資訊失敗:', err);
-                    reject(err);
-                } else {
-                    resolve(this.changes > 0);
-                }
-            });
-        });
+    updateUserInfo(userId, displayName, pictureUrl) {
+        try {
+            const stmt = this.db.prepare('UPDATE users SET displayName = ?, pictureUrl = ?, lastLogin = CURRENT_TIMESTAMP WHERE userId = ?');
+            const result = stmt.run(displayName, pictureUrl, userId);
+            return result.changes > 0;
+        } catch (error) {
+            console.error('更新使用者資訊失敗:', error);
+            throw error;
+        }
     }
 
     // 註冊新使用者
-    async registerUser(userData) {
-        return new Promise((resolve, reject) => {
-            const sql = `
+    registerUser(userData) {
+        try {
+            const stmt = this.db.prepare(`
                 INSERT INTO users (userId, displayName, pictureUrl, userName, email, registeredAt, lastLogin)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            `;
-            const params = [
+            `);
+            
+            const result = stmt.run(
                 userData.userId,
                 userData.displayName || '',
                 userData.pictureUrl || '',
@@ -109,68 +94,57 @@ class Database {
                 userData.email || '',
                 userData.registeredAt,
                 userData.lastLogin
-            ];
+            );
 
-            this.db.run(sql, params, function(err) {
-                if (err) {
-                    console.error('註冊使用者失敗:', err);
-                    reject(err);
-                } else {
-                    console.log(`新使用者註冊成功: ${userData.userName} (${userData.userId})`);
-                    resolve({ id: this.lastID, ...userData });
-                }
-            });
-        });
+            console.log(`新使用者註冊成功: ${userData.userName} (${userData.userId})`);
+            return { id: result.lastInsertRowid, ...userData };
+        } catch (error) {
+            console.error('註冊使用者失敗:', error);
+            throw error;
+        }
     }
 
     // 獲取所有使用者
-    async getAllUsers() {
-        return new Promise((resolve, reject) => {
-            const sql = 'SELECT * FROM users ORDER BY registeredAt DESC';
-            this.db.all(sql, [], (err, rows) => {
-                if (err) {
-                    console.error('獲取使用者列表失敗:', err);
-                    reject(err);
-                } else {
-                    resolve(rows || []);
-                }
-            });
-        });
+    getAllUsers() {
+        try {
+            const stmt = this.db.prepare('SELECT * FROM users ORDER BY registeredAt DESC');
+            const rows = stmt.all();
+            return rows || [];
+        } catch (error) {
+            console.error('獲取使用者列表失敗:', error);
+            throw error;
+        }
     }
 
     // 獲取使用者統計
-    async getUserStats() {
-        return new Promise((resolve, reject) => {
-            const sql = `
+    getUserStats() {
+        try {
+            const stmt = this.db.prepare(`
                 SELECT 
                     COUNT(*) as totalUsers,
                     COUNT(CASE WHEN date(lastLogin) = date('now') THEN 1 END) as todayActiveUsers,
                     COUNT(CASE WHEN date(registeredAt) = date('now') THEN 1 END) as todayNewUsers
                 FROM users
-            `;
-            this.db.get(sql, [], (err, row) => {
-                if (err) {
-                    console.error('獲取使用者統計失敗:', err);
-                    reject(err);
-                } else {
-                    resolve(row || { totalUsers: 0, todayActiveUsers: 0, todayNewUsers: 0 });
-                }
-            });
-        });
+            `);
+            const row = stmt.get();
+            return row || { totalUsers: 0, todayActiveUsers: 0, todayNewUsers: 0 };
+        } catch (error) {
+            console.error('獲取使用者統計失敗:', error);
+            throw error;
+        }
     }
 
     // 關閉資料庫連線
     close() {
         if (this.db) {
-            this.db.close((err) => {
-                if (err) {
-                    console.error('關閉資料庫失敗:', err);
-                } else {
-                    console.log('資料庫連線已關閉');
-                }
-            });
+            try {
+                this.db.close();
+                console.log('資料庫連線已關閉');
+            } catch (error) {
+                console.error('關閉資料庫失敗:', error);
+            }
         }
     }
 }
 
-module.exports = Database;
+module.exports = DatabaseManager;

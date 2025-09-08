@@ -1,7 +1,7 @@
 FROM node:18-alpine
 
-# 安裝必要的工具
-RUN apk add --no-cache wget
+# 安裝必要的工具和SQLite編譯依賴
+RUN apk add --no-cache wget python3 make g++ sqlite-dev
 
 # 設置工作目錄
 WORKDIR /app

@@ -3,7 +3,7 @@ const axios = require('axios');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
-const Database = require('./database');
+const DatabaseManager = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,7 +26,7 @@ const LINE_USER_ID = process.env.LINE_USER_ID || 'YOUR_USER_ID_HERE';
 const LINE_MESSAGING_API = 'https://api.line.me/v2/bot/message/push';
 
 // 資料庫實例
-const db = new Database();
+const db = new DatabaseManager();
 
 // LINE Messaging API 通知函數
 async function sendLineMessage(message) {
