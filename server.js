@@ -54,9 +54,13 @@ async function sendLineMessage(message, targetUserId = null) {
             return { success: false, message: '沒有有效的發送目標' };
         }
 
-        // 發送給所有目標使用者
-        const sendPromises = targetUsers.map(async (userId) => {
+        // 發送給所有目標使用者（改為順序發送以便更好的錯誤處理）
+        const results = [];
+        
+        for (const userId of targetUsers) {
             try {
+                console.log(`正在發送LINE訊息給 ${userId}...`);
+                
                 const response = await axios.post(LINE_MESSAGING_API, {
                     to: userId,
                     messages: [{
@@ -67,17 +71,27 @@ async function sendLineMessage(message, targetUserId = null) {
                     headers: {
                         'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    timeout: 10000 // 10秒超時
                 });
-                console.log(`LINE 訊息發送成功給 ${userId}:`, response.data);
-                return { success: true, userId, data: response.data };
+                
+                console.log(`✅ LINE 訊息發送成功給 ${userId}:`, response.data);
+                results.push({ success: true, userId, data: response.data });
+                
+                // 添加小延遲避免API限制
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
             } catch (error) {
-                console.error(`LINE 訊息發送失敗給 ${userId}:`, error.response?.data || error.message);
-                return { success: false, userId, error: error.response?.data || error.message };
+                console.error(`❌ LINE 訊息發送失敗給 ${userId}:`, error.response?.data || error.message);
+                results.push({ 
+                    success: false, 
+                    userId, 
+                    error: error.response?.data || error.message,
+                    statusCode: error.response?.status
+                });
             }
-        });
-
-        const results = await Promise.all(sendPromises);
+        }
+        
         const successCount = results.filter(r => r.success).length;
         
         return { 
