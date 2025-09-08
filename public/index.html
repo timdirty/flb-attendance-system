@@ -414,25 +414,31 @@
          let liffInitialized = false;
          let currentUser = null;
 
-         // 初始化LIFF
-         async function initializeLiff() {
-             try {
-                 await liff.init({ liffId: liffId });
-                 liffInitialized = true;
-                 console.log('LIFF初始化成功');
+        // 初始化LIFF
+        async function initializeLiff() {
+            try {
+                await liff.init({ liffId: liffId });
+                liffInitialized = true;
+                console.log('LIFF初始化成功');
 
-                 if (liff.isLoggedIn()) {
-                     await handleLoggedInUser();
-                 } else {
-                     // 如果未登入，顯示登入按鈕
-                     showLoginPrompt();
-                 }
-             } catch (error) {
-                 console.error('LIFF初始化失敗:', error);
-                 // 即使LIFF失敗，也允許使用系統
-                 showToast('LIFF初始化失敗，將以訪客模式使用', 'warning');
-             }
-         }
+                if (liff.isLoggedIn()) {
+                    await handleLoggedInUser();
+                } else {
+                    // 如果未登入，顯示登入按鈕
+                    showLoginPrompt();
+                }
+            } catch (error) {
+                console.error('LIFF初始化失敗:', error);
+                // 即使LIFF失敗，也允許使用系統
+                showToast('LIFF初始化失敗，將以訪客模式使用', 'warning');
+                
+                // 顯示模擬的使用者資訊用於測試
+                displayFooterUserInfo({
+                    userName: '測試使用者',
+                    userId: 'test-user-123'
+                });
+            }
+        }
 
          // 處理已登入的使用者
          async function handleLoggedInUser() {
