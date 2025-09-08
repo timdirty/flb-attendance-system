@@ -893,9 +893,9 @@
             }
         }
 
-        // 自動選擇講師身份（跳過第一步驟）
+        // 自動選擇講師身份並跳轉到第二步驟
         function selectTeacherIdentity(teacherName, teacherId) {
-            console.log('自動選擇講師身份:', teacherName, teacherId);
+            console.log('自動選擇講師身份並跳轉到第二步驟:', teacherName, teacherId);
             
             // 更新身份顯示
             const identityDisplay = document.getElementById('current-identity-display');
@@ -916,11 +916,28 @@
                 assistantBtn.classList.remove('active');
             }
             
-            // 顯示成功訊息
-            showToast(`已自動選擇講師身份：${teacherName}`, 'success');
+            // 模擬點擊講師按鈕，觸發跳轉到第二步驟
+            if (teacherBtn) {
+                // 設置選中的講師資訊（使用全域變數）
+                selectedTeacher = teacherName;
+                
+                // 更新選中的講師名稱顯示
+                const selectedTeacherName = document.getElementById('selected-teacher-name');
+                if (selectedTeacherName) {
+                    selectedTeacherName.textContent = teacherName;
+                }
+                
+                // 跳轉到第二步驟
+                goToStep(2);
+                
+                // 載入課程列表
+                loadTeacherCourses();
+            }
             
-            // 可以添加其他自動化邏輯，比如自動載入相關資料等
-            console.log('講師身份選擇完成，可以進行後續操作');
+            // 顯示成功訊息
+            showToast(`已自動選擇講師身份：${teacherName}，正在載入課程...`, 'success');
+            
+            console.log('講師身份選擇完成，已跳轉到第二步驟');
         }
 
         // 顯示頁腳使用者資訊
