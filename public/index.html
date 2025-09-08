@@ -882,7 +882,18 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    showToast(`講師身份綁定成功！歡迎，${teacherName}！`, 'success');
+                    let message = `講師身份綁定成功！歡迎，${teacherName}！`;
+                    
+                    // 顯示Rich Menu綁定結果
+                    if (result.richMenuResult) {
+                        if (result.richMenuResult.success) {
+                            message += '\n📱 Rich Menu已成功綁定！';
+                        } else {
+                            message += `\n📱 Rich Menu綁定失敗：${result.richMenuResult.error || '未知錯誤'}`;
+                        }
+                    }
+                    
+                    showToast(message, 'success');
                     displayFooterUserInfo({
                         userName: teacherName,
                         userId: userId,
@@ -993,7 +1004,18 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showToast('講師綁定已解除！', 'success');
+                    let message = '講師綁定已解除！';
+                    
+                    // 顯示Rich Menu解除結果
+                    if (result.richMenuResult) {
+                        if (result.richMenuResult.success) {
+                            message += '\n📱 Rich Menu已成功解除！';
+                        } else {
+                            message += `\n📱 Rich Menu解除失敗：${result.richMenuResult.error || '未知錯誤'}`;
+                        }
+                    }
+                    
+                    showToast(message, 'success');
                     
                     // 隱藏解除綁定按鈕
                     const unbindBtn = document.getElementById('unbind-btn');
@@ -1001,9 +1023,9 @@
                         unbindBtn.style.display = 'none';
                     }
                     
-                    // 重新載入頁面或重置狀態
+                    // 重新顯示講師選擇選單
                     setTimeout(() => {
-                        location.reload();
+                        showTeacherSelectionModal(currentUserId);
                     }, 2000);
                 } else {
                     showToast(`解除綁定失敗：${result.error}`, 'error');

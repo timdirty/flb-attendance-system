@@ -174,6 +174,11 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// 路由：管理後台
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
 // 測試路由：發送測試訊息
 app.post('/api/test-message', async (req, res) => {
     try {
@@ -825,7 +830,8 @@ app.post('/api/bind-teacher', async (req, res) => {
                 success: true, 
                 message: '講師身份綁定成功',
                 teacherName: teacherName,
-                teacherId: teacherId
+                teacherId: teacherId,
+                richMenuResult: richMenuResult
             });
         } else {
             res.status(404).json({ 
@@ -926,6 +932,66 @@ app.post('/api/get-teacher-bindings', async (req, res) => {
         res.status(500).json({ 
             success: false, 
             error: '取得綁定記錄失敗' 
+        });
+    }
+});
+
+// API路由：查詢所有講師綁定記錄
+app.get('/api/teacher-bindings', async (req, res) => {
+    try {
+        const stmt = db.db.prepare(`
+            SELECT 
+                tb.*,
+                u.displayName,
+                u.userName
+            FROM teacher_bindings tb
+            LEFT JOIN users u ON tb.userId = u.userId
+            WHERE tb.isActive = 1
+            ORDER BY tb.boundAt DESC
+        `);
+        const bindings = stmt.all();
+        
+        res.json({ 
+            success: true, 
+            bindings: bindings,
+            count: bindings.length
+        });
+    } catch (error) {
+        console.error('查詢講師綁定記錄錯誤:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '查詢綁定記錄失敗' 
+        });
+    }
+});
+
+// API路由：查詢特定使用者的綁定記錄
+app.get('/api/teacher-bindings/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        const stmt = db.db.prepare(`
+            SELECT 
+                tb.*,
+                u.displayName,
+                u.userName
+            FROM teacher_bindings tb
+            LEFT JOIN users u ON tb.userId = u.userId
+            WHERE tb.userId = ? AND tb.isActive = 1
+            ORDER BY tb.boundAt DESC
+        `);
+        const bindings = stmt.all(userId);
+        
+        res.json({ 
+            success: true, 
+            bindings: bindings,
+            count: bindings.length
+        });
+    } catch (error) {
+        console.error('查詢使用者綁定記錄錯誤:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '查詢綁定記錄失敗' 
         });
     }
 });
