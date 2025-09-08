@@ -25,7 +25,7 @@ const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || 'YOUR
 const LINE_USER_ID = process.env.LINE_USER_ID || 'YOUR_USER_ID_HERE';
 const LINE_MESSAGING_API = 'https://api.line.me/v2/bot/message/push';
 const LINE_RICH_MENU_API = 'https://api.line.me/v2/bot/user/{userId}/richmenu';
-const RICH_MENU_ID = '867c6009e6f278fedb4ca4dd7cf6a561';
+const RICH_MENU_ID = '6636245039f343a37a8b7edc830c8cfa';
 
 // 資料庫實例
 const db = new DatabaseManager();
