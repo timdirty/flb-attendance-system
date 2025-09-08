@@ -1,7 +1,13 @@
-FROM node:18-alpine
+FROM node:18-slim
 
-# 安裝必要的工具和SQLite編譯依賴
-RUN apk add --no-cache wget python3 make g++ sqlite-dev
+# 安裝必要的工具
+RUN apt-get update && apt-get install -y \
+    wget \
+    python3 \
+    make \
+    g++ \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
 
 # 設置工作目錄
 WORKDIR /app
