@@ -690,7 +690,7 @@
             `;
 
             // 根據載入結果顯示內容
-            if (teacherData.success && teacherData.data && teacherData.data.length > 0) {
+            if (teacherData.success && teacherData.teachers && teacherData.teachers.length > 0) {
                 modal.innerHTML = `
                     <h2 style="text-align: center; margin-bottom: 20px; color: #333;">
                         <i class="fas fa-user-graduate"></i> 選擇您的講師身份
@@ -699,7 +699,7 @@
                         請選擇您對應的講師身份，以便快速使用簽到功能
                     </p>
                     <div id="teacher-list" style="margin-bottom: 25px;">
-                        ${teacherData.data.map(teacher => `
+                        ${teacherData.teachers.map(teacher => `
                             <div class="teacher-item" style="
                                 border: 1px solid #ddd;
                                 border-radius: 8px;
@@ -707,9 +707,9 @@
                                 margin-bottom: 10px;
                                 cursor: pointer;
                                 transition: all 0.3s ease;
-                            " data-teacher-id="${teacher.id}" data-teacher-name="${teacher.name}">
+                            " data-teacher-id="${teacher.userId || teacher.name}" data-teacher-name="${teacher.name}">
                                 <div style="font-weight: bold; color: #333;">${teacher.name}</div>
-                                <div style="font-size: 14px; color: #666;">ID: ${teacher.id}</div>
+                                <div style="font-size: 14px; color: #666;">ID: ${teacher.userId || teacher.name}</div>
                             </div>
                         `).join('')}
                     </div>
@@ -760,7 +760,7 @@
             };
 
             // 如果成功載入講師列表，綁定點擊事件
-            if (teacherData.success && teacherData.data && teacherData.data.length > 0) {
+            if (teacherData.success && teacherData.teachers && teacherData.teachers.length > 0) {
                 document.querySelectorAll('.teacher-item').forEach(item => {
                     item.onclick = () => {
                         const teacherId = item.dataset.teacherId;
@@ -804,8 +804,8 @@
 
                 const teacherList = document.getElementById('teacher-list');
                 
-                if (result.success && result.data && result.data.length > 0) {
-                    teacherList.innerHTML = result.data.map(teacher => `
+                if (result.success && result.teachers && result.teachers.length > 0) {
+                    teacherList.innerHTML = result.teachers.map(teacher => `
                         <div class="teacher-item" style="
                             border: 1px solid #ddd;
                             border-radius: 8px;
@@ -813,9 +813,9 @@
                             margin-bottom: 10px;
                             cursor: pointer;
                             transition: all 0.3s ease;
-                        " data-teacher-id="${teacher.id}" data-teacher-name="${teacher.name}">
+                        " data-teacher-id="${teacher.userId || teacher.name}" data-teacher-name="${teacher.name}">
                             <div style="font-weight: bold; color: #333;">${teacher.name}</div>
-                            <div style="font-size: 14px; color: #666;">ID: ${teacher.id}</div>
+                            <div style="font-size: 14px; color: #666;">ID: ${teacher.userId || teacher.name}</div>
                         </div>
                     `).join('');
 
