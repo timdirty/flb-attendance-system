@@ -401,6 +401,11 @@
                      <span class="label">User ID:</span>
                      <span class="value" id="footerUserId">-</span>
                  </div>
+                 <div class="user-detail-item">
+                     <button class="btn-unbind" id="unbind-btn" onclick="unbindTeacher()" style="display: none;">
+                         <i class="fas fa-unlink"></i> 解除講師綁定
+                     </button>
+                 </div>
              </div>
          </div>
      </div>
@@ -642,7 +647,8 @@
                         // 已綁定講師，直接跳到第二步驟
                         displayFooterUserInfo({
                             userName: result.teacherName,
-                            userId: userId
+                            userId: userId,
+                            isTeacherBound: true
                         });
                         showToast(`歡迎回來，${result.teacherName}！`, 'success');
                         
@@ -879,7 +885,8 @@
                     showToast(`講師身份綁定成功！歡迎，${teacherName}！`, 'success');
                     displayFooterUserInfo({
                         userName: teacherName,
-                        userId: userId
+                        userId: userId,
+                        isTeacherBound: true
                     });
                     
                     // 綁定成功後自動選擇講師身份
@@ -946,6 +953,64 @@
                 document.getElementById('footerUserName').textContent = userData.userName || '無';
                 document.getElementById('footerUserId').textContent = userData.userId || '無';
                 document.getElementById('userInfoFooter').classList.remove('hidden');
+                
+                // 如果使用者已綁定講師，顯示解除綁定按鈕
+                const unbindBtn = document.getElementById('unbind-btn');
+                if (unbindBtn) {
+                    if (userData.isTeacherBound) {
+                        unbindBtn.style.display = 'flex';
+                    } else {
+                        unbindBtn.style.display = 'none';
+                    }
+                }
+            }
+        }
+
+        // 解除講師綁定
+        async function unbindTeacher() {
+            if (!currentUserId) {
+                showToast('無法取得使用者ID', 'error');
+                return;
+            }
+
+            if (!confirm('確定要解除講師綁定嗎？解除後需要重新選擇講師身份。')) {
+                return;
+            }
+
+            try {
+                showToast('正在解除綁定...', 'info');
+                
+                const response = await fetch('/api/unbind-teacher', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: currentUserId
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('講師綁定已解除！', 'success');
+                    
+                    // 隱藏解除綁定按鈕
+                    const unbindBtn = document.getElementById('unbind-btn');
+                    if (unbindBtn) {
+                        unbindBtn.style.display = 'none';
+                    }
+                    
+                    // 重新載入頁面或重置狀態
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showToast(`解除綁定失敗：${result.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('解除綁定錯誤:', error);
+                showToast('解除綁定失敗，請稍後再試', 'error');
             }
         }
 

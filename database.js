@@ -38,6 +38,20 @@ class DatabaseManager {
             `;
 
             this.db.exec(createUsersTable);
+
+            // 建立講師綁定表
+            const createTeacherBindingsTable = `
+                CREATE TABLE IF NOT EXISTS teacher_bindings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    userId TEXT NOT NULL,
+                    teacherName TEXT NOT NULL,
+                    teacherId TEXT NOT NULL,
+                    boundAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    isActive BOOLEAN DEFAULT 1,
+                    UNIQUE(userId, teacherName)
+                )
+            `;
+            this.db.exec(createTeacherBindingsTable);
             console.log('資料表建立成功');
         } catch (error) {
             console.error('建立使用者表失敗:', error);
@@ -167,6 +181,75 @@ class DatabaseManager {
             } : { isBound: false, teacherName: null, teacherId: null };
         } catch (error) {
             console.error('檢查講師綁定狀態失敗:', error);
+            throw error;
+        }
+    }
+
+    // 新增講師綁定記錄
+    addTeacherBinding(userId, teacherName, teacherId) {
+        try {
+            const stmt = this.db.prepare(`
+                INSERT OR REPLACE INTO teacher_bindings (userId, teacherName, teacherId, boundAt, isActive)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP, 1)
+            `);
+            stmt.run(userId, teacherName, teacherId);
+            console.log(`講師綁定記錄已新增: ${userId} -> ${teacherName}`);
+            return true;
+        } catch (error) {
+            console.error('新增講師綁定記錄失敗:', error);
+            throw error;
+        }
+    }
+
+    // 取得使用者的講師綁定記錄
+    getTeacherBindings(userId) {
+        try {
+            const stmt = this.db.prepare(`
+                SELECT * FROM teacher_bindings 
+                WHERE userId = ? AND isActive = 1 
+                ORDER BY boundAt DESC
+            `);
+            const results = stmt.all(userId);
+            return results;
+        } catch (error) {
+            console.error('取得講師綁定記錄失敗:', error);
+            throw error;
+        }
+    }
+
+    // 解除講師綁定
+    unbindTeacher(userId, teacherName = null) {
+        try {
+            if (teacherName) {
+                // 解除特定講師綁定
+                const stmt = this.db.prepare(`
+                    UPDATE teacher_bindings 
+                    SET isActive = 0 
+                    WHERE userId = ? AND teacherName = ?
+                `);
+                stmt.run(userId, teacherName);
+            } else {
+                // 解除所有講師綁定
+                const stmt = this.db.prepare(`
+                    UPDATE teacher_bindings 
+                    SET isActive = 0 
+                    WHERE userId = ?
+                `);
+                stmt.run(userId);
+            }
+            
+            // 同時更新users表
+            const updateStmt = this.db.prepare(`
+                UPDATE users 
+                SET isTeacherBound = 0, teacherName = NULL, teacherId = NULL 
+                WHERE userId = ?
+            `);
+            updateStmt.run(userId);
+            
+            console.log(`講師綁定已解除: ${userId}`);
+            return true;
+        } catch (error) {
+            console.error('解除講師綁定失敗:', error);
             throw error;
         }
     }

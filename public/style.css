@@ -3255,4 +3255,36 @@ select:disabled {
 
 .hidden {
     display: none !important;
+}
+
+/* 解除綁定按鈕樣式 */
+.btn-unbind {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    width: 100%;
+    justify-content: center;
+}
+
+.btn-unbind:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+.btn-unbind:active {
+    transform: translateY(0);
+}
+
+.btn-unbind i {
+    font-size: 11px;
 } 

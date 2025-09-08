@@ -24,6 +24,8 @@ const REPORT_API_URL = 'https://script.google.com/macros/s/AKfycbyfoNl1EBk5Wjv6r
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || 'YOUR_CHANNEL_ACCESS_TOKEN_HERE';
 const LINE_USER_ID = process.env.LINE_USER_ID || 'YOUR_USER_ID_HERE';
 const LINE_MESSAGING_API = 'https://api.line.me/v2/bot/message/push';
+const LINE_RICH_MENU_API = 'https://api.line.me/v2/bot/user/{userId}/richmenu';
+const RICH_MENU_ID = 'c172d1efe655f3134b5f1afafc879dc4';
 
 // 資料庫實例
 const db = new DatabaseManager();
@@ -102,6 +104,68 @@ async function sendLineMessage(message, targetUserId = null) {
     } catch (error) {
         console.error('LINE 訊息發送失敗:', error.response?.data || error.message);
         return { success: false, error: error.response?.data || error.message };
+    }
+}
+
+// LINE Rich Menu 綁定函數
+async function bindRichMenu(userId) {
+    try {
+        if (!LINE_CHANNEL_ACCESS_TOKEN || LINE_CHANNEL_ACCESS_TOKEN === 'YOUR_CHANNEL_ACCESS_TOKEN_HERE') {
+            console.log('LINE Channel Access Token 未設定，跳過Rich Menu綁定');
+            return { success: false, message: 'LINE Channel Access Token 未設定' };
+        }
+
+        const url = LINE_RICH_MENU_API.replace('{userId}', userId);
+        
+        const response = await axios.post(url, {
+            richMenuId: RICH_MENU_ID
+        }, {
+            headers: {
+                'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 10000
+        });
+
+        console.log(`✅ Rich Menu 綁定成功給 ${userId}:`, response.data);
+        return { success: true, data: response.data };
+    } catch (error) {
+        console.error(`❌ Rich Menu 綁定失敗給 ${userId}:`, error.response?.data || error.message);
+        return { 
+            success: false, 
+            error: error.response?.data || error.message,
+            statusCode: error.response?.status
+        };
+    }
+}
+
+// LINE Rich Menu 解除綁定函數
+async function unbindRichMenu(userId) {
+    try {
+        if (!LINE_CHANNEL_ACCESS_TOKEN || LINE_CHANNEL_ACCESS_TOKEN === 'YOUR_CHANNEL_ACCESS_TOKEN_HERE') {
+            console.log('LINE Channel Access Token 未設定，跳過Rich Menu解除綁定');
+            return { success: false, message: 'LINE Channel Access Token 未設定' };
+        }
+
+        const url = LINE_RICH_MENU_API.replace('{userId}', userId);
+        
+        const response = await axios.delete(url, {
+            headers: {
+                'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 10000
+        });
+
+        console.log(`✅ Rich Menu 解除綁定成功給 ${userId}:`, response.data);
+        return { success: true, data: response.data };
+    } catch (error) {
+        console.error(`❌ Rich Menu 解除綁定失敗給 ${userId}:`, error.response?.data || error.message);
+        return { 
+            success: false, 
+            error: error.response?.data || error.message,
+            statusCode: error.response?.status
+        };
     }
 }
 
@@ -726,18 +790,27 @@ app.post('/api/bind-teacher', async (req, res) => {
         const success = await db.bindTeacher(userId, teacherName, teacherId);
         
         if (success) {
+            // 新增講師綁定記錄到資料庫
+            await db.addTeacherBinding(userId, teacherName, teacherId);
+            
+            // 綁定Rich Menu
+            const richMenuResult = await bindRichMenu(userId);
+            console.log('Rich Menu 綁定結果:', richMenuResult);
+            
             // 發送綁定成功通知
             const userBindingMessage = `🎯 講師身份綁定成功！\n\n` +
                 `👨‍🏫 講師名稱：${teacherName}\n` +
                 `🆔 講師ID：${teacherId}\n` +
                 `⏰ 綁定時間：${new Date().toLocaleString('zh-TW')}\n\n` +
-                `✅ 您現在可以直接使用簽到功能，無需重複選擇講師身份！`;
+                `✅ 您現在可以直接使用簽到功能，無需重複選擇講師身份！\n` +
+                `📱 已為您設定內部員工專用選單！`;
 
             const adminBindingMessage = `📢 講師身份綁定通知\n\n` +
                 `👤 使用者ID：${userId}\n` +
                 `👨‍🏫 綁定講師：${teacherName}\n` +
                 `🆔 講師ID：${teacherId}\n` +
-                `⏰ 綁定時間：${new Date().toLocaleString('zh-TW')}\n\n` +
+                `⏰ 綁定時間：${new Date().toLocaleString('zh-TW')}\n` +
+                `📱 Rich Menu綁定：${richMenuResult.success ? '成功' : '失敗'}\n\n` +
                 `✅ 使用者已成功綁定講師身份！`;
 
             sendLineMessage(userBindingMessage, userId).catch(err => {
@@ -766,6 +839,93 @@ app.post('/api/bind-teacher', async (req, res) => {
         res.status(500).json({ 
             success: false, 
             error: '綁定講師身份失敗' 
+        });
+    }
+});
+
+// API路由：解除講師綁定
+app.post('/api/unbind-teacher', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        
+        if (!userId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必要參數' 
+            });
+        }
+
+        // 解除Rich Menu綁定
+        const richMenuResult = await unbindRichMenu(userId);
+        console.log('Rich Menu 解除綁定結果:', richMenuResult);
+        
+        // 解除資料庫綁定
+        const success = await db.unbindTeacher(userId);
+        
+        if (success) {
+            // 發送解除綁定通知
+            const userUnbindMessage = `🔄 講師身份解除綁定成功！\n\n` +
+                `⏰ 解除時間：${new Date().toLocaleString('zh-TW')}\n\n` +
+                `✅ 您已解除講師身份綁定，下次使用時需要重新選擇講師身份！\n` +
+                `📱 已為您移除內部員工專用選單！`;
+
+            const adminUnbindMessage = `📢 講師身份解除綁定通知\n\n` +
+                `👤 使用者ID：${userId}\n` +
+                `⏰ 解除時間：${new Date().toLocaleString('zh-TW')}\n` +
+                `📱 Rich Menu解除：${richMenuResult.success ? '成功' : '失敗'}\n\n` +
+                `✅ 使用者已解除講師身份綁定！`;
+
+            sendLineMessage(userUnbindMessage, userId).catch(err => {
+                console.error('使用者解除綁定通知發送失敗:', err);
+            });
+            
+            sendLineMessage(adminUnbindMessage).catch(err => {
+                console.error('管理員解除綁定通知發送失敗:', err);
+            });
+
+            res.json({ 
+                success: true, 
+                message: '講師身份解除綁定成功',
+                richMenuResult: richMenuResult
+            });
+        } else {
+            res.status(500).json({ 
+                success: false, 
+                error: '解除綁定失敗' 
+            });
+        }
+    } catch (error) {
+        console.error('解除講師綁定錯誤:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '解除綁定失敗' 
+        });
+    }
+});
+
+// API路由：取得使用者綁定記錄
+app.post('/api/get-teacher-bindings', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        
+        if (!userId) {
+            return res.status(400).json({ 
+                success: false, 
+                error: '缺少必要參數' 
+            });
+        }
+
+        const bindings = await db.getTeacherBindings(userId);
+        
+        res.json({ 
+            success: true, 
+            bindings: bindings
+        });
+    } catch (error) {
+        console.error('取得講師綁定記錄錯誤:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '取得綁定記錄失敗' 
         });
     }
 });
