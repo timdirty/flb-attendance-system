@@ -96,6 +96,30 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// 測試路由：發送測試訊息
+app.post('/api/test-message', async (req, res) => {
+    try {
+        const { userId, message } = req.body;
+        
+        if (!userId) {
+            return res.json({ success: false, message: '請提供使用者ID' });
+        }
+        
+        const testMessage = message || `🧪 測試訊息\n\n⏰ 時間：${new Date().toLocaleString('zh-TW')}\n\n✅ 如果您收到此訊息，表示LINE通知功能正常運作！`;
+        
+        const result = await sendLineMessage(testMessage, userId);
+        
+        res.json({
+            success: result.success,
+            message: result.message,
+            results: result.results
+        });
+    } catch (error) {
+        console.error('測試訊息發送失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
 // API路由：檢查使用者是否已註冊
 app.post('/api/check-user', async (req, res) => {
     try {
