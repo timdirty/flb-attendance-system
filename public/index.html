@@ -656,7 +656,11 @@
         }
 
         // 顯示講師選擇彈窗
-        function showTeacherSelectionModal(userId) {
+        async function showTeacherSelectionModal(userId) {
+            // 先載入講師列表
+            console.log('開始載入講師列表...');
+            const teacherData = await loadTeacherListData();
+            
             // 創建遮罩層
             const overlay = document.createElement('div');
             overlay.style.cssText = `
@@ -685,45 +689,114 @@
                 box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
             `;
 
-            modal.innerHTML = `
-                <h2 style="text-align: center; margin-bottom: 20px; color: #333;">
-                    <i class="fas fa-user-graduate"></i> 選擇您的講師身份
-                </h2>
-                <p style="text-align: center; margin-bottom: 25px; color: #666;">
-                    請選擇您對應的講師身份，以便快速使用簽到功能
-                </p>
-                <div id="teacher-list" style="margin-bottom: 25px;">
-                    <div style="text-align: center; padding: 20px;">
-                        <i class="fas fa-spinner fa-spin"></i> 載入講師列表中...
+            // 根據載入結果顯示內容
+            if (teacherData.success && teacherData.data && teacherData.data.length > 0) {
+                modal.innerHTML = `
+                    <h2 style="text-align: center; margin-bottom: 20px; color: #333;">
+                        <i class="fas fa-user-graduate"></i> 選擇您的講師身份
+                    </h2>
+                    <p style="text-align: center; margin-bottom: 25px; color: #666;">
+                        請選擇您對應的講師身份，以便快速使用簽到功能
+                    </p>
+                    <div id="teacher-list" style="margin-bottom: 25px;">
+                        ${teacherData.data.map(teacher => `
+                            <div class="teacher-item" style="
+                                border: 1px solid #ddd;
+                                border-radius: 8px;
+                                padding: 15px;
+                                margin-bottom: 10px;
+                                cursor: pointer;
+                                transition: all 0.3s ease;
+                            " data-teacher-id="${teacher.id}" data-teacher-name="${teacher.name}">
+                                <div style="font-weight: bold; color: #333;">${teacher.name}</div>
+                                <div style="font-size: 14px; color: #666;">ID: ${teacher.id}</div>
+                            </div>
+                        `).join('')}
                     </div>
-                </div>
-                <div style="text-align: center;">
-                    <button id="skip-binding" style="
-                        background: #6c757d;
-                        color: white;
-                        border: none;
-                        padding: 10px 20px;
-                        border-radius: 5px;
-                        cursor: pointer;
-                        margin-right: 10px;
-                    ">稍後設定</button>
-                </div>
-            `;
+                    <div style="text-align: center;">
+                        <button id="skip-binding" style="
+                            background: #6c757d;
+                            color: white;
+                            border: none;
+                            padding: 10px 20px;
+                            border-radius: 5px;
+                            cursor: pointer;
+                            margin-right: 10px;
+                        ">稍後設定</button>
+                    </div>
+                `;
+            } else {
+                modal.innerHTML = `
+                    <h2 style="text-align: center; margin-bottom: 20px; color: #333;">
+                        <i class="fas fa-user-graduate"></i> 選擇您的講師身份
+                    </h2>
+                    <p style="text-align: center; margin-bottom: 25px; color: #666;">
+                        請選擇您對應的講師身份，以便快速使用簽到功能
+                    </p>
+                    <div style="text-align: center; padding: 20px; color: #dc3545;">
+                        <i class="fas fa-exclamation-circle"></i> 無法載入講師列表
+                    </div>
+                    <div style="text-align: center;">
+                        <button id="skip-binding" style="
+                            background: #6c757d;
+                            color: white;
+                            border: none;
+                            padding: 10px 20px;
+                            border-radius: 5px;
+                            cursor: pointer;
+                            margin-right: 10px;
+                        ">稍後設定</button>
+                    </div>
+                `;
+            }
 
             overlay.appendChild(modal);
             document.body.appendChild(overlay);
-
-            // 載入講師列表
-            loadTeacherList(userId, modal);
 
             // 綁定事件
             document.getElementById('skip-binding').onclick = () => {
                 document.body.removeChild(overlay);
                 displayFooterUserInfo({ userName: '未綁定講師', userId: userId });
             };
+
+            // 如果成功載入講師列表，綁定點擊事件
+            if (teacherData.success && teacherData.data && teacherData.data.length > 0) {
+                document.querySelectorAll('.teacher-item').forEach(item => {
+                    item.onclick = () => {
+                        const teacherId = item.dataset.teacherId;
+                        const teacherName = item.dataset.teacherName;
+                        bindTeacher(userId, teacherName, teacherId);
+                        document.body.removeChild(overlay);
+                    };
+
+                    // 添加懸停效果
+                    item.onmouseenter = () => {
+                        item.style.background = '#f8f9fa';
+                        item.style.borderColor = '#007bff';
+                    };
+                    item.onmouseleave = () => {
+                        item.style.background = 'white';
+                        item.style.borderColor = '#ddd';
+                    };
+                });
+            }
         }
 
-        // 載入講師列表
+        // 載入講師列表數據
+        async function loadTeacherListData() {
+            try {
+                console.log('正在載入講師列表...');
+                const response = await fetch('/api/teachers');
+                const result = await response.json();
+                console.log('講師列表載入結果:', result);
+                return result;
+            } catch (error) {
+                console.error('載入講師列表失敗:', error);
+                return { success: false, error: error.message };
+            }
+        }
+
+        // 載入講師列表 (舊版本，保留以備用)
         async function loadTeacherList(userId, modal) {
             try {
                 const response = await fetch('/api/teachers');
