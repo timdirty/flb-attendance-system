@@ -6,5 +6,16 @@ README.md
 .env
 .nyc_output
 coverage
+.nyc_output
+.coverage
+.coverage/
+.coverage.*
+.cache
+.parcel-cache
 .DS_Store
-*.log 
+*.log
+logs
+nas-deployment
+deploy*.sh
+*.md
+test*.js
