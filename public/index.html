@@ -417,26 +417,105 @@
         // 初始化LIFF
         async function initializeLiff() {
             try {
+                console.log('開始初始化LIFF，ID:', liffId);
                 await liff.init({ liffId: liffId });
                 liffInitialized = true;
                 console.log('LIFF初始化成功');
 
                 if (liff.isLoggedIn()) {
+                    console.log('使用者已登入，開始處理使用者資訊');
                     await handleLoggedInUser();
                 } else {
+                    console.log('使用者未登入，顯示登入按鈕');
                     // 如果未登入，顯示登入按鈕
                     showLoginPrompt();
                 }
             } catch (error) {
                 console.error('LIFF初始化失敗:', error);
+                console.error('錯誤詳情:', error.message);
                 // 即使LIFF失敗，也允許使用系統
                 showToast('LIFF初始化失敗，將以訪客模式使用', 'warning');
                 
-                // 顯示模擬的使用者資訊用於測試
-                displayFooterUserInfo({
-                    userName: '測試使用者',
-                    userId: 'test-user-123'
+                // 添加手動測試按鈕
+                addTestButton();
+            }
+        }
+
+        // 添加測試按鈕
+        function addTestButton() {
+            const testButton = document.createElement('button');
+            testButton.textContent = '測試LINE使用者註冊';
+            testButton.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #00B900;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                z-index: 1000;
+            `;
+            testButton.onclick = testLineUserRegistration;
+            document.body.appendChild(testButton);
+        }
+
+        // 測試LINE使用者註冊功能
+        async function testLineUserRegistration() {
+            const testUser = {
+                userId: 'test-user-' + Date.now(),
+                displayName: '測試使用者',
+                pictureUrl: '',
+                userName: '測試使用者',
+                email: 'test@example.com'
+            };
+
+            try {
+                console.log('開始測試使用者註冊:', testUser);
+                
+                // 先檢查使用者
+                const checkResponse = await fetch('/api/check-user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: testUser.userId,
+                        displayName: testUser.displayName,
+                        pictureUrl: testUser.pictureUrl
+                    })
                 });
+
+                const checkResult = await checkResponse.json();
+                console.log('檢查使用者結果:', checkResult);
+
+                if (!checkResult.isRegistered) {
+                    // 註冊使用者
+                    const registerResponse = await fetch('/api/register-user', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(testUser)
+                    });
+
+                    const registerResult = await registerResponse.json();
+                    console.log('註冊結果:', registerResult);
+
+                    if (registerResult.success) {
+                        showToast('測試註冊成功！', 'success');
+                        displayFooterUserInfo(registerResult.userData);
+                    } else {
+                        showToast('測試註冊失敗：' + (registerResult.error || '未知錯誤'), 'error');
+                    }
+                } else {
+                    showToast('測試使用者已存在', 'info');
+                    displayFooterUserInfo(checkResult.userData);
+                }
+            } catch (error) {
+                console.error('測試註冊失敗:', error);
+                showToast('測試註冊失敗：' + error.message, 'error');
             }
         }
 
