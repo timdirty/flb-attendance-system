@@ -25,7 +25,7 @@ const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || 'YOUR
 const LINE_USER_ID = process.env.LINE_USER_ID || 'YOUR_USER_ID_HERE';
 const LINE_MESSAGING_API = 'https://api.line.me/v2/bot/message/push';
 const LINE_RICH_MENU_API = 'https://api.line.me/v2/bot/user/{userId}/richmenu';
-const RICH_MENU_ID = 'c172d1efe655f3134b5f1afafc879dc4';
+const RICH_MENU_ID = '867c6009e6f278fedb4ca4dd7cf6a561';
 
 // 資料庫實例
 const db = new DatabaseManager();
@@ -115,11 +115,9 @@ async function bindRichMenu(userId) {
             return { success: false, message: 'LINE Channel Access Token 未設定' };
         }
 
-        const url = LINE_RICH_MENU_API.replace('{userId}', userId);
+        const url = `https://api.line.me/v2/bot/user/${userId}/richmenu/richmenu-${RICH_MENU_ID}`;
         
-        const response = await axios.post(url, {
-            richMenuId: RICH_MENU_ID
-        }, {
+        const response = await axios.post(url, {}, {
             headers: {
                 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
                 'Content-Type': 'application/json'
@@ -147,7 +145,7 @@ async function unbindRichMenu(userId) {
             return { success: false, message: 'LINE Channel Access Token 未設定' };
         }
 
-        const url = LINE_RICH_MENU_API.replace('{userId}', userId);
+        const url = `https://api.line.me/v2/bot/user/${userId}/richmenu`;
         
         const response = await axios.delete(url, {
             headers: {
@@ -199,6 +197,50 @@ app.post('/api/test-message', async (req, res) => {
         });
     } catch (error) {
         console.error('測試訊息發送失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// 測試路由：測試Rich Menu綁定
+app.post('/api/test-richmenu', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        
+        if (!userId) {
+            return res.json({ success: false, message: '請提供使用者ID' });
+        }
+        
+        const bindResult = await bindRichMenu(userId);
+        
+        res.json({
+            success: bindResult.success,
+            message: bindResult.success ? 'Rich Menu綁定測試成功' : 'Rich Menu綁定測試失敗',
+            result: bindResult
+        });
+    } catch (error) {
+        console.error('Rich Menu綁定測試失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// 測試路由：測試Rich Menu解除綁定
+app.post('/api/test-unbind-richmenu', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        
+        if (!userId) {
+            return res.json({ success: false, message: '請提供使用者ID' });
+        }
+        
+        const unbindResult = await unbindRichMenu(userId);
+        
+        res.json({
+            success: unbindResult.success,
+            message: unbindResult.success ? 'Rich Menu解除綁定測試成功' : 'Rich Menu解除綁定測試失敗',
+            result: unbindResult
+        });
+    } catch (error) {
+        console.error('Rich Menu解除綁定測試失敗:', error);
         res.json({ success: false, error: error.message });
     }
 });
