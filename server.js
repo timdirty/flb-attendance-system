@@ -36,29 +36,55 @@ async function sendLineMessage(message, targetUserId = null) {
             return { success: false, message: 'LINE Channel Access Token 未設定' };
         }
 
-        // 使用傳入的 userId 或預設的 LINE_USER_ID
-        const userId = targetUserId || LINE_USER_ID;
+        // 準備發送目標列表
+        const targetUsers = [];
         
-        if (!userId || userId === 'YOUR_USER_ID_HERE') {
-            console.log('LINE User ID 未設定，跳過通知');
-            return { success: false, message: 'LINE User ID 未設定' };
+        // 總是發送給管理員
+        if (LINE_USER_ID && LINE_USER_ID !== 'YOUR_USER_ID_HERE') {
+            targetUsers.push(LINE_USER_ID);
+        }
+        
+        // 如果指定了特定使用者，也發送給該使用者
+        if (targetUserId && targetUserId !== LINE_USER_ID) {
+            targetUsers.push(targetUserId);
+        }
+        
+        if (targetUsers.length === 0) {
+            console.log('沒有有效的發送目標，跳過通知');
+            return { success: false, message: '沒有有效的發送目標' };
         }
 
-        const response = await axios.post(LINE_MESSAGING_API, {
-            to: userId,
-            messages: [{
-                type: 'text',
-                text: message
-            }]
-        }, {
-            headers: {
-                'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
-                'Content-Type': 'application/json'
+        // 發送給所有目標使用者
+        const sendPromises = targetUsers.map(async (userId) => {
+            try {
+                const response = await axios.post(LINE_MESSAGING_API, {
+                    to: userId,
+                    messages: [{
+                        type: 'text',
+                        text: message
+                    }]
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                console.log(`LINE 訊息發送成功給 ${userId}:`, response.data);
+                return { success: true, userId, data: response.data };
+            } catch (error) {
+                console.error(`LINE 訊息發送失敗給 ${userId}:`, error.response?.data || error.message);
+                return { success: false, userId, error: error.response?.data || error.message };
             }
         });
+
+        const results = await Promise.all(sendPromises);
+        const successCount = results.filter(r => r.success).length;
         
-        console.log('LINE 訊息發送成功:', response.data);
-        return { success: true, data: response.data };
+        return { 
+            success: successCount > 0, 
+            message: `成功發送給 ${successCount}/${targetUsers.length} 個使用者`,
+            results: results
+        };
     } catch (error) {
         console.error('LINE 訊息發送失敗:', error.response?.data || error.message);
         return { success: false, error: error.response?.data || error.message };
@@ -145,16 +171,28 @@ app.post('/api/register-user', async (req, res) => {
         await db.registerUser(userData);
 
         // 發送註冊通知
-        const notificationMessage = `🎉 歡迎使用FLB簽到系統！\n\n` +
+        const userNotificationMessage = `🎉 歡迎使用FLB簽到系統！\n\n` +
             `👤 您的名稱：${userName}\n` +
             `📱 LINE顯示名稱：${displayName || '無'}\n` +
             `🆔 您的ID：${userId}\n` +
             `⏰ 註冊時間：${new Date().toLocaleString('zh-TW')}\n\n` +
             `✅ 您已成功註冊，現在可以使用完整的簽到功能！`;
 
-        // 發送通知給註冊的使用者
-        sendLineMessage(notificationMessage, userId).catch(err => {
-            console.error('註冊通知發送失敗:', err);
+        const adminNotificationMessage = `📢 新使用者註冊通知\n\n` +
+            `👤 使用者名稱：${userName}\n` +
+            `📱 LINE顯示名稱：${displayName || '無'}\n` +
+            `🆔 使用者ID：${userId}\n` +
+            `📧 電子郵件：${email || '未提供'}\n` +
+            `⏰ 註冊時間：${new Date().toLocaleString('zh-TW')}\n\n` +
+            `✅ 新使用者已成功註冊到FLB簽到系統！`;
+
+        // 發送通知給註冊的使用者和管理員
+        sendLineMessage(userNotificationMessage, userId).catch(err => {
+            console.error('使用者註冊通知發送失敗:', err);
+        });
+        
+        sendLineMessage(adminNotificationMessage).catch(err => {
+            console.error('管理員註冊通知發送失敗:', err);
         });
 
         res.json({ 
@@ -651,14 +689,25 @@ app.post('/api/bind-teacher', async (req, res) => {
         
         if (success) {
             // 發送綁定成功通知
-            const bindingMessage = `🎯 講師身份綁定成功！\n\n` +
+            const userBindingMessage = `🎯 講師身份綁定成功！\n\n` +
                 `👨‍🏫 講師名稱：${teacherName}\n` +
                 `🆔 講師ID：${teacherId}\n` +
                 `⏰ 綁定時間：${new Date().toLocaleString('zh-TW')}\n\n` +
                 `✅ 您現在可以直接使用簽到功能，無需重複選擇講師身份！`;
 
-            sendLineMessage(bindingMessage, userId).catch(err => {
-                console.error('綁定通知發送失敗:', err);
+            const adminBindingMessage = `📢 講師身份綁定通知\n\n` +
+                `👤 使用者ID：${userId}\n` +
+                `👨‍🏫 綁定講師：${teacherName}\n` +
+                `🆔 講師ID：${teacherId}\n` +
+                `⏰ 綁定時間：${new Date().toLocaleString('zh-TW')}\n\n` +
+                `✅ 使用者已成功綁定講師身份！`;
+
+            sendLineMessage(userBindingMessage, userId).catch(err => {
+                console.error('使用者綁定通知發送失敗:', err);
+            });
+            
+            sendLineMessage(adminBindingMessage).catch(err => {
+                console.error('管理員綁定通知發送失敗:', err);
             });
 
             res.json({ 
