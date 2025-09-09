@@ -673,7 +673,7 @@ app.post('/api/check-user', async (req, res) => {
             });
         }
 
-        const userData = await db.checkUser(userId);
+        const userData = await db.getUser(userId);
         const isRegistered = userData !== null;
         
         // 如果使用者已註冊，更新其資訊
@@ -711,7 +711,7 @@ app.post('/api/register-user', async (req, res) => {
         }
 
         // 檢查使用者是否已註冊
-        const existingUser = await db.checkUser(userId);
+        const existingUser = await db.getUser(userId);
         if (existingUser) {
             return res.json({ 
                 success: true, 

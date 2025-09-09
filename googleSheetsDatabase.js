@@ -462,6 +462,34 @@ class GoogleSheetsDatabase {
         }
     }
 
+    // 更新使用者資訊
+    async updateUserInfo(userId, displayName, pictureUrl) {
+        try {
+            const user = this.localUsers.get(userId);
+            if (!user) {
+                console.log(`未找到使用者: ${userId}`);
+                return false;
+            }
+
+            const result = await this.updateUser(userId, { 
+                display_name: displayName || user.displayName,
+                pictureURL: pictureUrl || user.pictureUrl,
+                lastLogin: new Date().toISOString()
+            });
+            
+            if (result) {
+                console.log(`使用者資訊已更新並同步到Google Sheets: ${userId}`);
+                return true;
+            } else {
+                console.log(`未找到使用者: ${userId}`);
+                return false;
+            }
+        } catch (error) {
+            console.error('更新使用者資訊失敗:', error);
+            return false;
+        }
+    }
+
     // 關閉資料庫連線
     close() {
         console.log('Google Sheets 資料庫連線已關閉');
