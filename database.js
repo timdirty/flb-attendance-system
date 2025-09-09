@@ -254,6 +254,157 @@ class DatabaseManager {
         }
     }
 
+    // 管理員功能：獲取使用者總數
+    getUserCount() {
+        try {
+            const stmt = this.db.prepare('SELECT COUNT(*) as count FROM users');
+            const result = stmt.get();
+            return result.count;
+        } catch (error) {
+            console.error('獲取使用者總數失敗:', error);
+            return 0;
+        }
+    }
+
+    // 管理員功能：獲取講師總數
+    getTeacherCount() {
+        try {
+            const stmt = this.db.prepare('SELECT COUNT(DISTINCT teacherName) as count FROM teacher_bindings WHERE isActive = 1');
+            const result = stmt.get();
+            return result.count;
+        } catch (error) {
+            console.error('獲取講師總數失敗:', error);
+            return 0;
+        }
+    }
+
+    // 管理員功能：獲取活躍綁定總數
+    getActiveBindingCount() {
+        try {
+            const stmt = this.db.prepare('SELECT COUNT(*) as count FROM teacher_bindings WHERE isActive = 1');
+            const result = stmt.get();
+            return result.count;
+        } catch (error) {
+            console.error('獲取活躍綁定總數失敗:', error);
+            return 0;
+        }
+    }
+
+    // 管理員功能：獲取所有使用者及其綁定資訊
+    getAllUsersWithBindings() {
+        try {
+            const stmt = this.db.prepare(`
+                SELECT 
+                    u.userId,
+                    u.displayName,
+                    u.userName,
+                    u.pictureUrl,
+                    u.registeredAt,
+                    u.teacherName,
+                    u.teacherId
+                FROM users u
+                ORDER BY u.registeredAt DESC
+            `);
+            return stmt.all();
+        } catch (error) {
+            console.error('獲取所有使用者失敗:', error);
+            return [];
+        }
+    }
+
+    // 管理員功能：搜尋使用者
+    searchUsers(query) {
+        try {
+            const stmt = this.db.prepare(`
+                SELECT 
+                    u.userId,
+                    u.displayName,
+                    u.userName,
+                    u.pictureUrl,
+                    u.registeredAt,
+                    u.teacherName,
+                    u.teacherId
+                FROM users u
+                WHERE u.userId LIKE ? OR u.displayName LIKE ? OR u.userName LIKE ?
+                ORDER BY u.registeredAt DESC
+            `);
+            const searchTerm = `%${query}%`;
+            return stmt.all(searchTerm, searchTerm, searchTerm);
+        } catch (error) {
+            console.error('搜尋使用者失敗:', error);
+            return [];
+        }
+    }
+
+    // 管理員功能：獲取所有綁定
+    getAllBindings() {
+        try {
+            const stmt = this.db.prepare(`
+                SELECT 
+                    tb.id,
+                    tb.userId,
+                    tb.teacherName,
+                    tb.teacherId,
+                    tb.boundAt,
+                    tb.isActive,
+                    u.displayName,
+                    u.userName
+                FROM teacher_bindings tb
+                LEFT JOIN users u ON tb.userId = u.userId
+                ORDER BY tb.boundAt DESC
+            `);
+            return stmt.all();
+        } catch (error) {
+            console.error('獲取所有綁定失敗:', error);
+            return [];
+        }
+    }
+
+    // 管理員功能：搜尋綁定
+    searchBindings(query) {
+        try {
+            const stmt = this.db.prepare(`
+                SELECT 
+                    tb.id,
+                    tb.userId,
+                    tb.teacherName,
+                    tb.teacherId,
+                    tb.boundAt,
+                    tb.isActive,
+                    u.displayName,
+                    u.userName
+                FROM teacher_bindings tb
+                LEFT JOIN users u ON tb.userId = u.userId
+                WHERE tb.userId LIKE ? OR tb.teacherName LIKE ? OR u.displayName LIKE ? OR u.userName LIKE ?
+                ORDER BY tb.boundAt DESC
+            `);
+            const searchTerm = `%${query}%`;
+            return stmt.all(searchTerm, searchTerm, searchTerm, searchTerm);
+        } catch (error) {
+            console.error('搜尋綁定失敗:', error);
+            return [];
+        }
+    }
+
+    // 管理員功能：停用特定綁定
+    deactivateBinding(bindingId) {
+        try {
+            const stmt = this.db.prepare('UPDATE teacher_bindings SET isActive = 0 WHERE id = ?');
+            const result = stmt.run(bindingId);
+            
+            if (result.changes > 0) {
+                console.log(`綁定已停用: ID ${bindingId}`);
+                return true;
+            } else {
+                console.log(`未找到綁定記錄: ID ${bindingId}`);
+                return false;
+            }
+        } catch (error) {
+            console.error('停用綁定失敗:', error);
+            return false;
+        }
+    }
+
     // 關閉資料庫連線
     close() {
         if (this.db) {

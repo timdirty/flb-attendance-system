@@ -215,6 +215,101 @@ app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+// 管理員API：獲取統計資料
+app.get('/api/admin/stats', async (req, res) => {
+    try {
+        const totalUsers = db.getUserCount();
+        const totalTeachers = db.getTeacherCount();
+        const activeBindings = db.getActiveBindingCount();
+        
+        res.json({
+            success: true,
+            stats: {
+                totalUsers,
+                totalTeachers,
+                activeBindings,
+                systemUptime: process.uptime(),
+                memoryUsage: process.memoryUsage(),
+                timestamp: new Date().toISOString()
+            }
+        });
+    } catch (error) {
+        console.error('獲取統計資料失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// 管理員API：獲取所有使用者
+app.get('/api/admin/users', async (req, res) => {
+    try {
+        const users = db.getAllUsersWithBindings();
+        res.json({ success: true, users });
+    } catch (error) {
+        console.error('獲取使用者資料失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// 管理員API：搜尋使用者
+app.get('/api/admin/users/search', async (req, res) => {
+    try {
+        const query = req.query.q;
+        if (!query) {
+            return res.json({ success: false, error: '請提供搜尋關鍵字' });
+        }
+        
+        const users = db.searchUsers(query);
+        res.json({ success: true, users });
+    } catch (error) {
+        console.error('搜尋使用者失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// 管理員API：獲取所有綁定
+app.get('/api/admin/bindings', async (req, res) => {
+    try {
+        const bindings = db.getAllBindings();
+        res.json({ success: true, bindings });
+    } catch (error) {
+        console.error('獲取綁定資料失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// 管理員API：搜尋綁定
+app.get('/api/admin/bindings/search', async (req, res) => {
+    try {
+        const query = req.query.q;
+        if (!query) {
+            return res.json({ success: false, error: '請提供搜尋關鍵字' });
+        }
+        
+        const bindings = db.searchBindings(query);
+        res.json({ success: true, bindings });
+    } catch (error) {
+        console.error('搜尋綁定失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// 管理員API：停用綁定
+app.post('/api/admin/bindings/:id/deactivate', async (req, res) => {
+    try {
+        const bindingId = req.params.id;
+        const success = db.deactivateBinding(bindingId);
+        
+        if (success) {
+            res.json({ success: true, message: '綁定已停用' });
+        } else {
+            res.json({ success: false, error: '停用綁定失敗' });
+        }
+    } catch (error) {
+        console.error('停用綁定失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
 // 測試路由：發送測試訊息
 app.post('/api/test-message', async (req, res) => {
     try {
