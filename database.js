@@ -4,7 +4,15 @@ const path = require('path');
 class DatabaseManager {
     constructor() {
         this.db = null;
-        this.dbPath = path.join(__dirname, 'users.db');
+        // 使用Volume路徑確保資料持久化
+        this.dbPath = process.env.DATABASE_PATH || '/app/data/users.db';
+        
+        // 確保目錄存在
+        const fs = require('fs');
+        const dir = path.dirname(this.dbPath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
     }
 
     // 初始化資料庫
@@ -454,6 +462,44 @@ class DatabaseManager {
         } catch (error) {
             console.error('同步所有使用者名稱失敗:', error);
             return [];
+        }
+    }
+
+    // 備份資料庫
+    backup() {
+        try {
+            const fs = require('fs');
+            const backupPath = `${this.dbPath}.backup.${Date.now()}`;
+            fs.copyFileSync(this.dbPath, backupPath);
+            console.log(`資料庫已備份到: ${backupPath}`);
+            return backupPath;
+        } catch (error) {
+            console.error('資料庫備份失敗:', error);
+            return null;
+        }
+    }
+
+    // 導出資料為JSON
+    exportData() {
+        try {
+            const users = this.getAllUsersWithBindings();
+            const bindings = this.getAllBindings();
+            
+            const exportData = {
+                timestamp: new Date().toISOString(),
+                users: users,
+                bindings: bindings,
+                stats: {
+                    totalUsers: this.getUserCount(),
+                    totalTeachers: this.getTeacherCount(),
+                    activeBindings: this.getActiveBindingCount()
+                }
+            };
+            
+            return exportData;
+        } catch (error) {
+            console.error('導出資料失敗:', error);
+            return null;
         }
     }
 

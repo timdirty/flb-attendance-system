@@ -297,6 +297,12 @@
                     <button onclick="syncAllUserNames()" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
                         <i class="fas fa-sync-alt"></i> 同步LINE名稱
                     </button>
+                    <button onclick="syncGoogleSheets()" style="background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%);">
+                        <i class="fas fa-cloud-sync-alt"></i> 同步Google Sheets
+                    </button>
+                    <button onclick="reinitializeSystem()" style="background: linear-gradient(135deg, #fd7e14 0%, #dc3545 100%);">
+                        <i class="fas fa-redo"></i> 重新初始化
+                    </button>
                 </div>
                 <div class="table-container">
                     <table id="usersTable">
@@ -699,6 +705,70 @@
             } catch (error) {
                 console.error('同步單一使用者名稱失敗:', error);
                 showError('同步失敗');
+            }
+        }
+
+        // 同步Google Sheets
+        async function syncGoogleSheets() {
+            if (!confirm('確定要同步Google Sheets嗎？這將從Google Sheets獲取最新資料。')) {
+                return;
+            }
+
+            try {
+                showToast('正在同步Google Sheets...', 'info');
+                
+                const response = await fetch('/api/admin/sync-google-sheets', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess(`Google Sheets同步成功！使用者：${result.stats.users}，綁定：${result.stats.bindings}`);
+                    
+                    // 重新載入資料
+                    loadAllData();
+                } else {
+                    showError('同步失敗: ' + result.error);
+                }
+            } catch (error) {
+                console.error('同步Google Sheets失敗:', error);
+                showError('同步失敗，請稍後再試');
+            }
+        }
+
+        // 重新初始化系統
+        async function reinitializeSystem() {
+            if (!confirm('確定要重新初始化系統嗎？這將重新從Google Sheets同步所有資料。')) {
+                return;
+            }
+
+            try {
+                showToast('正在重新初始化系統...', 'info');
+                
+                const response = await fetch('/api/admin/reinitialize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess('系統重新初始化完成！');
+                    
+                    // 重新載入資料
+                    loadAllData();
+                } else {
+                    showError('重新初始化失敗: ' + result.error);
+                }
+            } catch (error) {
+                console.error('重新初始化失敗:', error);
+                showError('重新初始化失敗，請稍後再試');
             }
         }
 

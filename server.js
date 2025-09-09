@@ -31,8 +31,44 @@ const RICH_MENU_ID = '6636245039f343a37a8b7edc830c8cfa';
 const GOOGLE_SHEETS_API = 'https://script.google.com/macros/s/AKfycbycZtdm2SGy07Sy06i2wM8oGNnERvEyyShUdTmHowlUmQz2kjS3I5VWdI1TszT1s2DCQA/exec';
 const GOOGLE_SHEETS_COOKIE = 'NID=525=IPIqwCVm1Z3C00Y2MFXoevvCftm-rj9UdMlgYFhlRAHY0MKSCbEO7I8EBlGrz-nwjYxoXSFUrDHBqGrYNUotcoSE3v2npcVn-j3QZsc6SAKkZcMLR6y1MkF5dZlXnbBIqWgw9cJLT3SvAvmpXUZa6RADuBXFDZpvSM85zYAoym0yXcBn3C4ayGgOookqVJaH';
 
-// 資料庫實例
-const db = new DatabaseManager();
+// 資料庫實例 - 使用Google Sheets資料庫
+const GoogleSheetsDatabase = require('./googleSheetsDatabase');
+const db = new GoogleSheetsDatabase();
+
+// 初始化同步標記
+let isInitialized = false;
+
+// 初始化同步函數
+async function initializeSync() {
+    if (isInitialized) {
+        console.log('✅ 系統已初始化，跳過同步');
+        return;
+    }
+
+    try {
+        console.log('🚀 開始初始化同步...');
+        
+        // 初始化Google Sheets資料庫
+        await db.init();
+        
+        // 從Google Sheets同步資料
+        const syncResult = await db.syncFromGoogleSheets();
+        
+        if (syncResult.success) {
+            console.log(`✅ 初始化同步完成！`);
+            console.log(`📊 同步統計：`);
+            console.log(`   - 使用者：${syncResult.users.length} 個`);
+            console.log(`   - 綁定記錄：${syncResult.bindings.length} 個`);
+        } else {
+            console.log('⚠️ 初始化同步部分失敗，但系統仍可正常運作');
+        }
+        
+        isInitialized = true;
+    } catch (error) {
+        console.error('❌ 初始化同步失敗:', error);
+        console.log('⚠️ 系統將繼續運行，但可能無法同步資料');
+    }
+}
 
 // LINE Messaging API 通知函數
 async function sendLineMessage(message, targetUserId = null) {
@@ -417,6 +453,92 @@ app.post('/api/admin/sync-all-names', async (req, res) => {
         });
     } catch (error) {
         console.error('批量同步使用者名稱失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// 管理員API：備份資料庫
+app.post('/api/admin/backup-database', async (req, res) => {
+    try {
+        const backupPath = db.backup();
+        if (backupPath) {
+            res.json({ 
+                success: true, 
+                message: '資料庫備份成功',
+                backupPath: backupPath
+            });
+        } else {
+            res.json({ success: false, error: '備份失敗' });
+        }
+    } catch (error) {
+        console.error('備份資料庫失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// 管理員API：導出資料
+app.get('/api/admin/export-data', async (req, res) => {
+    try {
+        const exportData = await db.exportData();
+        if (exportData) {
+            res.json({ 
+                success: true, 
+                data: exportData
+            });
+        } else {
+            res.json({ success: false, error: '導出失敗' });
+        }
+    } catch (error) {
+        console.error('導出資料失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// 管理員API：手動同步Google Sheets
+app.post('/api/admin/sync-google-sheets', async (req, res) => {
+    try {
+        console.log('🔄 手動觸發Google Sheets同步...');
+        
+        const syncResult = await db.syncFromGoogleSheets();
+        
+        if (syncResult.success) {
+            res.json({
+                success: true,
+                message: 'Google Sheets同步成功',
+                stats: {
+                    users: syncResult.users.length,
+                    bindings: syncResult.bindings.length
+                }
+            });
+        } else {
+            res.json({
+                success: false,
+                error: syncResult.error || '同步失敗'
+            });
+        }
+    } catch (error) {
+        console.error('手動同步失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// 管理員API：強制重新初始化
+app.post('/api/admin/reinitialize', async (req, res) => {
+    try {
+        console.log('🔄 強制重新初始化系統...');
+        
+        // 重置初始化標記
+        isInitialized = false;
+        
+        // 重新執行初始化同步
+        await initializeSync();
+        
+        res.json({
+            success: true,
+            message: '系統重新初始化完成'
+        });
+    } catch (error) {
+        console.error('重新初始化失敗:', error);
         res.json({ success: false, error: error.message });
     }
 });
@@ -1361,11 +1483,16 @@ async function startServer() {
         await db.init();
         console.log('資料庫初始化完成');
 
-// 啟動伺服器
-app.listen(PORT, () => {
-    console.log(`伺服器運行在 http://localhost:${PORT}`);
-    console.log(`FLB講師簽到系統已啟動！`);
-            console.log(`資料庫檔案位置: ${db.dbPath}`);
+        // 啟動伺服器
+        app.listen(PORT, async () => {
+            console.log(`伺服器運行在 http://localhost:${PORT}`);
+            console.log('FLB講師簽到系統已啟動！');
+            console.log('🔄 正在初始化Google Sheets同步...');
+            
+            // 執行初始化同步
+            await initializeSync();
+            
+            console.log('🎉 系統完全啟動完成！');
         });
     } catch (error) {
         console.error('伺服器啟動失敗:', error);
