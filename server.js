@@ -1224,6 +1224,19 @@ app.post('/webhook', async (req, res) => {
                             console.log('❌ 使用者資訊上傳到Google Sheets失敗:', uploadResult.error);
                         }
                         
+                        // 檢查是否為講師
+                        let isTeacher = false;
+                        try {
+                            const teacherResponse = await axios.get(FLB_API_URL, { timeout: 10000 });
+                            if (teacherResponse.data.success && teacherResponse.data.teachers) {
+                                const teachers = teacherResponse.data.teachers;
+                                isTeacher = teachers.some(teacher => teacher.userId === event.source.userId);
+                                console.log(`使用者 ${displayName} 是否為講師: ${isTeacher}`);
+                            }
+                        } catch (teacherError) {
+                            console.log('❌ 檢查講師身份失敗:', teacherError.message);
+                        }
+                        
                         // 同時儲存到本地資料庫
                         try {
                             await db.registerUser({
@@ -1236,24 +1249,38 @@ app.post('/webhook', async (req, res) => {
                             });
                             console.log('✅ 使用者資訊已儲存到本地資料庫');
                             
-                            // 發送綁定通知給使用者
-                            const bindingMessage = `🎉 歡迎使用FLB講師簽到系統！\n\n👤 您的資訊：\n• 姓名：${displayName}\n• User ID：${event.source.userId}\n\n📱 請點擊以下連結開始使用：\n${SYSTEM_URL}\n\n💡 首次使用時，系統會要求您選擇講師身份進行綁定。`;
-                            
-                            try {
-                                await sendLineMessage(bindingMessage, event.source.userId);
-                                console.log('✅ 綁定通知已發送給使用者');
-                            } catch (notifyError) {
-                                console.log('❌ 發送綁定通知失敗:', notifyError.message);
-                            }
-                            
-                            // 發送管理員通知
-                            const adminMessage = `🔔 新使用者註冊通知\n\n👤 使用者資訊：\n• 姓名：${displayName}\n• User ID：${event.source.userId}\n• 註冊時間：${new Date().toLocaleString('zh-TW')}\n\n📊 系統狀態：\n• 總使用者數：${await db.getUserCount()}\n• 活躍綁定數：${await db.getActiveBindingCount()}`;
-                            
-                            try {
-                                await sendLineMessage(adminMessage);
-                                console.log('✅ 管理員通知已發送');
-                            } catch (adminNotifyError) {
-                                console.log('❌ 發送管理員通知失敗:', adminNotifyError.message);
+                            // 只有講師才發送綁定通知
+                            if (isTeacher) {
+                                const bindingMessage = `🎉 歡迎使用FLB講師簽到系統！\n\n👤 您的資訊：\n• 姓名：${displayName}\n• User ID：${event.source.userId}\n\n📱 請點擊以下連結開始使用：\n${SYSTEM_URL}\n\n💡 首次使用時，系統會要求您選擇講師身份進行綁定。`;
+                                
+                                try {
+                                    await sendLineMessage(bindingMessage, event.source.userId);
+                                    console.log('✅ 講師綁定通知已發送');
+                                } catch (notifyError) {
+                                    console.log('❌ 發送講師綁定通知失敗:', notifyError.message);
+                                }
+                                
+                                // 發送管理員通知（講師註冊）
+                                const adminMessage = `🔔 講師註冊通知\n\n👤 講師資訊：\n• 姓名：${displayName}\n• User ID：${event.source.userId}\n• 註冊時間：${new Date().toLocaleString('zh-TW')}\n\n📊 系統狀態：\n• 總使用者數：${await db.getUserCount()}\n• 活躍綁定數：${await db.getActiveBindingCount()}`;
+                                
+                                try {
+                                    await sendLineMessage(adminMessage);
+                                    console.log('✅ 講師註冊管理員通知已發送');
+                                } catch (adminNotifyError) {
+                                    console.log('❌ 發送講師註冊管理員通知失敗:', adminNotifyError.message);
+                                }
+                            } else {
+                                console.log(`使用者 ${displayName} 為普通客戶，不發送綁定通知`);
+                                
+                                // 發送一般客戶通知給管理員
+                                const adminMessage = `📞 客戶訊息通知\n\n👤 客戶資訊：\n• 姓名：${displayName}\n• User ID：${event.source.userId}\n• 訊息時間：${new Date().toLocaleString('zh-TW')}\n• 訊息內容：${event.message.text}`;
+                                
+                                try {
+                                    await sendLineMessage(adminMessage);
+                                    console.log('✅ 客戶訊息管理員通知已發送');
+                                } catch (adminNotifyError) {
+                                    console.log('❌ 發送客戶訊息管理員通知失敗:', adminNotifyError.message);
+                                }
                             }
                             
                         } catch (dbError) {
