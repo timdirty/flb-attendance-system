@@ -1348,12 +1348,10 @@ app.post('/api/bind-teacher', async (req, res) => {
             });
         }
 
+        // 綁定講師身份
         const success = await db.bindTeacher(userId, teacherName, teacherId);
         
         if (success) {
-            // 新增講師綁定記錄到資料庫
-            await db.addTeacherBinding(userId, teacherName, teacherId);
-            
             // 綁定Rich Menu
             const richMenuResult = await bindRichMenu(userId);
             console.log('Rich Menu 綁定結果:', richMenuResult);
