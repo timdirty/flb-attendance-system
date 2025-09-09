@@ -27,6 +27,9 @@ const LINE_MESSAGING_API = 'https://api.line.me/v2/bot/message/push';
 const LINE_RICH_MENU_API = 'https://api.line.me/v2/bot/user/{userId}/richmenu';
 const RICH_MENU_ID = '6636245039f343a37a8b7edc830c8cfa';
 
+// 系統配置
+const SYSTEM_URL = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'https://your-railway-url.railway.app';
+
 // Google Sheets API 配置
 const GOOGLE_SHEETS_API = 'https://script.google.com/macros/s/AKfycbycZtdm2SGy07Sy06i2wM8oGNnERvEyyShUdTmHowlUmQz2kjS3I5VWdI1TszT1s2DCQA/exec';
 const GOOGLE_SHEETS_COOKIE = 'NID=525=IPIqwCVm1Z3C00Y2MFXoevvCftm-rj9UdMlgYFhlRAHY0MKSCbEO7I8EBlGrz-nwjYxoXSFUrDHBqGrYNUotcoSE3v2npcVn-j3QZsc6SAKkZcMLR6y1MkF5dZlXnbBIqWgw9cJLT3SvAvmpXUZa6RADuBXFDZpvSM85zYAoym0yXcBn3C4ayGgOookqVJaH';
@@ -633,6 +636,31 @@ app.post('/api/test-google-sheets', async (req, res) => {
     }
 });
 
+// 測試路由：測試綁定通知
+app.post('/api/test-binding-notification', async (req, res) => {
+    try {
+        const { userId, displayName } = req.body;
+        
+        if (!userId) {
+            return res.json({ success: false, message: '請提供使用者ID' });
+        }
+        
+        const testDisplayName = displayName || '測試使用者';
+        const bindingMessage = `🎉 歡迎使用FLB講師簽到系統！\n\n👤 您的資訊：\n• 姓名：${testDisplayName}\n• User ID：${userId}\n\n📱 請點擊以下連結開始使用：\n${SYSTEM_URL}\n\n💡 首次使用時，系統會要求您選擇講師身份進行綁定。`;
+        
+        const result = await sendLineMessage(bindingMessage, userId);
+        
+        res.json({
+            success: result.success,
+            message: result.success ? '綁定通知測試成功' : '綁定通知測試失敗',
+            result: result
+        });
+    } catch (error) {
+        console.error('綁定通知測試失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
 // API路由：檢查使用者是否已註冊
 app.post('/api/check-user', async (req, res) => {
     try {
@@ -1207,6 +1235,27 @@ app.post('/webhook', async (req, res) => {
                                 lastLogin: new Date().toISOString()
                             });
                             console.log('✅ 使用者資訊已儲存到本地資料庫');
+                            
+                            // 發送綁定通知給使用者
+                            const bindingMessage = `🎉 歡迎使用FLB講師簽到系統！\n\n👤 您的資訊：\n• 姓名：${displayName}\n• User ID：${event.source.userId}\n\n📱 請點擊以下連結開始使用：\n${SYSTEM_URL}\n\n💡 首次使用時，系統會要求您選擇講師身份進行綁定。`;
+                            
+                            try {
+                                await sendLineMessage(bindingMessage, event.source.userId);
+                                console.log('✅ 綁定通知已發送給使用者');
+                            } catch (notifyError) {
+                                console.log('❌ 發送綁定通知失敗:', notifyError.message);
+                            }
+                            
+                            // 發送管理員通知
+                            const adminMessage = `🔔 新使用者註冊通知\n\n👤 使用者資訊：\n• 姓名：${displayName}\n• User ID：${event.source.userId}\n• 註冊時間：${new Date().toLocaleString('zh-TW')}\n\n📊 系統狀態：\n• 總使用者數：${await db.getUserCount()}\n• 活躍綁定數：${await db.getActiveBindingCount()}`;
+                            
+                            try {
+                                await sendLineMessage(adminMessage);
+                                console.log('✅ 管理員通知已發送');
+                            } catch (adminNotifyError) {
+                                console.log('❌ 發送管理員通知失敗:', adminNotifyError.message);
+                            }
+                            
                         } catch (dbError) {
                             console.log('❌ 使用者資訊儲存到本地資料庫失敗:', dbError.message);
                         }
