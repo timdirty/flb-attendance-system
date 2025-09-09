@@ -464,6 +464,51 @@
             `;
             testButton.onclick = testLineUserRegistration;
             document.body.appendChild(testButton);
+            
+            // 添加LIFF調試按鈕
+            const debugButton = document.createElement('button');
+            debugButton.textContent = 'LIFF調試';
+            debugButton.style.cssText = `
+                position: fixed;
+                top: 70px;
+                right: 20px;
+                background: #007bff;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                z-index: 1000;
+                font-size: 14px;
+            `;
+            debugButton.onclick = debugLiff;
+            document.body.appendChild(debugButton);
+        }
+        
+        // LIFF調試函數
+        function debugLiff() {
+            console.log('=== LIFF調試資訊 ===');
+            console.log('LIFF ID:', liffId);
+            console.log('LIFF初始化狀態:', liffInitialized);
+            console.log('LIFF是否可用:', typeof liff !== 'undefined');
+            
+            if (typeof liff !== 'undefined') {
+                console.log('LIFF是否已登入:', liff.isLoggedIn());
+                if (liff.isLoggedIn()) {
+                    console.log('使用者ID:', liff.getContext().userId);
+                    liff.getProfile().then(profile => {
+                        console.log('使用者資訊:', profile);
+                    }).catch(error => {
+                        console.error('獲取使用者資訊失敗:', error);
+                    });
+                }
+            }
+            
+            console.log('當前使用者:', currentUser);
+            console.log('頁腳使用者資訊元素:', document.getElementById('userInfoFooter'));
+            console.log('========================');
+            
+            showToast('LIFF調試資訊已輸出到控制台', 'info');
         }
 
         // 測試LINE使用者註冊功能
@@ -538,6 +583,13 @@
                      displayName: profile.displayName,
                      pictureUrl: profile.pictureUrl
                  };
+
+                 // 先顯示使用者資訊
+                 displayFooterUserInfo({
+                     userName: profile.displayName,
+                     userId: userId,
+                     isTeacherBound: false
+                 });
 
                  // 檢查使用者是否已註冊
                  await checkUserRegistration(userId, profile);
@@ -617,6 +669,14 @@
 
                 if (result.success) {
                     showToast('註冊成功！', 'success');
+                    
+                    // 先顯示使用者資訊
+                    displayFooterUserInfo({
+                        userName: profile.displayName,
+                        userId: userId,
+                        isTeacherBound: false
+                    });
+                    
                     // 註冊成功後檢查講師綁定狀態
                     await checkTeacherBinding(userId);
                 } else {
@@ -655,7 +715,12 @@
                         // 自動選擇已綁定的講師身份
                         selectTeacherIdentity(result.teacherName, result.teacherId);
                     } else {
-                        // 未綁定講師，顯示講師選擇彈窗
+                        // 未綁定講師，先顯示使用者資訊，然後顯示講師選擇彈窗
+                        displayFooterUserInfo({
+                            userName: currentUser?.displayName || '未綁定講師',
+                            userId: userId,
+                            isTeacherBound: false
+                        });
                         showTeacherSelectionModal(userId);
                     }
                 }
