@@ -293,6 +293,40 @@ class GoogleSheetsDatabase {
         }
     }
 
+    // 檢查講師綁定狀態
+    async isTeacherBound(userId) {
+        try {
+            await this.syncFromGoogleSheets(); // Ensure cache is fresh
+            
+            // 查找活躍的綁定記錄
+            const activeBindings = Array.from(this.localBindings.values()).filter(b => 
+                b.userId === userId && b.isActive
+            );
+            
+            if (activeBindings.length > 0) {
+                const binding = activeBindings[0]; // 取第一個活躍綁定
+                return {
+                    isBound: true,
+                    teacherName: binding.teacherName,
+                    teacherId: binding.teacherId
+                };
+            } else {
+                return {
+                    isBound: false,
+                    teacherName: null,
+                    teacherId: null
+                };
+            }
+        } catch (error) {
+            console.error('檢查講師綁定狀態失敗:', error);
+            return {
+                isBound: false,
+                teacherName: null,
+                teacherId: null
+            };
+        }
+    }
+
     // 獲取使用者總數
     async getUserCount() {
         try {
