@@ -965,7 +965,14 @@ app.post('/webhook', async (req, res) => {
                         
                         // 同時儲存到本地資料庫
                         try {
-                            await db.registerUser(event.source.userId, displayName, profileResponse.data.pictureUrl);
+                            await db.registerUser({
+                                userId: event.source.userId,
+                                displayName: displayName,
+                                userName: displayName,
+                                pictureUrl: profileResponse.data.pictureUrl,
+                                registeredAt: new Date().toISOString(),
+                                lastLogin: new Date().toISOString()
+                            });
                             console.log('✅ 使用者資訊已儲存到本地資料庫');
                         } catch (dbError) {
                             console.log('❌ 使用者資訊儲存到本地資料庫失敗:', dbError.message);
