@@ -277,6 +277,22 @@ class GoogleSheetsDatabase {
         }
     }
 
+    // 獲取單一使用者
+    async getUser(userId) {
+        try {
+            // Try local cache first
+            const user = this.localUsers.get(userId);
+            if (user) return user;
+
+            // If not in cache, fetch from Google Sheets (or refresh cache)
+            await this.syncFromGoogleSheets();
+            return this.localUsers.get(userId);
+        } catch (error) {
+            console.error('獲取使用者失敗:', error);
+            return null;
+        }
+    }
+
     // 獲取使用者總數
     async getUserCount() {
         try {
