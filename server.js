@@ -66,17 +66,17 @@ async function sendLineMessage(message, targetUserId = null) {
         for (const userId of targetUsers) {
             try {
                 console.log(`正在發送LINE訊息給 ${userId}...`);
-                
-                const response = await axios.post(LINE_MESSAGING_API, {
+
+        const response = await axios.post(LINE_MESSAGING_API, {
                     to: userId,
-                    messages: [{
-                        type: 'text',
-                        text: message
-                    }]
-                }, {
-                    headers: {
-                        'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
-                        'Content-Type': 'application/json'
+            messages: [{
+                type: 'text',
+                text: message
+            }]
+        }, {
+            headers: {
+                'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                'Content-Type': 'application/json'
                     },
                     timeout: 10000 // 10秒超時
                 });
@@ -310,6 +310,117 @@ app.post('/api/admin/bindings/:id/deactivate', async (req, res) => {
     }
 });
 
+// 管理員API：同步單一使用者名稱
+app.post('/api/admin/sync-user-name', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        
+        if (!userId) {
+            return res.json({ success: false, error: '請提供使用者ID' });
+        }
+
+        // 從LINE API獲取最新使用者資訊
+        const profileResponse = await axios.get(`https://api.line.me/v2/bot/profile/${userId}`, {
+            headers: {
+                'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+            },
+            timeout: 10000
+        });
+
+        const newDisplayName = profileResponse.data.displayName;
+        
+        // 更新資料庫
+        const success = db.updateUserDisplayName(userId, newDisplayName);
+        
+        if (success) {
+            res.json({ 
+                success: true, 
+                message: '使用者名稱已同步',
+                newDisplayName: newDisplayName
+            });
+        } else {
+            res.json({ success: false, error: '同步失敗' });
+        }
+    } catch (error) {
+        console.error('同步使用者名稱失敗:', error);
+        res.json({ success: false, error: error.response?.data || error.message });
+    }
+});
+
+// 管理員API：批量同步所有使用者名稱
+app.post('/api/admin/sync-all-names', async (req, res) => {
+    try {
+        const users = db.getAllUsersWithBindings();
+        const results = [];
+        
+        for (const user of users) {
+            try {
+                // 從LINE API獲取最新使用者資訊
+                const profileResponse = await axios.get(`https://api.line.me/v2/bot/profile/${user.userId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+                    },
+                    timeout: 10000
+                });
+
+                const newDisplayName = profileResponse.data.displayName;
+                
+                // 檢查名稱是否有變更
+                if (newDisplayName !== user.displayName) {
+                    const success = db.updateUserDisplayName(user.userId, newDisplayName);
+                    results.push({
+                        userId: user.userId,
+                        oldName: user.displayName,
+                        newName: newDisplayName,
+                        success: success,
+                        updated: success
+                    });
+                } else {
+                    results.push({
+                        userId: user.userId,
+                        oldName: user.displayName,
+                        newName: newDisplayName,
+                        success: true,
+                        updated: false
+                    });
+                }
+                
+                // 避免API限制，稍作延遲
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+            } catch (error) {
+                console.error(`同步使用者 ${user.userId} 失敗:`, error);
+                results.push({
+                    userId: user.userId,
+                    oldName: user.displayName,
+                    newName: null,
+                    success: false,
+                    updated: false,
+                    error: error.response?.data || error.message
+                });
+            }
+        }
+        
+        const updatedCount = results.filter(r => r.updated).length;
+        const successCount = results.filter(r => r.success).length;
+        
+        res.json({
+            success: true,
+            message: `同步完成：${updatedCount} 個使用者名稱已更新，${successCount}/${results.length} 個使用者處理成功`,
+            results: results,
+            summary: {
+                total: results.length,
+                updated: updatedCount,
+                success: successCount,
+                failed: results.length - successCount
+            }
+        });
+    } catch (error) {
+        console.error('批量同步使用者名稱失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
 // 測試路由：發送測試訊息
 app.post('/api/test-message', async (req, res) => {
     try {
@@ -430,8 +541,8 @@ app.post('/api/check-user', async (req, res) => {
         
     } catch (error) {
         console.error('檢查使用者註冊狀態錯誤:', error);
-        res.status(500).json({ 
-            success: false, 
+            res.status(500).json({ 
+                success: false, 
             error: '檢查使用者註冊狀態失敗' 
         });
     }
@@ -918,7 +1029,7 @@ app.post('/api/query-report', async (req, res) => {
             });
         } else {
             res.status(500).json({ 
-                success: false, 
+                success: false,
                 error: '查詢報表失敗：' + error.message 
             });
         }
@@ -1249,11 +1360,11 @@ async function startServer() {
         // 初始化資料庫
         await db.init();
         console.log('資料庫初始化完成');
-        
-        // 啟動伺服器
-        app.listen(PORT, () => {
-            console.log(`伺服器運行在 http://localhost:${PORT}`);
-            console.log(`FLB講師簽到系統已啟動！`);
+
+// 啟動伺服器
+app.listen(PORT, () => {
+    console.log(`伺服器運行在 http://localhost:${PORT}`);
+    console.log(`FLB講師簽到系統已啟動！`);
             console.log(`資料庫檔案位置: ${db.dbPath}`);
         });
     } catch (error) {

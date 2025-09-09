@@ -294,6 +294,9 @@
                     <input type="text" id="userSearch" placeholder="搜尋使用者ID或名稱...">
                     <button onclick="searchUsers()"><i class="fas fa-search"></i> 搜尋</button>
                     <button onclick="loadAllUsers()"><i class="fas fa-refresh"></i> 重新載入</button>
+                    <button onclick="syncAllUserNames()" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">
+                        <i class="fas fa-sync-alt"></i> 同步LINE名稱
+                    </button>
                 </div>
                 <div class="table-container">
                     <table id="usersTable">
@@ -447,6 +450,9 @@
                     <td>
                         <button class="btn btn-primary" onclick="viewUserDetails('${user.userId}')">
                             <i class="fas fa-eye"></i> 查看
+                        </button>
+                        <button class="btn btn-success" onclick="syncSingleUserName('${user.userId}')" title="同步LINE名稱">
+                            <i class="fas fa-sync-alt"></i> 同步
                         </button>
                         ${user.teacherName ? 
                             `<button class="btn btn-danger" onclick="unbindUser('${user.userId}')">
@@ -624,6 +630,78 @@
             URL.revokeObjectURL(url);
         }
 
+        // 同步所有使用者名稱
+        async function syncAllUserNames() {
+            if (!confirm('確定要同步所有使用者的LINE名稱嗎？這可能需要一些時間。')) {
+                return;
+            }
+
+            try {
+                showToast('正在同步LINE名稱...', 'info');
+                
+                const response = await fetch('/api/admin/sync-all-names', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess(result.message);
+                    
+                    // 顯示詳細結果
+                    if (result.summary.updated > 0) {
+                        const updatedUsers = result.results.filter(r => r.updated);
+                        let detailMessage = `已更新 ${result.summary.updated} 個使用者名稱：\n`;
+                        updatedUsers.forEach(user => {
+                            detailMessage += `• ${user.oldName} → ${user.newName}\n`;
+                        });
+                        
+                        // 在系統日誌中顯示詳細資訊
+                        const logsDiv = document.getElementById('systemLogs');
+                        logsDiv.innerHTML = `<div>${new Date().toLocaleString('zh-TW')} - LINE名稱同步完成</div>` + 
+                                          `<div>${detailMessage.replace(/\n/g, '<br>')}</div>` + 
+                                          logsDiv.innerHTML;
+                    }
+                    
+                    // 重新載入資料
+                    loadAllData();
+                } else {
+                    showError('同步失敗: ' + result.error);
+                }
+            } catch (error) {
+                console.error('同步使用者名稱失敗:', error);
+                showError('同步失敗，請稍後再試');
+            }
+        }
+
+        // 同步單一使用者名稱
+        async function syncSingleUserName(userId) {
+            try {
+                const response = await fetch('/api/admin/sync-user-name', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ userId: userId })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccess(`使用者名稱已同步: ${result.newDisplayName}`);
+                    loadAllUsers();
+                } else {
+                    showError('同步失敗: ' + result.error);
+                }
+            } catch (error) {
+                console.error('同步單一使用者名稱失敗:', error);
+                showError('同步失敗');
+            }
+        }
+
         // 重新整理所有資料
         function refreshAll() {
             loadAllData();
@@ -647,6 +725,55 @@
             document.querySelector('.admin-content').insertBefore(successDiv, document.querySelector('.section'));
             setTimeout(() => successDiv.remove(), 3000);
         }
+
+        // 顯示Toast通知
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 10px;
+                color: white;
+                font-weight: 600;
+                z-index: 1000;
+                max-width: 300px;
+                word-wrap: break-word;
+                box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            if (type === 'success') {
+                toast.style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+            } else if (type === 'error') {
+                toast.style.background = 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)';
+            } else if (type === 'info') {
+                toast.style.background = 'linear-gradient(135deg, #17a2b8 0%, #138496 100%)';
+            }
+            
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // 添加CSS動畫
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
 
         // 頁面載入時初始化
         window.addEventListener('load', () => {

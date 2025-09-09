@@ -405,6 +405,58 @@ class DatabaseManager {
         }
     }
 
+    // 更新使用者顯示名稱
+    updateUserDisplayName(userId, newDisplayName) {
+        try {
+            const stmt = this.db.prepare('UPDATE users SET displayName = ?, lastLogin = ? WHERE userId = ?');
+            const result = stmt.run(newDisplayName, new Date().toISOString(), userId);
+            
+            if (result.changes > 0) {
+                console.log(`使用者顯示名稱已更新: ${userId} -> ${newDisplayName}`);
+                return true;
+            } else {
+                console.log(`未找到使用者: ${userId}`);
+                return false;
+            }
+        } catch (error) {
+            console.error('更新使用者顯示名稱失敗:', error);
+            return false;
+        }
+    }
+
+    // 獲取所有使用者的LINE Profile並更新名稱
+    async syncAllUserNames() {
+        try {
+            const users = this.getAllUsersWithBindings();
+            const results = [];
+            
+            for (const user of users) {
+                try {
+                    // 這裡需要調用LINE API獲取最新名稱
+                    // 由於這是在資料庫層，我們返回需要更新的使用者列表
+                    results.push({
+                        userId: user.userId,
+                        currentName: user.displayName,
+                        needsUpdate: true
+                    });
+                } catch (error) {
+                    console.error(`同步使用者 ${user.userId} 失敗:`, error);
+                    results.push({
+                        userId: user.userId,
+                        currentName: user.displayName,
+                        needsUpdate: false,
+                        error: error.message
+                    });
+                }
+            }
+            
+            return results;
+        } catch (error) {
+            console.error('同步所有使用者名稱失敗:', error);
+            return [];
+        }
+    }
+
     // 關閉資料庫連線
     close() {
         if (this.db) {
