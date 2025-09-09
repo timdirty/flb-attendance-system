@@ -257,9 +257,9 @@ app.get('/admin', (req, res) => {
 // 管理員API：獲取統計資料
 app.get('/api/admin/stats', async (req, res) => {
     try {
-        const totalUsers = db.getUserCount();
-        const totalTeachers = db.getTeacherCount();
-        const activeBindings = db.getActiveBindingCount();
+        const totalUsers = await db.getUserCount();
+        const totalTeachers = await db.getTeacherCount();
+        const activeBindings = await db.getActiveBindingCount();
         
         res.json({
             success: true,
@@ -281,7 +281,7 @@ app.get('/api/admin/stats', async (req, res) => {
 // 管理員API：獲取所有使用者
 app.get('/api/admin/users', async (req, res) => {
     try {
-        const users = db.getAllUsersWithBindings();
+        const users = await db.getAllUsersWithBindings();
         res.json({ success: true, users });
     } catch (error) {
         console.error('獲取使用者資料失敗:', error);
@@ -297,7 +297,7 @@ app.get('/api/admin/users/search', async (req, res) => {
             return res.json({ success: false, error: '請提供搜尋關鍵字' });
         }
         
-        const users = db.searchUsers(query);
+        const users = await db.searchUsers(query);
         res.json({ success: true, users });
     } catch (error) {
         console.error('搜尋使用者失敗:', error);
@@ -308,7 +308,7 @@ app.get('/api/admin/users/search', async (req, res) => {
 // 管理員API：獲取所有綁定
 app.get('/api/admin/bindings', async (req, res) => {
     try {
-        const bindings = db.getAllBindings();
+        const bindings = await db.getAllBindings();
         res.json({ success: true, bindings });
     } catch (error) {
         console.error('獲取綁定資料失敗:', error);
@@ -324,7 +324,7 @@ app.get('/api/admin/bindings/search', async (req, res) => {
             return res.json({ success: false, error: '請提供搜尋關鍵字' });
         }
         
-        const bindings = db.searchBindings(query);
+        const bindings = await db.searchBindings(query);
         res.json({ success: true, bindings });
     } catch (error) {
         console.error('搜尋綁定失敗:', error);
@@ -336,7 +336,7 @@ app.get('/api/admin/bindings/search', async (req, res) => {
 app.post('/api/admin/bindings/:id/deactivate', async (req, res) => {
     try {
         const bindingId = req.params.id;
-        const success = db.deactivateBinding(bindingId);
+        const success = await db.deactivateBinding(bindingId);
         
         if (success) {
             res.json({ success: true, message: '綁定已停用' });
@@ -389,7 +389,7 @@ app.post('/api/admin/sync-user-name', async (req, res) => {
 // 管理員API：批量同步所有使用者名稱
 app.post('/api/admin/sync-all-names', async (req, res) => {
     try {
-        const users = db.getAllUsersWithBindings();
+        const users = await db.getAllUsersWithBindings();
         const results = [];
         
         for (const user of users) {
