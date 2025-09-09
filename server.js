@@ -27,6 +27,10 @@ const LINE_MESSAGING_API = 'https://api.line.me/v2/bot/message/push';
 const LINE_RICH_MENU_API = 'https://api.line.me/v2/bot/user/{userId}/richmenu';
 const RICH_MENU_ID = '6636245039f343a37a8b7edc830c8cfa';
 
+// Google Sheets API 配置
+const GOOGLE_SHEETS_API = 'https://script.google.com/macros/s/AKfycbycZtdm2SGy07Sy06i2wM8oGNnERvEyyShUdTmHowlUmQz2kjS3I5VWdI1TszT1s2DCQA/exec';
+const GOOGLE_SHEETS_COOKIE = 'NID=525=IPIqwCVm1Z3C00Y2MFXoevvCftm-rj9UdMlgYFhlRAHY0MKSCbEO7I8EBlGrz-nwjYxoXSFUrDHBqGrYNUotcoSE3v2npcVn-j3QZsc6SAKkZcMLR6y1MkF5dZlXnbBIqWgw9cJLT3SvAvmpXUZa6RADuBXFDZpvSM85zYAoym0yXcBn3C4ayGgOookqVJaH';
+
 // 資料庫實例
 const db = new DatabaseManager();
 
@@ -167,6 +171,40 @@ async function unbindRichMenu(userId) {
     }
 }
 
+// Google Sheets 上傳使用者資訊函數
+async function uploadUserToGoogleSheets(userId, displayName) {
+    try {
+        const payload = {
+            action: "upsertUserId",
+            sheetName: "user id",
+            list: [
+                {
+                    "使用者名稱": displayName || "未知使用者",
+                    "userId": userId
+                }
+            ]
+        };
+
+        const response = await axios.post(GOOGLE_SHEETS_API, payload, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Cookie': GOOGLE_SHEETS_COOKIE
+            },
+            timeout: 10000
+        });
+
+        console.log(`✅ 使用者資訊上傳到Google Sheets成功: ${displayName} (${userId})`);
+        return { success: true, data: response.data };
+    } catch (error) {
+        console.error(`❌ 使用者資訊上傳到Google Sheets失敗: ${displayName} (${userId})`, error.response?.data || error.message);
+        return { 
+            success: false, 
+            error: error.response?.data || error.message,
+            statusCode: error.response?.status
+        };
+    }
+}
+
 // 路由：首頁
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -241,6 +279,28 @@ app.post('/api/test-unbind-richmenu', async (req, res) => {
         });
     } catch (error) {
         console.error('Rich Menu解除綁定測試失敗:', error);
+        res.json({ success: false, error: error.message });
+    }
+});
+
+// 測試路由：測試Google Sheets上傳
+app.post('/api/test-google-sheets', async (req, res) => {
+    try {
+        const { userId, displayName } = req.body;
+        
+        if (!userId) {
+            return res.json({ success: false, message: '請提供使用者ID' });
+        }
+        
+        const uploadResult = await uploadUserToGoogleSheets(userId, displayName || '測試使用者');
+        
+        res.json({
+            success: uploadResult.success,
+            message: uploadResult.success ? 'Google Sheets上傳測試成功' : 'Google Sheets上傳測試失敗',
+            result: uploadResult
+        });
+    } catch (error) {
+        console.error('Google Sheets上傳測試失敗:', error);
         res.json({ success: false, error: error.message });
     }
 });
@@ -771,14 +831,14 @@ app.post('/api/query-report', async (req, res) => {
 });
 
 // LINE Webhook 端點
-app.post('/webhook', (req, res) => {
+app.post('/webhook', async (req, res) => {
     console.log('收到 LINE Webhook 請求:', req.body);
     
     res.status(200).send('OK');
     
     const events = req.body.events;
     if (events && events.length > 0) {
-        events.forEach(event => {
+        for (const event of events) {
             if (event.type === 'message' && event.message.type === 'text') {
                 console.log('收到訊息:', event.message.text);
                 console.log('用戶 ID:', event.source?.userId || '未知');
@@ -786,9 +846,52 @@ app.post('/webhook', (req, res) => {
                 if (event.source?.userId) {
                     console.log('請將此 User ID 設定到環境變數:');
                     console.log('LINE_USER_ID =', event.source.userId);
+                    
+                    // 獲取使用者資訊並上傳到Google Sheets
+                    try {
+                        // 從LINE API獲取使用者資訊
+                        const profileResponse = await axios.get(`https://api.line.me/v2/bot/profile/${event.source.userId}`, {
+                            headers: {
+                                'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+                            },
+                            timeout: 10000
+                        });
+                        
+                        const displayName = profileResponse.data.displayName;
+                        console.log(`獲取到使用者資訊: ${displayName} (${event.source.userId})`);
+                        
+                        // 上傳到Google Sheets
+                        const uploadResult = await uploadUserToGoogleSheets(event.source.userId, displayName);
+                        if (uploadResult.success) {
+                            console.log('✅ 使用者資訊已成功上傳到Google Sheets');
+                        } else {
+                            console.log('❌ 使用者資訊上傳到Google Sheets失敗:', uploadResult.error);
+                        }
+                        
+                        // 同時儲存到本地資料庫
+                        try {
+                            await db.registerUser(event.source.userId, displayName, profileResponse.data.pictureUrl);
+                            console.log('✅ 使用者資訊已儲存到本地資料庫');
+                        } catch (dbError) {
+                            console.log('❌ 使用者資訊儲存到本地資料庫失敗:', dbError.message);
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ 處理使用者資訊失敗:', error.response?.data || error.message);
+                        
+                        // 即使獲取profile失敗，也嘗試上傳已知的userId
+                        try {
+                            const uploadResult = await uploadUserToGoogleSheets(event.source.userId, '未知使用者');
+                            if (uploadResult.success) {
+                                console.log('✅ 使用者ID已上傳到Google Sheets (無顯示名稱)');
+                            }
+                        } catch (uploadError) {
+                            console.error('❌ 上傳使用者ID到Google Sheets失敗:', uploadError.message);
+                        }
+                    }
                 }
             }
-        });
+        }
     }
 });
 
