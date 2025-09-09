@@ -35,43 +35,11 @@ const GOOGLE_SHEETS_API = 'https://script.google.com/macros/s/AKfycbycZtdm2SGy07
 const GOOGLE_SHEETS_COOKIE = 'NID=525=IPIqwCVm1Z3C00Y2MFXoevvCftm-rj9UdMlgYFhlRAHY0MKSCbEO7I8EBlGrz-nwjYxoXSFUrDHBqGrYNUotcoSE3v2npcVn-j3QZsc6SAKkZcMLR6y1MkF5dZlXnbBIqWgw9cJLT3SvAvmpXUZa6RADuBXFDZpvSM85zYAoym0yXcBn3C4ayGgOookqVJaH';
 
 // 資料庫實例 - 使用Google Sheets資料庫
-const GoogleSheetsDatabase = require('./googleSheetsDatabase');
-const db = new GoogleSheetsDatabase();
+const GoogleSheetsDatabaseWithLocal = require('./googleSheetsDatabaseWithLocal');
+const db = new GoogleSheetsDatabaseWithLocal();
 
-// 初始化同步標記
-let isInitialized = false;
+// 新的資料庫會自動處理初始化同步
 
-// 初始化同步函數
-async function initializeSync() {
-    if (isInitialized) {
-        console.log('✅ 系統已初始化，跳過同步');
-        return;
-    }
-
-    try {
-        console.log('🚀 開始初始化同步...');
-        
-        // 初始化Google Sheets資料庫
-        await db.init();
-        
-        // 從Google Sheets同步資料
-        const syncResult = await db.syncFromGoogleSheets();
-        
-        if (syncResult.success) {
-            console.log(`✅ 初始化同步完成！`);
-            console.log(`📊 同步統計：`);
-            console.log(`   - 使用者：${syncResult.users.length} 個`);
-            console.log(`   - 綁定記錄：${syncResult.bindings.length} 個`);
-        } else {
-            console.log('⚠️ 初始化同步部分失敗，但系統仍可正常運作');
-        }
-        
-        isInitialized = true;
-    } catch (error) {
-        console.error('❌ 初始化同步失敗:', error);
-        console.log('⚠️ 系統將繼續運行，但可能無法同步資料');
-    }
-}
 
 // LINE Messaging API 通知函數
 async function sendLineMessage(message, targetUserId = null) {
@@ -530,11 +498,8 @@ app.post('/api/admin/reinitialize', async (req, res) => {
     try {
         console.log('🔄 強制重新初始化系統...');
         
-        // 重置初始化標記
-        isInitialized = false;
-        
-        // 重新執行初始化同步
-        await initializeSync();
+        // 重新同步Google Sheets
+        const syncResult = await db.syncFromGoogleSheets();
         
         res.json({
             success: true,
@@ -1561,11 +1526,6 @@ async function startServer() {
         app.listen(PORT, async () => {
             console.log(`伺服器運行在 http://localhost:${PORT}`);
             console.log('FLB講師簽到系統已啟動！');
-            console.log('🔄 正在初始化Google Sheets同步...');
-            
-            // 執行初始化同步
-            await initializeSync();
-            
             console.log('🎉 系統完全啟動完成！');
         });
     } catch (error) {
