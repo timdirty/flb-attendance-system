@@ -1235,17 +1235,7 @@ app.post('/webhook', async (req, res) => {
                                     console.log('❌ 發送講師註冊管理員通知失敗:', adminNotifyError.message);
                                 }
                             } else {
-                                console.log(`使用者 ${displayName} 為普通客戶，不發送綁定通知`);
-                                
-                                // 發送一般客戶通知給管理員
-                                const adminMessage = `📞 客戶訊息通知\n\n👤 客戶資訊：\n• 姓名：${displayName}\n• User ID：${event.source.userId}\n• 訊息時間：${new Date().toLocaleString('zh-TW')}\n• 訊息內容：${event.message.text}`;
-                                
-                                try {
-                                    await sendLineMessage(adminMessage);
-                                    console.log('✅ 客戶訊息管理員通知已發送');
-                                } catch (adminNotifyError) {
-                                    console.log('❌ 發送客戶訊息管理員通知失敗:', adminNotifyError.message);
-                                }
+                                console.log(`使用者 ${displayName} 為普通客戶，不發送任何通知`);
                             }
                             
                         } catch (dbError) {
