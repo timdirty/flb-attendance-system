@@ -1004,21 +1004,44 @@
                 // 設置選中的講師資訊（使用全域變數）
                 selectedTeacher = teacherName;
                 
+                // 查找講師的 Web API 連結
+                const teacher = teachers.find(t => t.name === teacherName);
+                if (teacher) {
+                    webApi = teacher.webApi || ''; // 儲存講師的 Web API 連結
+                }
+                
                 // 更新選中的講師名稱顯示
                 const selectedTeacherName = document.getElementById('selected-teacher-name');
                 if (selectedTeacherName) {
                     selectedTeacherName.textContent = teacherName;
                 }
                 
+                // 清除課程和學生資料（與手動選擇保持一致）
+                clearCourseData();
+                clearStudentData();
+                
                 // 跳轉到第二步驟
                 goToStep(2);
                 
                 // 載入課程列表
                 loadTeacherCourses();
+                
+                // 更新導航狀態
+                updateNavigation();
+                
+                // 如果補簽到功能已經展開，自動初始化
+                const makeupForm = document.getElementById('makeup-form');
+                if (makeupForm && makeupForm.style.display !== 'none') {
+                    initializeMakeupForSelectedTeacher();
+                }
             }
             
-            // 顯示成功訊息
-            showToast(`已自動選擇講師身份：${teacherName}，正在載入課程...`, 'success');
+            // 顯示選擇講師的訊息，包含 API 資訊（與手動選擇保持一致）
+            if (webApi && webApi.trim() !== '') {
+                showToast(`已自動選擇講師：${teacherName} (使用專屬 API)，正在載入課程...`, 'success');
+            } else {
+                showToast(`已自動選擇講師：${teacherName} (使用預設 API)，正在載入課程...`, 'info');
+            }
             
             console.log('講師身份選擇完成，已跳轉到第二步驟');
         }
