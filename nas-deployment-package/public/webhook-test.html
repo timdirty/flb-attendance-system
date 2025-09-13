@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webhook 測試頁面</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #00B900; }
+        .info-box { background-color: #f0f8ff; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #00B900; }
+        .code { background-color: #f5f5f5; padding: 10px; border-radius: 3px; font-family: monospace; word-break: break-all; }
+        button { display: block; width: 100%; padding: 10px; margin-top: 20px; background-color: #00B900; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #008c00; }
+        #response { margin-top: 20px; padding: 10px; background-color: #f0f0f0; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word; }
+        .step { margin: 15px 0; padding: 10px; background-color: #fff3cd; border-radius: 5px; border-left: 4px solid #ffc107; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 Webhook 測試頁面</h1>
+        
+        <div class="info-box">
+            <h3>📋 您的 Webhook 設定資訊</h3>
+            <p><strong>Webhook URL:</strong></p>
+            <div class="code">https://attendance.funlearnbar.synology.me/webhook</div>
+            <p><strong>本地測試 URL:</strong></p>
+            <div class="code">http://localhost:3000/webhook</div>
+        </div>
+
+        <div class="step">
+            <h4>步驟 1: 測試本地 Webhook</h4>
+            <p>點擊下方按鈕測試本地 webhook 端點是否正常運作</p>
+            <button onclick="testLocalWebhook()">測試本地 Webhook</button>
+        </div>
+
+        <div class="step">
+            <h4>步驟 2: 測試外網 Webhook</h4>
+            <p>點擊下方按鈕測試您的 NAS 外網 webhook 端點</p>
+            <button onclick="testExternalWebhook()">測試外網 Webhook</button>
+        </div>
+
+        <div class="step">
+            <h4>步驟 3: LINE Developer Console 設定</h4>
+            <p>1. 登入 <a href="https://developers.line.biz/" target="_blank">LINE Developers Console</a></p>
+            <p>2. 選擇您的 Channel</p>
+            <p>3. 在 "Messaging API" 設定中</p>
+            <p>4. 將 Webhook URL 設為：<code>https://attendance.funlearnbar.synology.me/webhook</code></p>
+            <p>5. 點擊 "Verify" 按鈕驗證</p>
+        </div>
+
+        <div id="response"></div>
+    </div>
+
+    <script>
+        async function testLocalWebhook() {
+            const responseDiv = document.getElementById('response');
+            responseDiv.textContent = '正在測試本地 webhook...';
+            
+            try {
+                const response = await fetch('/webhook', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        events: [{
+                            type: 'message',
+                            message: {
+                                type: 'text',
+                                text: '測試訊息'
+                            },
+                            source: {
+                                userId: 'test-user-id'
+                            }
+                        }]
+                    })
+                });
+                
+                const result = await response.text();
+                responseDiv.textContent = `本地 Webhook 測試結果:\n狀態: ${response.status}\n回應: ${result}`;
+            } catch (error) {
+                responseDiv.textContent = `本地 Webhook 測試失敗: ${error.message}`;
+            }
+        }
+
+        async function testExternalWebhook() {
+            const responseDiv = document.getElementById('response');
+            responseDiv.textContent = '正在測試外網 webhook...';
+            
+            try {
+                const response = await fetch('https://attendance.funlearnbar.synology.me/webhook', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        events: [{
+                            type: 'message',
+                            message: {
+                                type: 'text',
+                                text: '外網測試訊息'
+                            },
+                            source: {
+                                userId: 'external-test-user-id'
+                            }
+                        }]
+                    })
+                });
+                
+                const result = await response.text();
+                responseDiv.textContent = `外網 Webhook 測試結果:\n狀態: ${response.status}\n回應: ${result}`;
+            } catch (error) {
+                responseDiv.textContent = `外網 Webhook 測試失敗: ${error.message}\n\n可能的原因:\n1. NAS 未正確設定反向代理\n2. SSL 憑證問題\n3. 防火牆設定\n4. 服務未啟動`;
+            }
+        }
+    </script>
+</body>
+</html>

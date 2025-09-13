@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LINE User ID 測試</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        button {
+            background: linear-gradient(45deg, #00C9FF, #92FE9D);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 LINE User ID 測試工具</h1>
+        <p>這個工具可以幫助您取得 LINE User ID，用於設定 LINE 官方訊息功能。</p>
+        
+        <button onclick="testLineMessage()">測試 LINE 訊息發送</button>
+        <button onclick="getWebhookInfo()">檢查 Webhook 資訊</button>
+        
+        <div id="result" class="result" style="display: none;">
+            <h3>測試結果：</h3>
+            <div id="resultContent"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testLineMessage() {
+            const resultDiv = document.getElementById('result');
+            const contentDiv = document.getElementById('resultContent');
+            
+            resultDiv.style.display = 'block';
+            contentDiv.innerHTML = '🔄 正在測試 LINE 訊息發送...';
+            
+            try {
+                const response = await fetch('/api/test-line-message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: '🧪 這是一個測試訊息\n\n⏰ 時間：' + new Date().toLocaleString('zh-TW')
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    contentDiv.innerHTML = `
+                        <div style="color: #4CAF50;">
+                            ✅ <strong>成功！</strong><br>
+                            LINE 訊息已成功發送！<br>
+                            <small>回應：${JSON.stringify(data.data, null, 2)}</small>
+                        </div>
+                    `;
+                } else {
+                    contentDiv.innerHTML = `
+                        <div style="color: #f44336;">
+                            ❌ <strong>失敗：</strong><br>
+                            ${data.message}<br>
+                            <small>錯誤詳情：${JSON.stringify(data.error, null, 2)}</small>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                contentDiv.innerHTML = `
+                    <div style="color: #f44336;">
+                        ❌ <strong>網路錯誤：</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        async function getWebhookInfo() {
+            const resultDiv = document.getElementById('result');
+            const contentDiv = document.getElementById('resultContent');
+            
+            resultDiv.style.display = 'block';
+            contentDiv.innerHTML = '🔄 正在檢查 Webhook 資訊...';
+            
+            try {
+                const response = await fetch('/webhook', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        events: [{
+                            type: 'message',
+                            message: {
+                                type: 'text',
+                                text: '測試訊息'
+                            },
+                            source: {
+                                type: 'user',
+                                userId: 'TEST_USER_ID'
+                            }
+                        }]
+                    })
+                });
+                
+                const data = await response.json();
+                contentDiv.innerHTML = `
+                    <div style="color: #2196F3;">
+                        ℹ️ <strong>Webhook 測試：</strong><br>
+                        ${JSON.stringify(data, null, 2)}
+                    </div>
+                `;
+            } catch (error) {
+                contentDiv.innerHTML = `
+                    <div style="color: #f44336;">
+                        ❌ <strong>Webhook 錯誤：</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -388,26 +388,6 @@
          <span class="version-text">Tim感恩戴德版本號: 20250903</span>
      </div>
 
-     <!-- 資料來源切換開關 -->
-     <div class="data-source-toggle" id="dataSourceToggle">
-         <div class="toggle-content">
-             <h4><i class="fas fa-database"></i> 資料來源設定</h4>
-             <div class="toggle-switch-container">
-                 <label class="toggle-switch">
-                     <input type="checkbox" id="dataSourceSwitch" onchange="toggleDataSource()">
-                     <span class="slider"></span>
-                 </label>
-                 <div class="toggle-labels">
-                     <span class="label-left" id="labelLeft">直接抓資料庫「上課時間」</span>
-                     <span class="label-right" id="labelRight">抓資料庫上課時間（link_calender）</span>
-                 </div>
-             </div>
-             <div class="toggle-description">
-                 <small id="toggleDescription">目前使用：直接抓資料庫「上課時間」</small>
-             </div>
-         </div>
-     </div>
-
      <!-- LINE使用者資訊顯示區域 -->
      <div class="user-info-footer hidden" id="userInfoFooter">
          <div class="footer-content">
@@ -1143,29 +1123,6 @@
                 showToast('解除綁定失敗，請稍後再試', 'error');
             }
         }
-
-         // 資料來源切換功能
-         let useLinkCalendar = false; // 預設使用直接抓資料庫「上課時間」
-
-         function toggleDataSource() {
-             const switchElement = document.getElementById('dataSourceSwitch');
-             const description = document.getElementById('toggleDescription');
-             
-             useLinkCalendar = switchElement.checked;
-             
-             if (useLinkCalendar) {
-                 description.textContent = '目前使用：抓資料庫上課時間（link_calender）';
-                 showToast('已切換到 link_calender 資料來源', 'info');
-             } else {
-                 description.textContent = '目前使用：直接抓資料庫「上課時間」';
-                 showToast('已切換到直接資料庫「上課時間」', 'info');
-             }
-             
-             // 如果已經在步驟2且有選中講師，重新載入課程
-             if (currentStep === 2 && selectedTeacher) {
-                 loadTeacherCourses();
-             }
-         }
 
          // 頁面載入時初始化
          window.addEventListener('load', () => {

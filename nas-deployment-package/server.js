@@ -838,37 +838,16 @@ app.get('/api/teachers', async (req, res) => {
 // API路由：獲取講師的課程
 app.post('/api/teacher-courses', async (req, res) => {
     try {
-        const { teacher, useLinkCalendar = false } = req.body;
-        
-        // 根據 useLinkCalendar 參數選擇不同的 API
-        let apiUrl, payload;
-        
-        if (useLinkCalendar) {
-            // 使用 link_calender 資料來源
-            apiUrl = 'https://script.google.com/macros/s/AKfycbzFwsd8I_5WJdl8jU_gycSKFxR836GhOzIHEU1bGj9mH70ESbJPj-uTD_YC9lEbo--v_A/exec';
-            payload = {
-                action: 'getCoursesByTeacher',
-                teacher: teacher,
-                source: 'link'
-            };
-        } else {
-            // 使用直接抓資料庫「上課時間」
-            apiUrl = 'https://script.google.com/macros/s/AKfycbxfj5fwNIc8ncbqkOm763yo6o06wYPHm2nbfd_1yLkHlakoS9FtYfYJhvGCaiAYh_vjIQ/dev';
-            payload = {
-                action: 'getCoursesByTeacher',
-                teacher: teacher
-            };
-        }
-        
-        const response = await axios.post(apiUrl, payload, {
+        const { teacher } = req.body;
+        const response = await axios.post(FLB_API_URL, {
+            action: 'getCoursesByTeacher',
+            teacher: teacher
+        }, {
             timeout: 30000,
             headers: {
-                'Content-Type': 'application/json',
-                'Cookie': 'NID=525=nsWVvbAon67C2qpyiEHQA3SUio_GqBd7RqUFU6BwB97_4LHggZxLpDgSheJ7WN4w3Z4dCQBiFPG9YKAqZgAokFYCuuQw04dkm-FX9-XHAIBIqJf1645n3RZrg86GcUVJOf3gN-5eTHXFIaovTmgRC6cXllv82SnQuKsGMq7CHH60XDSwyC99s9P2gmyXLppI'
+                'Content-Type': 'application/json'
             }
         });
-        
-        console.log(`使用 ${useLinkCalendar ? 'link_calender' : '直接資料庫'} 資料來源獲取講師 ${teacher} 的課程`);
         res.json(response.data);
     } catch (error) {
         console.error('獲取講師課程錯誤:', error);

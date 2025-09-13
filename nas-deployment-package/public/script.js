@@ -253,18 +253,12 @@ async function loadTeacherCourses() {
     showCourseLoading();
     
     try {
-        // 檢查是否使用 link_calender 資料來源
-        const useLinkCalendar = typeof window !== 'undefined' && window.useLinkCalendar || false;
-        
         const response = await fetch('/api/teacher-courses', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ 
-                teacher: selectedTeacher,
-                useLinkCalendar: useLinkCalendar
-            })
+            body: JSON.stringify({ teacher: selectedTeacher })
         });
         
         const data = await response.json();
