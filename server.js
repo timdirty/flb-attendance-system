@@ -1143,10 +1143,30 @@ app.get('/step3', async (req, res) => {
         }
         
         // 獲取學生列表
-        const studentsResponse = await axios.post(FLB_API_URL, {
+        console.log(`📤 調用 getRosterAttendance API:`, {
+            course: course,
+            time: time,
+            action: 'getRosterAttendance'
+        });
+        
+        const studentsResponse = await axios.post('https://script.google.com/macros/s/AKfycbzm0GD-T09Botbs52e8PyeVuA5slJh6Z0AQ7I0uUiGZiE6aWhTO2D0d3XHFrdLNv90uCw/exec', {
             action: 'getRosterAttendance',
             course: course,
-            time: time
+            period: time
+        }, {
+            timeout: 30000,
+            headers: {
+                'Content-Type': 'application/json',
+                'Cookie': 'NID=525=nsWVvbAon67C2qpyiEHQA3SUio_GqBd7RqUFU6BwB97_4LHggZxLpDgSheJ7WN4w3Z4dCQBiFPG9YKAqZgAokFYCuuQw04dkm-FX9-XHAIBIqJf1645n3RZrg86GcUVJOf3gN-5eTHXFIaovTmgRC6cXllv82SnQuKsGMq7CHH60XDSwyC99s9P2gmyXLppI'
+            }
+        });
+        
+        console.log(`📥 getRosterAttendance API 回應:`, {
+            success: studentsResponse.data.success,
+            course: studentsResponse.data.course,
+            period: studentsResponse.data.period,
+            count: studentsResponse.data.count,
+            studentsCount: studentsResponse.data.students ? studentsResponse.data.students.length : 0
         });
         
         let students = [];
