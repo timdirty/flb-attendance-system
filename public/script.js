@@ -5,6 +5,7 @@ let selectedCourse = '';
 let selectedCourseTime = '';
 let selectedCourseNote = ''; // 選中課程的備註
 let isAssistantMode = false; // 助教模式狀態
+let selectedAttendanceCount = null; // 選擇的出席人數（2 或 30）
 let webApi = ''; // 講師的 Web API 連結
 let isTeacherMakeupAssistantMode = false; // 講師補簽到助教模式狀態
 let teachers = []; // 講師列表
@@ -25,11 +26,44 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeModeDisplay(); // 初始化模式顯示
     initializeDateTime(); // 初始化日期時間顯示
     
+    // 監聽補簽到日期變更
+    const teacherMakeupDateInput = document.getElementById('teacher-makeup-date');
+    if (teacherMakeupDateInput) {
+        teacherMakeupDateInput.addEventListener('change', function() {
+            // 如果已經選擇了課程，重新載入學生資料
+            if (selectedMakeupCourse) {
+                loadMakeupStudentAttendance(
+                    selectedMakeupCourse.course, 
+                    selectedMakeupCourse.time, 
+                    this.value
+                );
+            }
+        });
+    }
+    
     // 初始化補簽到功能
     initializeMakeupAttendance();
     
     // 初始化講師補簽到功能
     initializeTeacherMakeupAttendance();
+    
+    // 初始化輸入框自動縮放功能
+    setupInputAutoResize();
+    
+    // 添加全局點擊事件監聽器，點擊非輸入框區域時縮放回正常大小
+    document.addEventListener('click', function(e) {
+        // 如果點擊的不是輸入框
+        if (!e.target.matches('input[type="text"], input[type="number"], textarea')) {
+            // 延遲執行，確保其他事件先處理
+            setTimeout(() => {
+                // 檢查是否有輸入框處於焦點狀態
+                const activeElement = document.activeElement;
+                if (!activeElement || !activeElement.matches('input[type="text"], input[type="number"], textarea')) {
+                    forceZoomToNormal();
+                }
+            }, 100);
+        }
+    });
 });
 
 // 載入講師列表
@@ -44,6 +78,9 @@ async function loadTeachers() {
             teachers = data.teachers;
             displayTeachers();
             showToast('講師列表載入成功！', 'success');
+            
+            // 講師載入完成後滾動到講師選擇區域
+            scrollToMainContent();
         } else if (data.error) {
             showError(`載入講師列表失敗：${data.error}`);
             console.error('講師列表 API 錯誤:', data);
@@ -162,7 +199,7 @@ function displayTeachers() {
         teacherCard.className = 'teacher-card';
         
         // 單擊選擇講師
-        teacherCard.onclick = () => selectTeacher(teacher.name, teacher.webApi);
+        teacherCard.onclick = (event) => selectTeacher(teacher.name, teacher.webApi, event);
         
         // 雙擊直接進入下一步
         let clickCount = 0;
@@ -202,7 +239,7 @@ function displayTeachers() {
 }
 
 // 選擇講師
-function selectTeacher(teacherName, teacherWebApi) {
+function selectTeacher(teacherName, teacherWebApi, event) {
     selectedTeacher = teacherName;
     webApi = teacherWebApi || ''; // 儲存講師的 Web API 連結
     
@@ -212,7 +249,9 @@ function selectTeacher(teacherName, teacherWebApi) {
     });
     
     // 標記選中的講師
-    event.target.closest('.teacher-card').classList.add('selected');
+    if (event && event.target) {
+        event.target.closest('.teacher-card').classList.add('selected');
+    }
     
     // 更新顯示的講師名稱
     const selectedTeacherNameElement = document.getElementById('selected-teacher-name');
@@ -253,24 +292,26 @@ async function loadTeacherCourses() {
     showCourseLoading();
     
     try {
-        // 檢查是否使用 link_calender 資料來源
-        const useLinkCalendar = typeof window !== 'undefined' && window.useLinkCalendar || false;
+        // 根據當前網址決定使用哪個 API
+        const isLinkCalendar = window.location.pathname.includes('/link_calender');
+        const apiEndpoint = isLinkCalendar ? '/api/teacher-courses-link' : '/api/teacher-courses';
         
-        const response = await fetch('/api/teacher-courses', {
+        console.log(`使用 API 端點: ${apiEndpoint} (Link Calendar: ${isLinkCalendar})`);
+        
+        const response = await fetch(apiEndpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ 
-                teacher: selectedTeacher,
-                useLinkCalendar: useLinkCalendar
-            })
+            body: JSON.stringify({ teacher: selectedTeacher })
         });
         
         const data = await response.json();
         
         if (data.success && data.courseTimes) {
             displayCourses(data.courseTimes);
+            // 課程載入完成後滾動到課程選擇區域
+            scrollToMainContent();
         } else {
             showError('無法載入課程列表');
         }
@@ -414,6 +455,235 @@ function sortCoursesByTime(courses) {
     });
 }
 
+// 檢測課程狀態
+function detectCourseStatus(note) {
+    if (!note) return { status: 'normal', type: null };
+    
+    const noteLower = note.toLowerCase();
+    
+    // 停課關鍵字
+    const cancelledKeywords = ['請假', '停課', '取消', '暫停', '休息', '放假'];
+    for (const keyword of cancelledKeywords) {
+        if (noteLower.includes(keyword.toLowerCase())) {
+            return { status: 'cancelled', type: 'cancelled' };
+        }
+    }
+    
+    // 代課關鍵字
+    const substituteKeywords = ['代', '代課'];
+    for (const keyword of substituteKeywords) {
+        if (noteLower.includes(keyword.toLowerCase())) {
+            return { status: 'substitute', type: 'substitute' };
+        }
+    }
+    
+    // 體驗關鍵字
+    const experienceKeywords = ['體驗', '體'];
+    for (const keyword of experienceKeywords) {
+        if (noteLower.includes(keyword.toLowerCase())) {
+            return { status: 'experience', type: 'experience' };
+        }
+    }
+    
+    return { status: 'normal', type: null };
+}
+
+// 設置輸入框自動縮放功能
+function setupInputAutoResize() {
+    console.log('🔧 設置輸入框自動縮放功能');
+    
+    // 為現有的輸入框設置自動縮放
+    applyAutoResizeToInputs();
+    
+    // 使用 MutationObserver 監聽新添加的輸入框
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'childList') {
+                mutation.addedNodes.forEach(function(node) {
+                    if (node.nodeType === 1) { // Element node
+                        // 檢查新添加的節點是否包含輸入框
+                        const newInputs = node.querySelectorAll ? 
+                            node.querySelectorAll('input[type="text"], input[type="number"], textarea') : [];
+                        
+                        // 如果節點本身就是輸入框
+                        if (node.matches && node.matches('input[type="text"], input[type="number"], textarea')) {
+                            applyAutoResizeToInput(node);
+                        }
+                        
+                        // 為新添加的輸入框設置自動縮放
+                        newInputs.forEach(applyAutoResizeToInput);
+                    }
+                });
+            }
+        });
+    });
+    
+    // 開始觀察整個文檔的變化
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+    
+    console.log('✅ 輸入框自動縮放功能已設置，包括動態創建的輸入框');
+}
+
+// 為單個輸入框應用自動縮放功能
+function applyAutoResizeToInput(input) {
+    if (!input || input.hasAttribute('data-auto-resize-applied')) return;
+    
+    // 標記已應用自動縮放功能
+    input.setAttribute('data-auto-resize-applied', 'true');
+    
+    // 添加焦點事件監聽器 - 允許瀏覽器縮放
+    input.addEventListener('focus', function() {
+        console.log('📝 輸入框獲得焦點:', this.id || this.placeholder);
+        
+        // 允許瀏覽器正常縮放，不干預
+        const viewport = document.querySelector('meta[name="viewport"]');
+        if (viewport) {
+            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes');
+        }
+        
+        // 添加視覺反饋
+        this.style.borderColor = '#007bff';
+        this.style.boxShadow = '0 0 0 2px rgba(0, 123, 255, 0.25)';
+        this.style.zIndex = '10';
+    });
+    
+    // 添加失焦事件監聽器 - 自動縮放回正常大小
+    input.addEventListener('blur', function() {
+        console.log('📝 輸入框失去焦點:', this.id || this.placeholder);
+        
+        // 立即恢復視覺樣式
+        this.style.borderColor = '#ddd';
+        this.style.boxShadow = 'none';
+        this.style.zIndex = '1';
+        
+        // 延遲執行縮放回正常大小，確保輸入完成
+        setTimeout(() => {
+            console.log('🔄 開始執行縮放和滾動流程');
+            forceZoomToNormal();
+        }, 300); // 增加延遲確保輸入完全完成
+    });
+    
+    // 添加輸入完成事件監聽器（按Enter鍵）
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            console.log('📝 輸入框按Enter完成輸入:', this.id || this.placeholder);
+            
+            // 立即恢復視覺樣式
+            this.style.borderColor = '#ddd';
+            this.style.boxShadow = 'none';
+            this.style.zIndex = '1';
+            this.blur(); // 移除焦點
+            
+            // 延遲執行縮放回正常大小
+            setTimeout(() => {
+                console.log('🔄 開始執行縮放和滾動流程（Enter鍵）');
+                forceZoomToNormal();
+            }, 200); // 適中的延遲
+        }
+    });
+    
+    // 為textarea添加自動高度調整
+    if (input.tagName === 'TEXTAREA') {
+        input.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = this.scrollHeight + 'px';
+        });
+    }
+}
+
+// 為所有現有輸入框應用自動縮放功能
+function applyAutoResizeToInputs() {
+    const inputs = document.querySelectorAll('input[type="text"], input[type="number"], textarea');
+    inputs.forEach(applyAutoResizeToInput);
+    console.log(`✅ 已為 ${inputs.length} 個現有輸入框設置自動縮放功能`);
+}
+
+// 強制縮放回正常大小的函數
+function forceZoomToNormal() {
+    console.log('🔍 強制縮放回正常大小');
+    
+    // 先執行縮放操作
+    console.log('📱 執行縮放回正常大小操作');
+    
+    // 方法1: 重置viewport meta標籤
+    const viewport = document.querySelector('meta[name="viewport"]');
+    if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+    }
+    
+    // 方法2: 使用傳統方法
+    document.body.style.zoom = '1';
+    document.documentElement.style.zoom = '1';
+    
+    // 方法3: 強制重新計算佈局
+    document.body.style.transform = 'scale(1)';
+    document.body.style.transformOrigin = 'top left';
+    
+    // 方法4: 使用 Visual Viewport API
+    if (window.visualViewport) {
+        const viewport = window.visualViewport;
+        console.log('📱 當前縮放比例:', viewport.scale);
+        
+        // 強制縮放回1
+        if (viewport.scale !== 1) {
+            console.log('📱 強制縮放回正常大小，從', viewport.scale, '到 1');
+        }
+    }
+    
+    // 等待縮放完成後再滾動
+    setTimeout(() => {
+        console.log('⏳ 縮放完成，準備滾動到講師報表');
+        scrollToTeacherReportAfterZoom();
+    }, 300); // 增加延遲時間確保縮放完成
+    
+    console.log('✅ 縮放回正常大小完成');
+}
+
+// 縮放後滾動到講師報表標題
+function scrollToTeacherReportAfterZoom() {
+    console.log('📍 縮放後滾動到講師報表標題');
+    
+    // 直接執行滾動，因為縮放已經在外部完成
+    setTimeout(() => {
+        // 查找講師報表標題
+        const teacherSection = document.querySelector('.teacher-section');
+        if (teacherSection) {
+            const reportTitle = teacherSection.querySelector('h3');
+            if (reportTitle) {
+                const targetPosition = reportTitle.offsetTop;
+                window.scrollTo({ 
+                    top: Math.max(0, targetPosition), 
+                    behavior: 'smooth' 
+                });
+                console.log('📍 已滾動到講師報表標題:', {
+                    reportTitle: reportTitle,
+                    targetPosition: targetPosition,
+                    currentScroll: window.scrollY,
+                    titleText: reportTitle.textContent
+                });
+            } else {
+                // 如果找不到標題，滾動到講師報表區域
+                const targetPosition = teacherSection.offsetTop;
+                window.scrollTo({ 
+                    top: Math.max(0, targetPosition), 
+                    behavior: 'smooth' 
+                });
+                console.log('📍 已滾動到講師報表區域:', {
+                    teacherSection: teacherSection,
+                    targetPosition: targetPosition,
+                    currentScroll: window.scrollY
+                });
+            }
+        } else {
+            console.warn('⚠️ 找不到講師報表區域，滾動到頁面頂部');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, 50); // 減少延遲，因為縮放已經完成
+}
+
 // 顯示課程列表
 function displayCourses(courses) {
     const coursesContainer = document.getElementById('course-grid');
@@ -448,23 +718,41 @@ function displayCourses(courses) {
         const courseCard = document.createElement('div');
         courseCard.className = 'course-card';
         
+        // 檢測課程狀態
+        const courseStatus = detectCourseStatus(course.note);
+        
+        // 根據狀態添加相應的CSS類
+        if (courseStatus.status === 'cancelled') {
+            courseCard.classList.add('course-cancelled');
+        } else if (courseStatus.status === 'substitute') {
+            courseCard.classList.add('course-substitute');
+        } else if (courseStatus.status === 'experience') {
+            courseCard.classList.add('course-experience');
+        }
+        
         // 點擊處理：單擊選擇課程，雙擊快速進入下一步
         let clickCount = 0;
         let clickTimer = null;
         
         courseCard.onclick = () => {
+            // 如果是停課課程，禁用點擊
+            if (courseStatus.status === 'cancelled') {
+                showToast('此課程已停課，無法選擇', 'warning');
+                return;
+            }
+            
             clickCount++;
             
             if (clickCount === 1) {
                 // 單擊：選擇課程
                 clickTimer = setTimeout(() => {
-                    selectCourse(course.course, course.time, course.note || '');
+                    selectCourse(course.course, course.time, course.note || '', event);
                     clickCount = 0;
                 }, 200);
             } else if (clickCount === 2) {
                 // 雙擊：選擇課程並進入下一步
                 clearTimeout(clickTimer);
-                selectCourse(course.course, course.time, course.note || '');
+                selectCourse(course.course, course.time, course.note || '', event);
                 clickCount = 0;
                 
                 // 延遲一下確保課程選擇完成，然後自動進入下一步
@@ -490,6 +778,16 @@ function displayCourses(courses) {
             timeClass += ' time-later';
         }
         
+        // 生成狀態標記
+        let statusMark = '';
+        if (courseStatus.status === 'cancelled') {
+            statusMark = '<div class="course-status-badge course-status-cancelled"><i class="fas fa-ban"></i> 停課</div>';
+        } else if (courseStatus.status === 'substitute') {
+            statusMark = '<div class="course-status-badge course-status-substitute"><i class="fas fa-user-clock"></i> 代課</div>';
+        } else if (courseStatus.status === 'experience') {
+            statusMark = '<div class="course-status-badge course-status-experience"><i class="fas fa-star"></i> 體驗</div>';
+        }
+        
         courseCard.innerHTML = `
             <div class="course-header">
                 <h3>${course.course}${course.note ? `<span class="course-note-inline"><i class="fas fa-sticky-note"></i> ${course.note}</span>` : ''}</h3>
@@ -497,6 +795,7 @@ function displayCourses(courses) {
             </div>
             <div class="course-time">${course.time}</div>
             <div class="course-students">學生: ${course.students || '無'}</div>
+            ${statusMark}
         `;
         
         coursesContainer.appendChild(courseCard);
@@ -507,14 +806,16 @@ function displayCourses(courses) {
 }
 
 // 選擇課程
-function selectCourse(course, time, note = '') {
+function selectCourse(course, time, note = '', event) {
     // 移除之前的選擇
     document.querySelectorAll('.course-card').forEach(card => {
         card.classList.remove('selected');
     });
     
     // 標記當前選擇
-    event.target.closest('.course-card').classList.add('selected');
+    if (event && event.target) {
+        event.target.closest('.course-card').classList.add('selected');
+    }
     
     selectedCourse = course;
     selectedCourseTime = time;
@@ -550,7 +851,10 @@ async function loadStudents() {
         
         if (data.success) {
             students = data.students || []; // 確保 students 是陣列
+            console.log('📊 從 API 獲取的學生資料:', data);
+            console.log('👥 學生列表:', students);
             displayStudents(students);
+            // 取消載入學生後的滾動機制
         } else {
             showError('無法載入學生列表');
         }
@@ -638,6 +942,23 @@ function displayStudents(studentList) {
         if (step3Title) {
             step3Title.style.display = 'none';
         }
+        
+        // 將講師報表區域移動到課程資訊上方
+        moveTeacherReportAboveCourseInfo();
+        
+        // 如果是講師模式且沒有學生，顯示人數選擇區域
+        if (!isAssistantMode) {
+            toggleAttendanceCountSection(true);
+            // 重置人數選擇
+            selectedAttendanceCount = null;
+            updateCountDisplay();
+        } else {
+            toggleAttendanceCountSection(false);
+        }
+        
+        // 沒有學生時，滾動到講師報表區域（現在在最上方）
+        scrollToTeacherReport();
+        
         return;
     }
     
@@ -657,25 +978,67 @@ function displayStudents(studentList) {
         step3Title.style.display = 'block';
     }
     
+    // 隱藏人數選擇區域（因為有學生資料）
+    toggleAttendanceCountSection(false);
+    
+    // 恢復講師報表區域的正常位置（在課程資訊下方）
+    restoreTeacherReportPosition();
+    
     // 重置學生簽到狀態
     studentAttendanceStatus = {};
     
     // 當重新進入學生簽到區塊時，重置通知狀態以允許重新發送
     onReenterAttendanceArea();
     
-    studentListElement.innerHTML = studentList.map(student => `
+    studentListElement.innerHTML = studentList.map(student => {
+        // 檢查學生是否有當天的簽到紀錄
+        const hasAttendanceToday = student.hasAttendanceToday;
+        let statusText, statusClass;
+        
+        if (hasAttendanceToday === true) {
+            // 已簽到且出席
+            statusText = '✅ 已簽到且出席';
+            statusClass = 'status-signed-in-present';
+        } else if (hasAttendanceToday === false) {
+            // 已簽到但缺席
+            statusText = '❌ 已簽到但缺席';
+            statusClass = 'status-signed-in-absent';
+        } else if (hasAttendanceToday === "leave") {
+            // 請假
+            statusText = '🏠 請假';
+            statusClass = 'status-leave';
+        } else {
+            // 未簽到
+            statusText = '⚠️ 未簽到';
+            statusClass = 'status-not-signed-in';
+        }
+        
+        console.log(`🎯 顯示學生 ${student.name}:`, {
+            hasAttendanceToday: hasAttendanceToday,
+            attendanceRecords: student.attendanceRecords,
+            todayAttendanceRecord: student.todayAttendanceRecord,
+            statusText: statusText
+        });
+        
+        return `
         <div class="student-item">
-            <div class="student-name">${student}</div>
+            <div class="student-info">
+                <div class="student-name">${student.name}</div>
+                <div class="attendance-status ${statusClass}">
+                    ${statusText}
+                </div>
+            </div>
             <div class="attendance-buttons">
-                <button class="btn-attendance btn-present" onclick="markAttendance('${student}', true)">
+                <button class="btn-attendance btn-present" onclick="markAttendance('${student.name}', true)">
                     <i class="fas fa-check"></i> 出席
                 </button>
-                <button class="btn-attendance btn-absent" onclick="markAttendance('${student}', false)">
+                <button class="btn-attendance btn-absent" onclick="markAttendance('${student.name}', false)">
                     <i class="fas fa-times"></i> 缺席
                 </button>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
     
     // 移除手動按鈕，使用全自動機制
     
@@ -725,17 +1088,22 @@ async function markAttendance(studentName, present) {
             
             // 更新按鈕狀態
             buttons.forEach(btn => {
-                btn.classList.remove('marked', 'loading');
+                btn.classList.remove('marked', 'loading', 'confirmed');
                 btn.disabled = false;
                 btn.innerHTML = btn.classList.contains('btn-present') ? 
                     '<i class="fas fa-check"></i> 出席' : 
                     '<i class="fas fa-times"></i> 缺席';
             });
             
-            clickedButton.classList.add('marked');
+            // 標記已點擊的按鈕為確認狀態
+            clickedButton.classList.add('marked', 'confirmed');
             clickedButton.disabled = true;
             
+            // 更新按鈕文字顯示確認狀態
             const statusText = present ? '出席' : '缺席';
+            const statusIcon = present ? 'fa-check-circle' : 'fa-times-circle';
+            clickedButton.innerHTML = `<i class="fas ${statusIcon}"></i> 已確認${statusText}`;
+            
             showToast(`✅ ${studentName} 已標記為 ${statusText}`);
             
             // 如果已經發送過通知，重置狀態以允許重新發送
@@ -857,6 +1225,296 @@ function goToStep(step) {
     
     currentStep = step;
     updateNavigation();
+    
+    // 滾動到主要內容區域
+    scrollToMainContent();
+}
+
+// 滾動到主要內容區域
+function scrollToMainContent() {
+    // 延遲一點時間確保 DOM 更新完成
+    setTimeout(() => {
+        const mainContent = document.querySelector('.step-content.active');
+        if (mainContent) {
+            // 如果是步驟3，先滾動到「學生簽到」標題
+            if (currentStep === 3) {
+                const stepTitle = mainContent.querySelector('h2');
+                if (stepTitle) {
+                    // 讓「學生簽到」標題切齊頂部
+                    const targetPosition = stepTitle.offsetTop;
+                    
+                    window.scrollTo({
+                        top: Math.max(0, targetPosition),
+                        behavior: 'smooth'
+                    });
+                    
+                    console.log('📍 滾動到學生簽到標題:', {
+                        stepTitle: stepTitle,
+                        targetPosition: targetPosition,
+                        currentScroll: window.scrollY,
+                        titleText: stepTitle.textContent
+                    });
+                    return;
+                }
+            }
+            
+            // 其他情況，滾動到步驟標題
+            const stepTitle = mainContent.querySelector('h2');
+            if (stepTitle) {
+                // 讓步驟標題切齊頂部
+                const targetPosition = stepTitle.offsetTop;
+                
+                // 平滑滾動
+                window.scrollTo({
+                    top: Math.max(0, targetPosition),
+                    behavior: 'smooth'
+                });
+                
+                console.log('📍 滾動到步驟標題:', {
+                    stepTitle: stepTitle,
+                    targetPosition: targetPosition,
+                    currentScroll: window.scrollY,
+                    titleText: stepTitle.textContent
+                });
+            } else {
+                // 如果找不到標題，使用原來的邏輯
+                const headerHeight = document.querySelector('.header')?.offsetHeight || 0;
+                const stepsHeight = document.querySelector('.steps')?.offsetHeight || 0;
+                const offset = headerHeight + stepsHeight + 30;
+                
+                const targetPosition = mainContent.offsetTop - offset;
+                
+                window.scrollTo({
+                    top: Math.max(0, targetPosition),
+                    behavior: 'smooth'
+                });
+            }
+        }
+    }, 300); // 增加延遲時間，確保DOM完全更新
+}
+
+// 滾動到講師報表區域
+function scrollToTeacherReport() {
+    // 延遲一點時間確保 DOM 更新完成
+    setTimeout(() => {
+        // 找到講師報表區域
+        const teacherSection = document.querySelector('.teacher-section');
+        if (teacherSection) {
+            // 找到講師報表標題（h3 元素）
+            const reportTitle = teacherSection.querySelector('h3');
+            if (reportTitle) {
+                // 讓講師報表標題切齊頂部
+                const targetPosition = reportTitle.offsetTop;
+                
+                // 平滑滾動
+                window.scrollTo({
+                    top: Math.max(0, targetPosition),
+                    behavior: 'smooth'
+                });
+                
+                console.log('📍 滾動到講師報表區域:', {
+                    reportTitle: reportTitle,
+                    targetPosition: targetPosition,
+                    currentScroll: window.scrollY,
+                    titleText: reportTitle.textContent
+                });
+            } else {
+                // 如果找不到標題，滾動到講師報表區域的頂部
+                const targetPosition = teacherSection.offsetTop;
+                
+                window.scrollTo({
+                    top: Math.max(0, targetPosition),
+                    behavior: 'smooth'
+                });
+                
+                console.log('📍 滾動到講師報表區域（無標題）:', {
+                    teacherSection: teacherSection,
+                    targetPosition: targetPosition,
+                    currentScroll: window.scrollY
+                });
+            }
+        } else {
+            console.warn('⚠️ 找不到講師報表區域，滾動到頁面頂部');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, 300); // 增加延遲時間，確保DOM完全更新
+}
+
+// 將講師報表區域移動到課程資訊上方（保持課程資訊在原位置）
+function moveTeacherReportAboveCourseInfo() {
+    const step3Content = document.getElementById('step3-content');
+    const courseInfo = step3Content.querySelector('.course-info');
+    const teacherSection = step3Content.querySelector('.teacher-section');
+    
+    if (courseInfo && teacherSection) {
+        try {
+            // 將講師報表區域移動到課程資訊之前（但課程資訊保持在原位置）
+            step3Content.insertBefore(teacherSection, courseInfo);
+            console.log('📍 講師報表區域已移動到課程資訊上方');
+        } catch (error) {
+            console.error('❌ 移動講師報表區域時發生錯誤:', error);
+            // 如果移動失敗，嘗試重新創建 DOM 結構
+            restoreTeacherReportPosition();
+        }
+    } else {
+        console.warn('⚠️ 找不到課程資訊或講師報表區域');
+    }
+}
+
+// 恢復講師報表區域的正常位置
+function restoreTeacherReportPosition() {
+    const step3Content = document.getElementById('step3-content');
+    const teacherSection = step3Content.querySelector('.teacher-section');
+    const makeupSection = step3Content.querySelector('.makeup-attendance-section');
+    
+    if (teacherSection && makeupSection) {
+        try {
+            // 檢查講師報表區域是否已經在正確位置
+            const makeupSectionIndex = Array.from(step3Content.children).indexOf(makeupSection);
+            const teacherSectionIndex = Array.from(step3Content.children).indexOf(teacherSection);
+            
+            // 如果講師報表區域不在補簽到區域之後，才進行移動
+            if (teacherSectionIndex <= makeupSectionIndex) {
+                // 將講師報表區域移動到補簽到區域之後
+                step3Content.insertBefore(teacherSection, makeupSection.nextSibling);
+                console.log('📍 講師報表區域已恢復到正常位置');
+            } else {
+                console.log('📍 講師報表區域已經在正確位置，無需移動');
+            }
+        } catch (error) {
+            console.error('❌ 恢復講師報表區域位置時發生錯誤:', error);
+        }
+    } else {
+        console.warn('⚠️ 找不到講師報表區域或補簽到區域');
+    }
+}
+
+// 顯示講師補簽到沒有學生時的人數選擇功能
+function showTeacherMakeupNoStudentsAttendance(courseName, courseTime, checkDate) {
+    const teacherMakeupCoursesDiv = document.getElementById('teacher-makeup-courses');
+    
+    // 移除舊的學生出勤狀態區域
+    const oldContent = teacherMakeupCoursesDiv.querySelector('.teacher-makeup-student-attendance');
+    if (oldContent) oldContent.remove();
+    
+    // 創建沒有學生時的出勤狀態區域
+    const attendanceDiv = document.createElement('div');
+    attendanceDiv.className = 'teacher-makeup-student-attendance';
+    
+    // 格式化日期顯示
+    const dateDisplay = checkDate ? formatDateForDisplay(checkDate) : '未知日期';
+    
+    // 創建沒有學生時的顯示內容
+    attendanceDiv.innerHTML = `
+        <div class="attendance-header">
+            <h4><i class="fas fa-users"></i> 課程沒有學生資料</h4>
+            <div class="check-date-info">
+                <i class="fas fa-calendar-alt"></i>
+                <span>檢查日期：${dateDisplay}</span>
+            </div>
+        </div>
+        <div class="teacher-makeup-no-students">
+            <div class="no-students-info">
+                <i class="fas fa-info-circle"></i>
+                <p>此課程在 ${dateDisplay} 沒有學生資料</p>
+                <p>請選擇實際出席人數進行補簽到</p>
+            </div>
+            
+            <!-- 人數選擇區域 -->
+            <div class="teacher-makeup-attendance-count-section">
+                <div class="count-header">
+                    <h5><i class="fas fa-user-friends"></i> 人數設定</h5>
+                    <p class="count-description">請選擇實際出席人數</p>
+                </div>
+                <div class="count-buttons">
+                    <button class="count-btn" id="teacher-makeup-count-2-btn" onclick="setTeacherMakeupAttendanceCount(2)">
+                        <i class="fas fa-users"></i>
+                        <span class="count-title">2人（含）以下</span>
+                        <span class="count-desc">小班教學</span>
+                    </button>
+                    <button class="count-btn" id="teacher-makeup-count-30-btn" onclick="setTeacherMakeupAttendanceCount(30)">
+                        <i class="fas fa-users"></i>
+                        <span class="count-title">3人（含）以上</span>
+                        <span class="count-desc">大班教學</span>
+                    </button>
+                </div>
+                <div class="current-count-display">
+                    <span class="count-label">選擇人數：</span>
+                    <span class="count-value" id="teacher-makeup-current-count-display">未選擇</span>
+                </div>
+            </div>
+            
+            <!-- 補簽到按鈕 -->
+            <div class="teacher-makeup-submit-section">
+                <button class="btn-primary btn-teacher-makeup-submit" onclick="submitTeacherMakeupWithCount('${courseName}', '${courseTime}', '${checkDate}')">
+                    <i class="fas fa-check-circle"></i> 講師補簽到
+                </button>
+            </div>
+        </div>
+    `;
+    
+    teacherMakeupCoursesDiv.appendChild(attendanceDiv);
+    
+    console.log('📍 顯示講師補簽到沒有學生時的人數選擇功能:', {
+        courseName: courseName,
+        courseTime: courseTime,
+        checkDate: checkDate
+    });
+}
+
+// 設定講師補簽到出席人數
+function setTeacherMakeupAttendanceCount(count) {
+    // 儲存到全域變數
+    window.selectedTeacherMakeupAttendanceCount = count;
+    
+    // 更新顯示
+    updateTeacherMakeupCountDisplay();
+    
+    showToast(`已選擇 ${count} 人（含）${count === 2 ? '以下' : '以上'}`, 'info');
+}
+
+// 更新講師補簽到人數顯示
+function updateTeacherMakeupCountDisplay() {
+    const count2Btn = document.getElementById('teacher-makeup-count-2-btn');
+    const count30Btn = document.getElementById('teacher-makeup-count-30-btn');
+    const countDisplay = document.getElementById('teacher-makeup-current-count-display');
+    
+    if (!count2Btn || !count30Btn || !countDisplay) return;
+    
+    // 重置所有按鈕狀態
+    count2Btn.classList.remove('active');
+    count30Btn.classList.remove('active');
+    
+    const selectedCount = window.selectedTeacherMakeupAttendanceCount;
+    if (selectedCount === 2) {
+        count2Btn.classList.add('active');
+        countDisplay.textContent = '2人（含）以下';
+    } else if (selectedCount === 30) {
+        count30Btn.classList.add('active');
+        countDisplay.textContent = '3人（含）以上';
+    } else {
+        countDisplay.textContent = '未選擇';
+    }
+}
+
+// 提交講師補簽到（帶人數）
+function submitTeacherMakeupWithCount(courseName, courseTime, checkDate) {
+    const selectedCount = window.selectedTeacherMakeupAttendanceCount;
+    
+    if (!selectedCount) {
+        showError('請先選擇實際出席人數');
+        return;
+    }
+    
+    // 這裡可以調用補簽到 API，傳入選擇的人數
+    console.log('提交講師補簽到:', {
+        course: courseName,
+        time: courseTime,
+        date: checkDate,
+        attendanceCount: selectedCount
+    });
+    
+    showToast(`講師補簽到提交成功！人數：${selectedCount}人`, 'success');
 }
 
 // 完成流程
@@ -952,6 +1610,16 @@ document.addEventListener('DOMContentLoaded', function() {
 function setTeacherMode() {
     isAssistantMode = false;
     updateModeDisplay();
+    
+    // 如果沒有學生資料，顯示人數選擇區域
+    if (students.length === 0) {
+        toggleAttendanceCountSection(true);
+        selectedAttendanceCount = null;
+        updateCountDisplay();
+    } else {
+        toggleAttendanceCountSection(false);
+    }
+    
     showToast('已切換到講師模式，人數將根據學生數量計算', 'info');
 }
 
@@ -959,6 +1627,10 @@ function setTeacherMode() {
 function setAssistantMode() {
     isAssistantMode = true;
     updateModeDisplay();
+    
+    // 助教模式隱藏人數選擇區域
+    toggleAttendanceCountSection(false);
+    
     showToast('已切換到助教模式，人數將自動設為 0', 'info');
 }
 
@@ -988,6 +1660,42 @@ function initializeModeDisplay() {
     updateModeDisplay();
 }
 
+// 設定出席人數
+function setAttendanceCount(count) {
+    selectedAttendanceCount = count;
+    updateCountDisplay();
+    showToast(`已選擇 ${count} 人（含）${count === 2 ? '以下' : '以上'}`, 'info');
+}
+
+// 更新人數顯示
+function updateCountDisplay() {
+    const count2Btn = document.getElementById('count-2-btn');
+    const count30Btn = document.getElementById('count-30-btn');
+    const countDisplay = document.getElementById('current-count-display');
+    
+    // 重置所有按鈕狀態
+    count2Btn.classList.remove('active');
+    count30Btn.classList.remove('active');
+    
+    if (selectedAttendanceCount === 2) {
+        count2Btn.classList.add('active');
+        countDisplay.textContent = '2人（含）以下';
+    } else if (selectedAttendanceCount === 30) {
+        count30Btn.classList.add('active');
+        countDisplay.textContent = '3人（含）以上';
+    } else {
+        countDisplay.textContent = '未選擇';
+    }
+}
+
+// 顯示或隱藏人數選擇區域
+function toggleAttendanceCountSection(show) {
+    const countSection = document.getElementById('attendance-count-section');
+    if (countSection) {
+        countSection.style.display = show ? 'block' : 'none';
+    }
+}
+
 // 提交講師報表
 async function submitTeacherReport() {
     const courseContent = document.getElementById('course-content').value.trim();
@@ -1000,6 +1708,12 @@ async function submitTeacherReport() {
     // 檢查是否有選擇講師
     if (!selectedTeacher) {
         showError('請先選擇講師');
+        return;
+    }
+    
+    // 檢查講師模式且沒有學生時是否選擇了人數
+    if (!isAssistantMode && students.length === 0 && selectedAttendanceCount === null) {
+        showError('請選擇實際出席人數（2人以下或3人以上）');
         return;
     }
     
@@ -1021,6 +1735,9 @@ async function submitTeacherReport() {
         // 講師模式：根據課程時間判斷人數
         if (selectedCourseTime.includes('到府') || selectedCourseTime.includes('客製化')) {
             studentCount = 99;
+        } else if (students.length === 0 && selectedAttendanceCount !== null) {
+            // 如果沒有學生資料但選擇了人數，使用選擇的人數
+            studentCount = selectedAttendanceCount;
         }
     }
     
@@ -1546,6 +2263,7 @@ async function loadMakeupCourses() {
     if (!makeupDateInput || !makeupCoursesDiv || !makeupCourseList) return;
     
     const selectedDate = makeupDateInput.value;
+    console.log(`📅 一般補簽到載入課程的日期: ${selectedDate}`);
     if (!selectedDate) {
         makeupCoursesDiv.style.display = 'none';
         return;
@@ -1565,8 +2283,14 @@ async function loadMakeupCourses() {
         makeupCourseList.innerHTML = '<div class="loading">載入課程中...</div>';
         makeupCoursesDiv.style.display = 'block';
         
+        // 根據當前網址決定使用哪個 API
+        const isLinkCalendar = window.location.pathname.includes('/link_calender');
+        const apiEndpoint = isLinkCalendar ? '/api/teacher-courses-link' : '/api/teacher-courses';
+        
+        console.log(`補簽到使用 API 端點: ${apiEndpoint} (Link Calendar: ${isLinkCalendar})`);
+        
         // 呼叫 API 獲取該日期的課程
-        const response = await fetch('/api/teacher-courses', {
+        const response = await fetch(apiEndpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1599,6 +2323,7 @@ async function loadTeacherMakeupCourses() {
     if (!teacherMakeupDateInput || !teacherMakeupCoursesDiv || !teacherMakeupCourseList) return;
     
     const selectedDate = teacherMakeupDateInput.value;
+    console.log(`📅 講師補簽到選擇的日期: ${selectedDate}`);
     if (!selectedDate) {
         teacherMakeupCoursesDiv.style.display = 'none';
         return;
@@ -1656,7 +2381,7 @@ function displayMakeupCourses(courses) {
                 <strong>學生：</strong>${course.students || '無學生資料'}
             </div>
             <div class="makeup-course-actions">
-                <button class="btn-secondary btn-select-course" onclick="selectMakeupCourse('${course.course}', '${course.time}', '${course.students || ''}')">
+                <button class="btn-secondary btn-select-course" onclick="selectMakeupCourse('${course.course}', '${course.time}', '${course.students || ''}', event)">
                     <i class="fas fa-check"></i> 選擇課程
                 </button>
             </div>
@@ -1679,45 +2404,259 @@ function displayTeacherMakeupCourses(courses) {
     
     teacherMakeupCourseList.innerHTML = courses.map(course => `
         <div class="teacher-makeup-course-item" data-course="${course.course}" data-time="${course.time}">
-            <div class="teacher-makeup-course-header">
-                <span class="teacher-makeup-course-name">${course.course}</span>
-                <span class="teacher-makeup-course-time">${course.time}</span>
-            </div>
-            <div class="teacher-makeup-course-info">
-                <div class="info-item">
-                    <strong>講師：</strong>${selectedTeacher}
+            <div class="teacher-makeup-course-header" onclick="toggleTeacherMakeupCourse(this)">
+                <div class="course-title">
+                    <span class="teacher-makeup-course-name">${course.course}</span>
+                    <span class="teacher-makeup-course-time">${course.time}</span>
                 </div>
-                <div class="info-item">
-                    <strong>日期：</strong>${course.date}
-                </div>
-                <div class="info-item">
-                    <strong>身份：</strong><span class="mode-badge ${modeClass}">${currentMode}</span>
-                </div>
-                <div class="info-item">
-                    <strong>課程名稱：</strong>${selectedCourseNote ? `${selectedCourse} ${selectedCourseNote}` : selectedCourse}
-                </div>
-                <div class="info-item">
-                    <strong>課程時段：</strong>${selectedCourseTime}
+                <div class="course-toggle">
+                    <i class="fas fa-chevron-down toggle-icon"></i>
                 </div>
             </div>
-            <div class="teacher-makeup-course-actions">
-                <button class="btn-primary btn-teacher-checkin ${isTeacherMakeupAssistantMode ? 'assistant-mode' : 'teacher-mode'}" onclick="submitTeacherCheckin('${course.course}', '${course.time}')">
-                    <i class="fas fa-check-circle"></i> ${isTeacherMakeupAssistantMode ? '助教補簽到' : '講師補簽到'}
-                </button>
+            <div class="teacher-makeup-course-content" style="display: none;">
+                <div class="teacher-makeup-course-info">
+                    <div class="info-item">
+                        <strong>講師：</strong>${selectedTeacher}
+                    </div>
+                    <div class="info-item">
+                        <strong>日期：</strong>${course.date}
+                    </div>
+                    <div class="info-item">
+                        <strong>身份：</strong><span class="mode-badge ${modeClass}">${currentMode}</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>課程名稱：</strong>${selectedCourseNote ? `${selectedCourse} ${selectedCourseNote}` : selectedCourse}
+                    </div>
+                    <div class="info-item">
+                        <strong>課程時段：</strong>${selectedCourseTime}
+                    </div>
+                </div>
+                <div class="teacher-makeup-course-actions">
+                    <button class="btn-secondary btn-load-students" onclick="loadTeacherMakeupStudents('${course.course}', '${course.time}', '${course.date}')">
+                        <i class="fas fa-users"></i> 載入學生簽到狀態
+                    </button>
+                    <button class="btn-primary btn-teacher-checkin ${isTeacherMakeupAssistantMode ? 'assistant-mode' : 'teacher-mode'}" onclick="submitTeacherCheckin('${course.course}', '${course.time}')">
+                        <i class="fas fa-check-circle"></i> ${isTeacherMakeupAssistantMode ? '助教補簽到' : '講師補簽到'}
+                    </button>
+                </div>
             </div>
         </div>
     `).join('');
 }
 
+// 切換講師補簽到課程展開/收折
+function toggleTeacherMakeupCourse(headerElement) {
+    const courseItem = headerElement.closest('.teacher-makeup-course-item');
+    const content = courseItem.querySelector('.teacher-makeup-course-content');
+    const toggleIcon = headerElement.querySelector('.toggle-icon');
+    
+    if (content.style.display === 'none') {
+        // 展開
+        content.style.display = 'block';
+        toggleIcon.classList.remove('fa-chevron-down');
+        toggleIcon.classList.add('fa-chevron-up');
+        courseItem.classList.add('expanded');
+    } else {
+        // 收折
+        content.style.display = 'none';
+        toggleIcon.classList.remove('fa-chevron-up');
+        toggleIcon.classList.add('fa-chevron-down');
+        courseItem.classList.remove('expanded');
+    }
+}
+
+// 載入講師補簽到學生簽到狀態
+async function loadTeacherMakeupStudents(courseName, courseTime, selectedDate) {
+    try {
+        console.log(`📤 載入講師補簽到學生簽到狀態:`, {
+            course: courseName,
+            time: courseTime,
+            date: selectedDate,
+            dateType: typeof selectedDate,
+            dateLength: selectedDate ? selectedDate.length : 0
+        });
+        
+        // 先清除舊的學生出勤狀態選擇內容
+        const makeupCoursesDiv = document.getElementById('makeup-courses');
+        const oldContent = makeupCoursesDiv.querySelector('.student-attendance-selection');
+        if (oldContent) {
+            console.log('🗑️ 講師補簽到載入前清除舊的學生出勤狀態選擇內容');
+            oldContent.remove();
+        }
+        
+        // 如果沒有傳入日期，嘗試從日期輸入框獲取
+        let actualDate = selectedDate;
+        if (!actualDate || actualDate === '') {
+            const teacherMakeupDateInput = document.getElementById('teacher-makeup-date');
+            actualDate = teacherMakeupDateInput ? teacherMakeupDateInput.value : null;
+            console.log(`📅 從輸入框獲取講師補簽到日期:`, {
+                inputElement: teacherMakeupDateInput,
+                inputValue: actualDate,
+                inputExists: !!teacherMakeupDateInput
+            });
+        }
+        
+        // 如果還是沒有日期，使用今天的日期
+        if (!actualDate || actualDate === '') {
+            console.warn('⚠️ 講師補簽到沒有選擇日期，使用今天的日期');
+            actualDate = new Date().toISOString().split('T')[0];
+        }
+        
+        // 顯示載入動畫
+        showMakeupLoadingAnimation();
+        
+        const response = await fetch('/api/course-students', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                course: courseName, 
+                time: courseTime,
+                date: actualDate // 傳遞實際的日期
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('📊 講師補簽到學生資料:', data);
+            
+            // 檢查是否有學生資料
+            if (data.students && data.students.length > 0) {
+                // 有學生時顯示學生簽到狀態
+                showTeacherMakeupStudentAttendance(data.students, actualDate);
+            } else {
+                // 沒有學生時顯示人數選擇功能
+                showTeacherMakeupNoStudentsAttendance(courseName, courseTime, actualDate);
+            }
+            
+            // 載入學生資料後，收折所有課程列表
+            const courseItems = document.querySelectorAll('.teacher-makeup-course-item');
+            courseItems.forEach(item => {
+                const content = item.querySelector('.teacher-makeup-course-content');
+                const toggleIcon = item.querySelector('.toggle-icon');
+                if (content && toggleIcon) {
+                    content.style.display = 'none';
+                    toggleIcon.classList.remove('fa-chevron-up');
+                    toggleIcon.classList.add('fa-chevron-down');
+                    item.classList.remove('expanded');
+                }
+            });
+        } else {
+            console.error('載入講師補簽到學生資料失敗:', data);
+            showToast('載入學生資料失敗', 'error');
+        }
+    } catch (error) {
+        console.error('載入講師補簽到學生簽到狀態錯誤:', error);
+        showToast('載入學生資料失敗：網路錯誤', 'error');
+    } finally {
+        // 隱藏載入動畫
+        hideMakeupLoadingAnimation();
+    }
+}
+
+// 顯示講師補簽到學生出勤狀態
+function showTeacherMakeupStudentAttendance(studentsData = null, checkDate = null) {
+    const teacherMakeupCoursesDiv = document.getElementById('teacher-makeup-courses');
+    
+    // 移除舊的學生出勤狀態區域
+    const oldContent = teacherMakeupCoursesDiv.querySelector('.teacher-makeup-student-attendance');
+    if (oldContent) oldContent.remove();
+    
+    // 創建學生出勤狀態區域
+    const attendanceDiv = document.createElement('div');
+    attendanceDiv.className = 'teacher-makeup-student-attendance';
+    
+    if (!studentsData || studentsData.length === 0) {
+        // 沒有學生時，不直接顯示，而是讓上層函數處理
+        return;
+    }
+    
+    // 格式化日期顯示
+    const dateDisplay = checkDate ? formatDateForDisplay(checkDate) : '未知日期';
+    
+    // 創建學生出勤狀態顯示
+    attendanceDiv.innerHTML = `
+        <div class="attendance-header">
+            <h4><i class="fas fa-users"></i> 學生簽到狀態</h4>
+            <div class="check-date-info">
+                <i class="fas fa-calendar-alt"></i>
+                <span>檢查日期：${dateDisplay}</span>
+            </div>
+        </div>
+        <div class="teacher-makeup-student-list">
+            ${studentsData.map(student => {
+                // 判斷學生簽到狀態
+                let statusText, statusClass;
+                if (student.hasAttendanceToday === true) {
+                    // 已簽到且出席
+                    statusText = '✅ 已簽到且出席';
+                    statusClass = 'status-signed-in-present';
+                } else if (student.hasAttendanceToday === false) {
+                    // 已簽到但缺席
+                    statusText = '❌ 已簽到但缺席';
+                    statusClass = 'status-signed-in-absent';
+                } else if (student.hasAttendanceToday === "leave") {
+                    // 請假
+                    statusText = '🏠 請假';
+                    statusClass = 'status-leave';
+                } else {
+                    // 未簽到
+                    statusText = '⚠️ 未簽到';
+                    statusClass = 'status-not-signed-in';
+                }
+                
+                return `
+                    <div class="teacher-makeup-student-item">
+                        <div class="student-info">
+                            <div class="student-name">${student.name}</div>
+                            <div class="attendance-status ${statusClass}">
+                                ${statusText}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+    
+    teacherMakeupCoursesDiv.appendChild(attendanceDiv);
+}
+
+// 格式化日期顯示
+function formatDateForDisplay(dateString) {
+    if (!dateString) return '未知日期';
+    
+    try {
+        const date = new Date(dateString);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+        const weekday = weekdays[date.getDay()];
+        
+        return `${year}年${month}月${day}日 (星期${weekday})`;
+    } catch (error) {
+        console.error('日期格式化錯誤:', error);
+        return dateString; // 如果格式化失敗，返回原始字串
+    }
+}
+
 // 選擇補簽到課程
-function selectMakeupCourse(courseName, courseTime, students) {
+async function selectMakeupCourse(courseName, courseTime, students, event) {
+    // 重置補簽到相關變數
+    resetMakeupAttendanceState();
+    
     // 清除之前的選擇
     document.querySelectorAll('.makeup-course-item').forEach(item => {
         item.classList.remove('selected');
     });
     
     // 標記選中的課程
-    event.target.closest('.makeup-course-item').classList.add('selected');
+    if (event && event.target) {
+        event.target.closest('.makeup-course-item').classList.add('selected');
+    }
     
     selectedMakeupCourse = {
         course: courseName,
@@ -1725,11 +2664,141 @@ function selectMakeupCourse(courseName, courseTime, students) {
         students: students
     };
     
-    // 顯示學生出勤狀態選擇
-    showStudentAttendanceSelection();
+    // 獲取選擇的日期（一般補簽到使用 makeup-date）
+    const makeupDateInput = document.getElementById('makeup-date');
+    let selectedDate = makeupDateInput ? makeupDateInput.value : null;
+    
+    console.log(`📅 一般補簽到選擇的日期:`, {
+        inputElement: makeupDateInput,
+        inputValue: selectedDate,
+        inputExists: !!makeupDateInput
+    });
+    
+    if (!selectedDate) {
+        console.warn('⚠️ 一般補簽到沒有選擇日期，使用今天的日期');
+        const today = new Date().toISOString().split('T')[0];
+        selectedDate = today;
+    }
+    
+    // 載入學生的簽到狀態
+    await loadMakeupStudentAttendance(courseName, courseTime, selectedDate);
 }
 
+// 重置補簽到相關變數
+function resetMakeupAttendanceState() {
+    console.log('🔄 重置補簽到相關變數');
+    selectedMakeupCourse = null;
+    
+    // 清除所有相關的 DOM 元素
+    const makeupCoursesDiv = document.getElementById('makeup-courses');
+    const oldContent = makeupCoursesDiv.querySelector('.student-attendance-selection');
+    if (oldContent) {
+        oldContent.remove();
+    }
+}
 
+// 載入補簽到學生的簽到狀態
+async function loadMakeupStudentAttendance(courseName, courseTime, selectedDate = null) {
+    try {
+        console.log(`📤 載入補簽到學生簽到狀態: ${courseName} - ${courseTime} - 日期: ${selectedDate}`);
+        
+        // 先清除舊的學生出勤狀態選擇內容
+        const makeupCoursesDiv = document.getElementById('makeup-courses');
+        const oldContent = makeupCoursesDiv.querySelector('.student-attendance-selection');
+        if (oldContent) {
+            console.log('🗑️ 載入前清除舊的學生出勤狀態選擇內容');
+            oldContent.remove();
+        }
+        
+        // 顯示載入動畫
+        showMakeupLoadingAnimation();
+        
+        const response = await fetch('/api/course-students', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                course: courseName, 
+                time: courseTime,
+                date: selectedDate // 傳遞選擇的日期
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('📊 補簽到學生資料:', data);
+            console.log('📊 準備調用 showStudentAttendanceSelection:', {
+                students: data.students,
+                selectedDate: selectedDate,
+                studentsLength: data.students ? data.students.length : 0
+            });
+            
+            // 詳細記錄每個學生的狀態
+            if (data.students && data.students.length > 0) {
+                data.students.forEach(student => {
+                    console.log(`🔍 補簽到學生 ${student.name} 狀態:`, {
+                        hasAttendanceToday: student.hasAttendanceToday,
+                        attendanceRecords: student.attendanceRecords,
+                        todayAttendanceRecord: student.todayAttendanceRecord
+                    });
+                });
+            }
+            
+            // 確保有學生資料才調用
+            if (data.students && data.students.length > 0) {
+                console.log('✅ 有學生資料，調用 showStudentAttendanceSelection');
+                showStudentAttendanceSelection(data.students, selectedDate);
+            } else {
+                console.warn('⚠️ 沒有學生資料，使用空陣列調用 showStudentAttendanceSelection');
+                showStudentAttendanceSelection([], selectedDate);
+            }
+        } else {
+            console.error('載入補簽到學生資料失敗:', data);
+            showToast(`載入學生資料失敗：${data.error || '未知錯誤'}`, 'error');
+            // 如果 API 失敗，使用原本的學生名單
+            showStudentAttendanceSelection([], selectedDate);
+        }
+    } catch (error) {
+        console.error('載入補簽到學生簽到狀態錯誤:', error);
+        // 如果發生錯誤，使用原本的學生名單
+        showStudentAttendanceSelection([], selectedDate);
+    } finally {
+        // 隱藏載入動畫
+        hideMakeupLoadingAnimation();
+    }
+}
+
+// 顯示補簽到載入動畫
+function showMakeupLoadingAnimation() {
+    const makeupCoursesDiv = document.getElementById('makeup-courses');
+    
+    // 移除舊的載入動畫
+    const oldLoading = makeupCoursesDiv.querySelector('.makeup-loading');
+    if (oldLoading) oldLoading.remove();
+    
+    // 創建載入動畫
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'makeup-loading';
+    loadingDiv.innerHTML = `
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">載入學生簽到狀態中...</div>
+        </div>
+    `;
+    
+    makeupCoursesDiv.appendChild(loadingDiv);
+}
+
+// 隱藏補簽到載入動畫
+function hideMakeupLoadingAnimation() {
+    const makeupCoursesDiv = document.getElementById('makeup-courses');
+    const loadingDiv = makeupCoursesDiv.querySelector('.makeup-loading');
+    if (loadingDiv) {
+        loadingDiv.remove();
+    }
+}
 
 // 提交講師補簽到
 async function submitTeacherCheckin(courseName, courseTime) {
@@ -1919,25 +2988,44 @@ async function submitTeacherCheckin(courseName, courseTime) {
 }
 
 // 顯示學生出勤狀態選擇
-function showStudentAttendanceSelection() {
+function showStudentAttendanceSelection(studentsData = null, checkDate = null) {
+    console.log('🎯 showStudentAttendanceSelection 被調用:', {
+        studentsData: studentsData,
+        checkDate: checkDate,
+        studentsDataLength: studentsData ? studentsData.length : 0
+    });
+    
     const makeupCoursesDiv = document.getElementById('makeup-courses');
     
-    // 移除舊的內容
+    // 強制移除舊的內容，確保完全清除
     const oldContent = makeupCoursesDiv.querySelector('.student-attendance-selection');
-    if (oldContent) oldContent.remove();
+    if (oldContent) {
+        console.log('🗑️ 移除舊的學生出勤狀態選擇內容');
+        oldContent.remove();
+    }
+    
+    // 清除所有相關的變數狀態
+    selectedMakeupCourse = null;
     
     // 創建學生出勤狀態選擇區域
     const attendanceSelection = document.createElement('div');
     attendanceSelection.className = 'student-attendance-selection';
     
-    if (!selectedMakeupCourse || !selectedMakeupCourse.students) {
-        attendanceSelection.innerHTML = '<div class="no-students">此課程沒有學生資料</div>';
-        makeupCoursesDiv.appendChild(attendanceSelection);
-        return;
-    }
+    console.log('🏗️ 創建學生出勤狀態選擇區域:', {
+        element: attendanceSelection,
+        className: attendanceSelection.className
+    });
     
-    // 解析學生資料
-    const studentList = selectedMakeupCourse.students.split(',').map(s => s.trim()).filter(s => s);
+    // 如果有 API 資料，使用 API 資料；否則使用原本的學生名單
+    let studentList = [];
+    if (studentsData && studentsData.length > 0) {
+        console.log('📊 使用 API 資料，學生數據:', studentsData);
+        studentList = studentsData;
+    } else if (selectedMakeupCourse && selectedMakeupCourse.students) {
+        console.log('📊 使用原本的學生資料');
+        // 解析原本的學生資料
+        studentList = selectedMakeupCourse.students.split(',').map(s => s.trim()).filter(s => s);
+    }
     
     if (studentList.length === 0) {
         attendanceSelection.innerHTML = '<div class="no-students">此課程沒有學生資料</div>';
@@ -1945,22 +3033,65 @@ function showStudentAttendanceSelection() {
         return;
     }
     
+    // 格式化日期顯示
+    const dateDisplay = checkDate ? formatDateForDisplay(checkDate) : '未知日期';
+    
     // 創建學生出勤狀態選擇表單
     attendanceSelection.innerHTML = `
-        <h4><i class="fas fa-users"></i> 選擇學生出勤狀態</h4>
+        <div class="attendance-header">
+            <h4><i class="fas fa-users"></i> 選擇學生出勤狀態</h4>
+            <div class="check-date-info">
+                <i class="fas fa-calendar-alt"></i>
+                <span>檢查日期：${dateDisplay}</span>
+            </div>
+        </div>
         <div class="student-attendance-list">
             ${studentList.map(student => {
-                const safeStudentName = student.replace(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/g, '_');
+                const studentName = student.name || student;
+                const safeStudentName = String(studentName).replace(/[^a-zA-Z0-9\u4e00-\u9fa5\s]/g, '_');
+                
+                console.log('🎯 處理學生:', {
+                    name: student.name || student,
+                    hasAttendanceToday: student.hasAttendanceToday,
+                    type: typeof student.hasAttendanceToday,
+                    student: student
+                });
+                
+                // 判斷學生簽到狀態
+                let statusText, statusClass;
+                if (student.hasAttendanceToday === true) {
+                    // 已簽到且出席
+                    statusText = '✅ 已簽到且出席';
+                    statusClass = 'status-signed-in-present';
+                } else if (student.hasAttendanceToday === false) {
+                    // 已簽到但缺席
+                    statusText = '❌ 已簽到但缺席';
+                    statusClass = 'status-signed-in-absent';
+                } else if (student.hasAttendanceToday === "leave") {
+                    // 請假
+                    statusText = '🏠 請假';
+                    statusClass = 'status-leave';
+                } else {
+                    // 未簽到
+                    statusText = '⚠️ 未簽到';
+                    statusClass = 'status-not-signed-in';
+                }
+                
                 return `
                     <div class="student-attendance-item">
-                        <div class="student-name">${student}</div>
+                        <div class="student-info">
+                            <div class="student-name">${student.name || student}</div>
+                            <div class="attendance-status ${statusClass}">
+                                ${statusText}
+                            </div>
+                        </div>
                         <div class="attendance-options">
                             <label class="attendance-option">
-                                <input type="radio" name="attendance_${safeStudentName}" value="present" checked onchange="updateAttendanceSelection(this, '${student}')">
+                                <input type="radio" name="attendance_${safeStudentName}" value="present" checked onchange="updateAttendanceSelection(this, '${student.name || student}')">
                                 <span class="attendance-label present">出席</span>
                             </label>
                             <label class="attendance-option">
-                                <input type="radio" name="attendance_${safeStudentName}" value="absent" onchange="updateAttendanceSelection(this, '${student}')">
+                                <input type="radio" name="attendance_${safeStudentName}" value="absent" onchange="updateAttendanceSelection(this, '${student.name || student}')">
                                 <span class="attendance-label absent">缺席</span>
                             </label>
                         </div>
@@ -1978,7 +3109,16 @@ function showStudentAttendanceSelection() {
         </div>
     `;
     
+    console.log('📝 學生出勤狀態選擇 HTML 內容已創建，準備添加到 DOM');
+    console.log('📝 HTML 內容長度:', attendanceSelection.innerHTML.length);
+    
     makeupCoursesDiv.appendChild(attendanceSelection);
+    
+    console.log('✅ 學生出勤狀態選擇已添加到 DOM:', {
+        parentElement: makeupCoursesDiv,
+        addedElement: attendanceSelection,
+        parentChildrenCount: makeupCoursesDiv.children.length
+    });
 }
 
 // 取消補簽到選擇

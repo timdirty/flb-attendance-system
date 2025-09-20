@@ -496,6 +496,79 @@ body {
     box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
 }
 
+/* 停課課程樣式 */
+.course-card.course-cancelled {
+    background: #f8f9fa;
+    border-color: #dc3545;
+    opacity: 0.7;
+    cursor: not-allowed;
+    position: relative;
+}
+
+.course-card.course-cancelled::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-left: 20px solid transparent;
+    border-top: 20px solid #dc3545;
+    z-index: 2;
+}
+
+.course-card.course-cancelled::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(220, 53, 69, 0.15);
+    border-radius: 16px;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.course-card.course-cancelled:hover {
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-color: #dc3545;
+    background: #f8f9fa;
+}
+
+.course-card.course-cancelled:hover::after {
+    background: rgba(220, 53, 69, 0.2);
+}
+
+.course-card.course-cancelled .course-status-badge {
+    z-index: 3;
+}
+
+/* 代課課程樣式 */
+.course-card.course-substitute {
+    background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+    border-color: #2196f3;
+    position: relative;
+}
+
+.course-card.course-substitute::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-left: 20px solid transparent;
+    border-top: 20px solid #2196f3;
+    z-index: 1;
+}
+
+.course-card.course-substitute::after {
+    content: '點兩下快速進入下一步';
+    background: rgba(33, 150, 243, 0.9);
+}
+
 /* 點兩下提示 */
 .course-card::after {
     content: '點兩下快速進入下一步';
@@ -526,6 +599,8 @@ body {
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 6px; /* 進一步減少間距 */
+    position: relative;
+    z-index: 2;
 }
 
 .course-header h3 {
@@ -598,6 +673,61 @@ body {
     margin-top: 6px; /* 進一步減少間距 */
     padding-top: 6px; /* 進一步減少間距 */
     border-top: 1px solid #e9ecef;
+    position: relative;
+    z-index: 2;
+}
+
+/* 課程狀態標記 */
+.course-status-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: white;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.course-status-cancelled {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+}
+
+.course-status-substitute {
+    background: linear-gradient(135deg, #2196f3, #1976d2);
+}
+
+.course-status-experience {
+    background: linear-gradient(135deg, #ffc107, #ff8f00);
+}
+
+/* 體驗課程樣式 */
+.course-card.course-experience {
+    background: linear-gradient(135deg, #fff8e1, #fff3c4);
+    border-color: #ffc107;
+    position: relative;
+}
+
+.course-card.course-experience::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-left: 20px solid transparent;
+    border-top: 20px solid #ffc107;
+    z-index: 2;
+}
+
+.course-card.course-experience::after {
+    content: '點兩下快速進入下一步';
+    background: rgba(255, 193, 7, 0.9);
 }
 
 .students-label {
@@ -660,15 +790,15 @@ body {
 .selected-teacher, .course-info {
     background: linear-gradient(135deg, #fff8dc, #faf0e6);
     border: 2px solid #FFD700;
-    border-radius: 12px;
-    padding: 8px 12px; /* 進一步減少 padding */
-    margin-bottom: 10px; /* 進一步減少 margin */
+    border-radius: 8px;
+    padding: 6px 10px; /* 進一步減少 padding */
+    margin-bottom: 8px; /* 進一步減少 margin */
     display: flex;
     justify-content: flex-start;
     align-items: center;
     flex-wrap: wrap;
-    gap: 6px; /* 進一步減少 gap */
-    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
+    gap: 4px; /* 進一步減少 gap */
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.2);
     position: relative;
     animation: selectedGlow 3s ease-in-out infinite alternate;
 }
@@ -685,15 +815,38 @@ body {
 .selected-teacher::before, .course-info::before {
     content: '✓ 已選擇';
     position: absolute;
-    top: -10px;
-    right: 15px; /* 移到右上角 */
+    top: -8px;
+    right: 12px; /* 移到右上角 */
     background: #FFD700;
     color: #1a1a1a;
-    padding: 4px 12px;
-    border-radius: 15px;
-    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
     font-weight: bold;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+/* 課程資訊內部元素樣式優化 */
+.course-info strong {
+    font-size: 0.85rem;
+    color: #666;
+    margin-right: 4px;
+}
+
+.course-info span {
+    font-size: 0.8rem;
+    color: #333;
+    line-height: 1.3;
+}
+
+.course-info br {
+    display: none; /* 隱藏換行，讓內容更緊湊 */
+}
+
+.course-info .btn-secondary {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    margin-left: auto;
 }
 
 
@@ -738,14 +891,79 @@ body {
     background: #e9ecef;
 }
 
+.student-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
 .student-name {
     font-weight: 500;
     color: #333;
+    font-size: 1rem;
+}
+
+.attendance-status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 12px;
+    text-align: center;
+    min-width: 80px;
+    justify-content: center;
+}
+
+.status-signed-in-present {
+    background-color: #d4edda;
+    color: #155724;
+    border: 2px solid #c3e6cb;
+}
+
+.status-signed-in-absent {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 2px solid #f5c6cb;
+}
+
+.status-not-signed-in {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 2px solid #ffeaa7;
+}
+
+.status-leave {
+    background-color: #e2e3e5;
+    color: #6c757d;
+    border: 2px solid #d1d3d4;
+}
+
+.attendance-status i {
+    font-size: 0.9rem;
 }
 
 .attendance-buttons {
     display: flex;
     gap: 8px;
+}
+
+/* 按鈕確認狀態樣式 */
+.btn-attendance.confirmed {
+    opacity: 0.8;
+    transform: scale(0.95);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.btn-attendance.confirmed.btn-present {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    border-color: #1e7e34;
+}
+
+.btn-attendance.confirmed.btn-absent {
+    background: linear-gradient(135deg, #dc3545, #e74c3c);
+    border-color: #bd2130;
 }
 
 /* 按鈕樣式 */
@@ -1859,6 +2077,236 @@ body {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+.student-attendance-item .student-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.student-attendance-item .student-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 1rem;
+}
+
+.student-attendance-item .attendance-status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 10px;
+    text-align: center;
+    min-width: 80px;
+    justify-content: center;
+}
+
+/* 補簽到載入動畫 */
+.makeup-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+    background: white;
+    border-radius: 8px;
+    margin: 20px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.loading-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.loading-text {
+    color: #666;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 講師補簽到學生列表樣式 */
+.teacher-makeup-student-attendance {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.teacher-makeup-student-attendance h4 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.teacher-makeup-student-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.teacher-makeup-student-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.teacher-makeup-student-item .student-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.teacher-makeup-student-item .student-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 1rem;
+}
+
+.teacher-makeup-student-item .attendance-status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 10px;
+    text-align: center;
+    min-width: 80px;
+    justify-content: center;
+}
+
+/* 講師補簽到課程收折樣式 */
+.teacher-makeup-course-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.teacher-makeup-course-header:hover {
+    background: #e9ecef;
+}
+
+.course-title {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.teacher-makeup-course-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 1.1rem;
+}
+
+.teacher-makeup-course-time {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.course-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #007bff;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.course-toggle:hover {
+    background: #0056b3;
+}
+
+.toggle-icon {
+    font-size: 12px;
+    transition: transform 0.3s ease;
+}
+
+.teacher-makeup-course-content {
+    padding: 20px;
+    background: white;
+    border: 1px solid #e9ecef;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+}
+
+.teacher-makeup-course-item.expanded .teacher-makeup-course-header {
+    border-radius: 8px 8px 0 0;
+}
+
+.teacher-makeup-course-item.expanded .course-toggle {
+    transform: rotate(180deg);
+}
+
+/* 日期顯示樣式 */
+.attendance-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.attendance-header h4 {
+    margin: 0;
+    color: #333;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.check-date-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #e3f2fd;
+    border: 1px solid #bbdefb;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    color: #1976d2;
+    font-weight: 500;
+}
+
+.check-date-info i {
+    font-size: 0.8rem;
+}
+
 .student-name {
     font-weight: 600;
     color: #333;
@@ -2313,6 +2761,177 @@ body {
 .mode-value.teacher {
     background: #007bff;
     color: white;
+}
+
+/* 人數選擇區域樣式 */
+.attendance-count-section {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    margin-top: 20px;
+    border: 2px solid #e9ecef;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
+.count-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.count-header h4 {
+    color: #333;
+    margin-bottom: 8px;
+    font-size: 1.2rem;
+}
+
+.count-description {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.count-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.count-btn {
+    background: white;
+    border: 3px solid #e9ecef;
+    border-radius: 12px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.count-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.count-btn.active {
+    border-width: 4px;
+    transform: scale(1.02);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+}
+
+.count-btn.active {
+    border-color: #ff6b35;
+    background: linear-gradient(135deg, #fff5f2, #ffe8e0);
+    box-shadow: 0 8px 25px rgba(255, 107, 53, 0.3);
+}
+
+.count-btn i {
+    font-size: 2rem;
+    color: #666;
+}
+
+.count-btn.active i {
+    color: #ff6b35;
+    transform: scale(1.1);
+}
+
+.count-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #333;
+}
+
+.count-desc {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.current-count-display {
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    border: 2px solid #e9ecef;
+}
+
+.count-label {
+    font-weight: 600;
+    color: #555;
+    margin-right: 8px;
+}
+
+.count-value {
+    font-weight: 700;
+    font-size: 1.1rem;
+    padding: 5px 15px;
+    border-radius: 20px;
+    background: #ff6b35;
+    color: white;
+}
+
+/* 講師補簽到沒有學生時的樣式 */
+.teacher-makeup-no-students {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 0;
+    border: 1px solid #e9ecef;
+}
+
+.no-students-info {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #e9ecef;
+    border-radius: 6px;
+    border-left: 4px solid #6c757d;
+}
+
+.no-students-info i {
+    font-size: 2rem;
+    color: #6c757d;
+    margin-bottom: 10px;
+}
+
+.no-students-info p {
+    margin: 5px 0;
+    color: #495057;
+    font-size: 0.95rem;
+}
+
+.teacher-makeup-attendance-count-section {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 15px;
+    border: 1px solid #e9ecef;
+}
+
+.teacher-makeup-attendance-count-section .count-header h5 {
+    color: #333;
+    margin-bottom: 8px;
+    font-size: 1.1rem;
+}
+
+.teacher-makeup-attendance-count-section .count-description {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.teacher-makeup-submit-section {
+    text-align: center;
+    padding: 20px;
+}
+
+.btn-teacher-makeup-submit {
+    padding: 12px 30px;
+    font-size: 1rem;
+    border-radius: 25px;
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
 }
 
 /* 導航按鈕區域樣式 */
@@ -3083,6 +3702,37 @@ select:disabled {
         font-size: clamp(0.6rem, 3.5vw, 0.75rem);
     }
     
+    /* 手機版課程資訊優化 */
+    .selected-teacher, .course-info {
+        padding: 4px 8px;
+        margin-bottom: 6px;
+        gap: 3px;
+        border-radius: 6px;
+    }
+    
+    .course-info strong {
+        font-size: 0.75rem;
+        margin-right: 3px;
+    }
+    
+    .course-info span {
+        font-size: 0.7rem;
+        line-height: 1.2;
+    }
+    
+    .course-info .btn-secondary {
+        font-size: 0.65rem;
+        padding: 3px 6px;
+    }
+    
+    .selected-teacher::before, .course-info::before {
+        top: -6px;
+        right: 8px;
+        padding: 2px 6px;
+        font-size: 10px;
+        border-radius: 10px;
+    }
+
     .teacher-grid {
         grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); /* 更緊湊 */
         gap: 12px; /* 保持足夠間距給提示文字 */
@@ -3289,157 +3939,23 @@ select:disabled {
     font-size: 11px;
 }
 
-/* 資料來源切換開關樣式 */
-.data-source-toggle {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    right: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 15px;
-    padding: 20px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    z-index: 1000;
-    max-width: 500px;
-    margin: 0 auto;
-}
-
-.toggle-content h4 {
-    color: white;
-    text-align: center;
-    margin-bottom: 15px;
-    font-size: 16px;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.toggle-switch-container {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin-bottom: 10px;
-}
-
-.toggle-switch {
+/* 輸入框樣式 */
+input[type="text"], input[type="number"], textarea {
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
     position: relative;
-    display: inline-block;
-    width: 60px;
-    height: 34px;
-    flex-shrink: 0;
+    z-index: 1;
+    font-size: 16px; /* 防止iOS自動縮放的最小字體大小 */
 }
 
-.toggle-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
+input[type="text"]:focus, input[type="number"]:focus, textarea:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    z-index: 10;
 }
 
-.slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #ccc;
-    transition: .4s;
-    border-radius: 34px;
-}
-
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 26px;
-    width: 26px;
-    left: 4px;
-    bottom: 4px;
-    background-color: white;
-    transition: .4s;
-    border-radius: 50%;
-}
-
-input:checked + .slider {
-    background-color: #2196F3;
-}
-
-input:checked + .slider:before {
-    transform: translateX(26px);
-}
-
-.toggle-labels {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    flex: 1;
-}
-
-.label-left,
-.label-right {
-    color: white;
-    font-size: 12px;
-    font-weight: 500;
-    opacity: 0.8;
-    transition: opacity 0.3s ease;
-}
-
-.label-left {
-    text-align: right;
-}
-
-.label-right {
-    text-align: left;
-}
-
-input:checked ~ .toggle-labels .label-left {
-    opacity: 0.5;
-}
-
-input:not(:checked) ~ .toggle-labels .label-right {
-    opacity: 0.5;
-}
-
-.toggle-description {
-    text-align: center;
-}
-
-.toggle-description small {
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 11px;
-    font-weight: 500;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 4px 8px;
-    border-radius: 4px;
-    display: inline-block;
-}
-
-/* 響應式設計 */
-@media (max-width: 768px) {
-    .data-source-toggle {
-        bottom: 10px;
-        left: 10px;
-        right: 10px;
-        padding: 15px;
-    }
-    
-    .toggle-switch-container {
-        flex-direction: column;
-        gap: 10px;
-    }
-    
-    .toggle-labels {
-        flex-direction: row;
-        justify-content: space-between;
-        width: 100%;
-    }
-    
-    .label-left,
-    .label-right {
-        font-size: 11px;
-        text-align: center;
-    }
+/* 為動態創建的輸入框確保樣式 */
+input[data-auto-resize-applied="true"] {
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    font-size: 16px;
 } 
