@@ -20,35 +20,33 @@ const testCases = [
             { teacher: 'ti', course: 'SPM', time: '日 1330-1500 松山', expected: 'Tim' }
         ]
     },
-    // 課程模糊比對測試
+    // 課程精確匹配測試
     {
-        category: '課程模糊比對',
+        category: '課程精確匹配',
         tests: [
-            { teacher: 'Tim', course: 'spm', time: '日 1330-1500 松山', expected: 'SPM' },
-            { teacher: 'Tim', course: 'SPM ', time: '日 1330-1500 松山', expected: 'SPM' },
-            { teacher: 'Tim', course: '  SPM  ', time: '日 1330-1500 松山', expected: 'SPM' },
-            { teacher: 'Tim', course: 's', time: '日 1330-1500 松山', expected: 'SPM' },
-            { teacher: 'Tim', course: 'sp', time: '日 1330-1500 松山', expected: 'SPM' }
+            { teacher: 'Tim', course: 'SPM', time: '日 1330-1500 松山', expected: 'success' },
+            { teacher: 'Tim', course: 'spm', time: '日 1330-1500 松山', expected: 'error' },
+            { teacher: 'Tim', course: 'SPM ', time: '日 1330-1500 松山', expected: 'error' },
+            { teacher: 'Tim', course: '  SPM  ', time: '日 1330-1500 松山', expected: 'error' }
         ]
     },
-    // 時間模糊比對測試
+    // 時間精確匹配測試
     {
-        category: '時間模糊比對',
+        category: '時間精確匹配',
         tests: [
-            { teacher: 'Tim', course: 'SPM', time: '日 1330-1500 松山 ', expected: '日 1330-1500 松山' },
-            { teacher: 'Tim', course: 'SPM', time: ' 日 1330-1500 松山', expected: '日 1330-1500 松山' },
-            { teacher: 'Tim', course: 'SPM', time: '日  1330-1500  松山', expected: '日 1330-1500 松山' },
-            { teacher: 'Tim', course: 'SPM', time: '日 1330-1500', expected: '日 1330-1500 松山' },
-            { teacher: 'Tim', course: 'SPM', time: '1330-1500 松山', expected: '日 1330-1500 松山' }
+            { teacher: 'Tim', course: 'SPM', time: '日 1330-1500 松山', expected: 'success' },
+            { teacher: 'Tim', course: 'SPM', time: '日 1330-1500 松山 ', expected: 'error' },
+            { teacher: 'Tim', course: 'SPM', time: ' 日 1330-1500 松山', expected: 'error' },
+            { teacher: 'Tim', course: 'SPM', time: '日  1330-1500  松山', expected: 'error' }
         ]
     },
-    // 綜合模糊比對測試
+    // 講師模糊比對 + 課程時間精確匹配測試
     {
-        category: '綜合模糊比對',
+        category: '講師模糊比對 + 課程時間精確匹配',
         tests: [
-            { teacher: 'tim', course: 'spm', time: '日 1330-1500 松山', expected: 'Tim, SPM, 日 1330-1500 松山' },
-            { teacher: 'TIM', course: 'SPM ', time: ' 日 1330-1500 松山', expected: 'Tim, SPM, 日 1330-1500 松山' },
-            { teacher: '  tim  ', course: '  spm  ', time: '  日 1330-1500 松山  ', expected: 'Tim, SPM, 日 1330-1500 松山' }
+            { teacher: 'tim', course: 'SPM', time: '日 1330-1500 松山', expected: 'Tim, SPM, 日 1330-1500 松山' },
+            { teacher: 'TIM', course: 'SPM', time: '日 1330-1500 松山', expected: 'Tim, SPM, 日 1330-1500 松山' },
+            { teacher: '  tim  ', course: 'SPM', time: '日 1330-1500 松山', expected: 'Tim, SPM, 日 1330-1500 松山' }
         ]
     },
     // 錯誤案例測試
@@ -123,8 +121,24 @@ async function testSingleCase(testCase, category) {
         // 判斷測試是否成功
         if (testCase.expected === 'error') {
             result.testPassed = result.isErrorPage;
+        } else if (testCase.expected === 'success') {
+            result.testPassed = result.success && !result.isErrorPage;
         } else {
+            // 檢查是否匹配到期望的講師、課程、時間
             result.testPassed = result.success && !result.isErrorPage && result.actualMatch;
+            
+            if (result.actualMatch && testCase.expected.includes(',')) {
+                const expectedParts = testCase.expected.split(',').map(p => p.trim());
+                const actualParts = [
+                    result.actualMatch.teacher,
+                    result.actualMatch.course,
+                    result.actualMatch.time
+                ];
+                
+                result.testPassed = expectedParts.every((expected, index) => 
+                    actualParts[index] && actualParts[index].includes(expected)
+                );
+            }
         }
         
         console.log(`   結果: ${result.testPassed ? '✅ 通過' : '❌ 失敗'}`);

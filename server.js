@@ -1239,40 +1239,14 @@ app.get('/step3', async (req, res) => {
             `);
         }
         
-        // 模糊匹配課程和時間
-        console.log(`🔍 開始模糊匹配課程: "${course}" 時間: "${time}"`);
+        // 精確匹配課程和時間
+        console.log(`🔍 開始精確匹配課程: "${course}" 時間: "${time}"`);
         
-        let bestCourseMatch = null;
-        let bestCourseSimilarity = 0;
+        const courseExists = coursesResponse.data.courseTimes.some(c => 
+            c.course === course && c.time === time
+        );
         
-        for (const c of coursesResponse.data.courseTimes) {
-            // 分別匹配課程名稱和時間
-            const courseMatch = fuzzyMatch(course, c.course, {
-                caseSensitive: false,
-                ignoreSpaces: true,
-                minSimilarity: 0.6
-            });
-            
-            const timeMatch = fuzzyMatch(time, c.time, {
-                caseSensitive: false,
-                ignoreSpaces: true,
-                minSimilarity: 0.6
-            });
-            
-            // 計算綜合相似度（課程和時間各佔50%）
-            const combinedSimilarity = (courseMatch.similarity + timeMatch.similarity) / 2;
-            
-            console.log(`  - 比對課程 "${c.course}" 時間 "${c.time}":`);
-            console.log(`    課程相似度: ${courseMatch.similarity.toFixed(3)}, 時間相似度: ${timeMatch.similarity.toFixed(3)}`);
-            console.log(`    綜合相似度: ${combinedSimilarity.toFixed(3)}`);
-            
-            if (combinedSimilarity > bestCourseSimilarity) {
-                bestCourseMatch = c;
-                bestCourseSimilarity = combinedSimilarity;
-            }
-        }
-        
-        if (!bestCourseMatch || bestCourseSimilarity < 0.6) {
+        if (!courseExists) {
             const availableCourses = coursesResponse.data.courseTimes.map(c => `${c.course} (${c.time})`).join(', ');
             return res.status(400).send(`
                 <!DOCTYPE html>
@@ -1289,7 +1263,7 @@ app.get('/step3', async (req, res) => {
                 </head>
                 <body>
                     <div class="error">
-                        <h2>❌ 找不到課程 "${course}" 時間 "${time}"</h2>
+                        <h2>❌ 課程 "${course}" 在時間 "${time}" 不存在</h2>
                         <div class="input-info">
                             <p><strong>您輸入的：</strong></p>
                             <p>講師：${actualTeacherName}</p>
@@ -1306,9 +1280,9 @@ app.get('/step3', async (req, res) => {
             `);
         }
         
-        const actualCourse = bestCourseMatch.course;
-        const actualTime = bestCourseMatch.time;
-        console.log(`✅ 找到最佳匹配課程: "${actualCourse}" 時間: "${actualTime}" (綜合相似度: ${bestCourseSimilarity.toFixed(3)})`);
+        const actualCourse = course;
+        const actualTime = time;
+        console.log(`✅ 找到精確匹配課程: "${actualCourse}" 時間: "${actualTime}"`);
         
         // 獲取學生列表
         console.log(`📤 調用 getRosterAttendance API:`, {
