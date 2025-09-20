@@ -15,6 +15,7 @@ let allReportResults = []; // 存儲所有查詢結果
 let filteredReportResults = []; // 存儲篩選後的結果
 let currentMonthFilter = null; // 當前選中的月份篩選
 let isSelectingCourse = false; // 是否正在選擇課程（避免觸發滾動）
+let hasStudentsInStep3 = false; // 第三步驟是否有學生（防止有學生時滾動到講師報表）
 
 // 補簽到功能
 let selectedMakeupCourse = null;
@@ -641,6 +642,12 @@ function forceZoomToNormal() {
     
     // 等待縮放完成後再滾動
     setTimeout(() => {
+        // 檢查是否在第三步驟且有學生，如果是則不滾動到講師報表
+        if (currentStep === 3 && hasStudentsInStep3) {
+            console.log('📍 第三步驟有學生，跳過滾動到講師報表');
+            return;
+        }
+        
         console.log('⏳ 縮放完成，準備滾動到講師報表');
         scrollToTeacherReportAfterZoom();
     }, 300); // 增加延遲時間確保縮放完成
@@ -984,6 +991,7 @@ function displayStudents(studentList) {
         
         // 沒有學生時，滾動到講師報表區域（現在在最上方）
         console.log('📍 步驟3學生API回應：沒有學生，滾動到講師報表區域');
+        hasStudentsInStep3 = false; // 設置為沒有學生
         scrollToTeacherReport();
         
         return;
@@ -994,6 +1002,8 @@ function displayStudents(studentList) {
         studentCount: studentList.length,
         students: studentList.map(s => s.name)
     });
+    
+    hasStudentsInStep3 = true; // 設置為有學生
     
     if (studentSection) {
         studentSection.style.display = 'block';
@@ -1258,6 +1268,12 @@ function goToStep(step) {
     currentStep = step;
     updateNavigation();
     
+    // 重置學生狀態標記（每次步驟切換時）
+    if (step === 3) {
+        hasStudentsInStep3 = false; // 重置為未載入狀態
+        console.log('📍 進入第三步驟，重置學生狀態標記');
+    }
+    
     // 滾動到主要內容區域
     scrollToMainContent();
 }
@@ -1305,6 +1321,12 @@ function scrollToMainContent() {
 
 // 滾動到講師報表區域
 function scrollToTeacherReport() {
+    // 檢查是否在第三步驟且有學生，如果是則不滾動
+    if (currentStep === 3 && hasStudentsInStep3) {
+        console.log('📍 第三步驟有學生，跳過滾動到講師報表');
+        return;
+    }
+    
     // 延遲一點時間確保 DOM 更新完成
     setTimeout(() => {
         // 找到講師報表區域
