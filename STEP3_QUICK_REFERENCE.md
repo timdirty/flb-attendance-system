@@ -1,140 +1,66 @@
-# 第三步驟 API 快速參考
+# 第三步驟直接訪問 API - 快速參考
 
-## 基礎 URL
+## 基本用法
+
+**API 端點：** `https://liff-sttendence-0908-production.up.railway.app/step3`
+
+**方法：** `GET`
+
+## 必要參數
+
+| 參數 | 說明 | 範例 |
+|------|------|------|
+| `teacher` | 講師姓名 | `Tim` |
+| `course` | 課程名稱 | `SPM` |
+| `time` | 課程時間 | `日 1330-1500 松山` |
+
+## 快速範例
+
+### 1. 直接連結
 ```
-https://liff-sttendence-0908-production.up.railway.app
-```
-
-## 主要 API 端點
-
-### 1. 獲取學生列表
-```http
-POST /api/course-students
-Content-Type: application/json
-
-{
-    "course": "SPM 南京復興教室",
-    "time": "日 1330-1500 松山",
-    "date": "2024-01-15"
-}
-```
-
-### 2. 學生簽到
-```http
-POST /api/student-attendance
-Content-Type: application/json
-
-{
-    "course": "SPM 南京復興教室",
-    "time": "日 1330-1500 松山",
-    "date": "2024-01-15",
-    "studentName": "張小明",
-    "status": "present"
-}
+https://liff-sttendence-0908-production.up.railway.app/step3?teacher=Tim&course=SPM&time=%E6%97%A5%201330-1500%20%E6%9D%BE%E5%B1%B1
 ```
 
-### 3. 講師簽到
-```http
-POST /api/teacher-report
-Content-Type: application/json
-
-{
-    "teacher": "Tim",
-    "course": "SPM 南京復興教室",
-    "time": "日 1330-1500 松山",
-    "date": "2024-01-15",
-    "courseContent": "基礎動作練習",
-    "studentCount": 15,
-    "attendanceCount": 12
-}
-```
-
-### 4. 直接跳轉
-```http
-POST /api/direct-step3
-Content-Type: application/json
-
-{
-    "teacher": "Tim",
-    "course": "SPM 南京復興教室",
-    "time": "日 1330-1500 松山"
-}
-```
-
-### 5. 直接頁面
-```http
-GET /step3?teacher=Tim&course=SPM%20南京復興教室&time=日%201330-1500%20松山
-```
-
-## 狀態值
-
-| 狀態 | 說明 | 回傳值 |
-|------|------|--------|
-| present | 出席 | `true` |
-| absent | 缺席 | `false` |
-| leave | 請假 | `"leave"` |
-| 無資料 | 未設定 | `null` |
-
-## JavaScript 快速實作
-
+### 2. JavaScript 跳轉
 ```javascript
-// 獲取學生列表
-const students = await fetch('/api/course-students', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        course: 'SPM 南京復興教室',
-        time: '日 1330-1500 松山',
-        date: '2024-01-15'
-    })
-}).then(r => r.json());
+const url = `https://liff-sttendence-0908-production.up.railway.app/step3?teacher=${encodeURIComponent('Tim')}&course=${encodeURIComponent('SPM')}&time=${encodeURIComponent('日 1330-1500 松山')}`;
+window.open(url, '_blank');
+```
 
-// 學生簽到
-await fetch('/api/student-attendance', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        course: 'SPM 南京復興教室',
-        time: '日 1330-1500 松山',
-        date: '2024-01-15',
-        studentName: '張小明',
-        status: 'present'
-    })
-});
+### 3. HTML 連結
+```html
+<a href="https://liff-sttendence-0908-production.up.railway.app/step3?teacher=Tim&course=SPM&time=%E6%97%A5%201330-1500%20%E6%9D%BE%E5%B1%B1" target="_blank">
+    開啟簽到頁面
+</a>
+```
 
-// 講師簽到
-await fetch('/api/teacher-report', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        teacher: 'Tim',
-        course: 'SPM 南京復興教室',
-        time: '日 1330-1500 松山',
-        date: '2024-01-15',
-        courseContent: '基礎動作練習',
-        studentCount: 15,
-        attendanceCount: 12
-    })
-});
+### 4. iframe 嵌入
+```html
+<iframe 
+    src="https://liff-sttendence-0908-production.up.railway.app/step3?teacher=Tim&course=SPM&time=%E6%97%A5%201330-1500%20%E6%9D%BE%E5%B1%B1"
+    width="100%" 
+    height="600px">
+</iframe>
 ```
 
 ## 錯誤處理
 
-```javascript
-try {
-    const response = await fetch('/api/course-students', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
-    
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const result = await response.json();
-    console.log('成功:', result);
-} catch (error) {
-    console.error('錯誤:', error);
-}
-```
+| 狀態碼 | 說明 | 解決方法 |
+|--------|------|----------|
+| 400 | 缺少參數 | 檢查是否提供所有必要參數 |
+| 400 | 講師不存在 | 檢查講師姓名是否正確 |
+| 400 | 課程不存在 | 檢查課程和時間組合 |
+| 500 | 伺服器錯誤 | 稍後再試 |
+
+## 注意事項
+
+1. **URL 編碼：** 時間參數需要進行 URL 編碼
+2. **模糊匹配：** 講師名稱支援模糊匹配
+3. **載入時間：** 頁面載入約需 2-5 秒
+4. **功能完整：** 包含學生簽到和講師簽到功能
+
+## 測試連結
+
+點擊以下連結測試 API：
+
+[測試連結](https://liff-sttendence-0908-production.up.railway.app/step3?teacher=Tim&course=SPM&time=%E6%97%A5%201330-1500%20%E6%9D%BE%E5%B1%B1)
