@@ -1239,24 +1239,18 @@ function scrollToMainContent() {
     setTimeout(() => {
         const mainContent = document.querySelector('.step-content.active');
         if (mainContent) {
-            // 如果是步驟3，先滾動到「學生簽到」標題
+            // 如果是步驟3，檢查是否有學生
             if (currentStep === 3) {
-                const stepTitle = mainContent.querySelector('h2');
-                if (stepTitle) {
-                    // 讓「學生簽到」標題切齊頂部
-                    const targetPosition = stepTitle.offsetTop;
-                    
-                    window.scrollTo({
-                        top: Math.max(0, targetPosition),
-                        behavior: 'smooth'
-                    });
-                    
-                    console.log('📍 滾動到學生簽到標題:', {
-                        stepTitle: stepTitle,
-                        targetPosition: targetPosition,
-                        currentScroll: window.scrollY,
-                        titleText: stepTitle.textContent
-                    });
+                const studentListElement = document.getElementById('student-list');
+                const hasStudents = studentListElement && studentListElement.children.length > 0;
+                
+                // 只有在沒有學生時才滾動到講師報表
+                if (!hasStudents) {
+                    console.log('📍 步驟3沒有學生，滾動到講師報表區域');
+                    scrollToTeacherReport();
+                    return;
+                } else {
+                    console.log('📍 步驟3有學生，不進行自動滾動');
                     return;
                 }
             }
