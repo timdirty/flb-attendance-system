@@ -1004,7 +1004,7 @@ app.post('/api/direct-step3', async (req, res) => {
         
         // 驗證講師是否存在
         const teachersResponse = await axios.post(FLB_API_URL, {
-            action: 'get_teachers'
+            action: 'getTeacherList'
         });
         
         if (!teachersResponse.data.success || !teachersResponse.data.teachers) {
@@ -1024,18 +1024,18 @@ app.post('/api/direct-step3', async (req, res) => {
         
         // 驗證課程是否存在
         const coursesResponse = await axios.post(FLB_API_URL, {
-            action: 'get_courses',
+            action: 'getCoursesByTeacher',
             teacher: teacher
         });
         
-        if (!coursesResponse.data.success || !coursesResponse.data.courses) {
+        if (!coursesResponse.data.success || !coursesResponse.data.courseTimes) {
             return res.status(400).json({
                 success: false,
                 error: '無法獲取課程列表'
             });
         }
         
-        const courseExists = coursesResponse.data.courses.some(c => 
+        const courseExists = coursesResponse.data.courseTimes.some(c => 
             c.course === course && c.time === time
         );
         
@@ -1048,7 +1048,7 @@ app.post('/api/direct-step3', async (req, res) => {
         
         // 獲取學生列表
         const studentsResponse = await axios.post(FLB_API_URL, {
-            action: 'get_course_students',
+            action: 'getRosterAttendance',
             course: course,
             time: time
         });
