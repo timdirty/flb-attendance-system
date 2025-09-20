@@ -960,12 +960,18 @@ function displayStudents(studentList) {
         }
         
         // 沒有學生時，滾動到講師報表區域（現在在最上方）
+        console.log('📍 步驟3學生API回應：沒有學生，滾動到講師報表區域');
         scrollToTeacherReport();
         
         return;
     }
     
     // 當有學生時，顯示學生名單區塊
+    console.log('📍 步驟3學生API回應：有學生，保持在學生列表區域', {
+        studentCount: studentList.length,
+        students: studentList.map(s => s.name)
+    });
+    
     if (studentSection) {
         studentSection.style.display = 'block';
     }
@@ -1239,57 +1245,11 @@ function scrollToMainContent() {
     setTimeout(() => {
         const mainContent = document.querySelector('.step-content.active');
         if (mainContent) {
-            // 如果是步驟3，先滾動到最上面載入學生
-            if (currentStep === 3) {
-                console.log('📍 步驟3：先滾動到最上面載入學生');
-                
-                // 先滾動到步驟標題（最上面）
-                const stepTitle = mainContent.querySelector('h2');
-                if (stepTitle) {
-                    const targetPosition = stepTitle.offsetTop;
-                    
-                    window.scrollTo({
-                        top: Math.max(0, targetPosition),
-                        behavior: 'smooth'
-                    });
-                    
-                    console.log('📍 滾動到步驟標題:', {
-                        stepTitle: stepTitle,
-                        targetPosition: targetPosition,
-                        currentScroll: window.scrollY,
-                        titleText: stepTitle.textContent
-                    });
-                }
-                
-                // 等待學生載入完成後，再檢查學生人數決定是否滾動到講師報表
-                setTimeout(() => {
-                    const studentListElement = document.getElementById('student-list');
-                    const hasStudents = studentListElement && studentListElement.children.length > 0;
-                    
-                    console.log('📍 步驟3學生載入完成，檢查學生人數:', {
-                        hasStudents: hasStudents,
-                        studentCount: studentListElement ? studentListElement.children.length : 0
-                    });
-                    
-                    // 只有在沒有學生時才滾動到講師報表
-                    if (!hasStudents) {
-                        console.log('📍 步驟3沒有學生，滾動到講師報表區域');
-                        scrollToTeacherReport();
-                    } else {
-                        console.log('📍 步驟3有學生，保持在學生列表區域');
-                    }
-                }, 1000); // 等待1秒讓學生載入完成
-                
-                return;
-            }
-            
-            // 其他步驟，滾動到步驟標題
+            // 一律滾動到步驟標題（頂部）
             const stepTitle = mainContent.querySelector('h2');
             if (stepTitle) {
-                // 讓步驟標題切齊頂部
                 const targetPosition = stepTitle.offsetTop;
                 
-                // 平滑滾動
                 window.scrollTo({
                     top: Math.max(0, targetPosition),
                     behavior: 'smooth'
@@ -1299,7 +1259,8 @@ function scrollToMainContent() {
                     stepTitle: stepTitle,
                     targetPosition: targetPosition,
                     currentScroll: window.scrollY,
-                    titleText: stepTitle.textContent
+                    titleText: stepTitle.textContent,
+                    currentStep: currentStep
                 });
             } else {
                 // 如果找不到標題，使用原來的邏輯
