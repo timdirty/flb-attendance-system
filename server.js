@@ -26,6 +26,32 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
+// 重定向舊的 API 端點到新的端點（向後兼容）
+app.all('/api/attendance/course-students', (req, res) => {
+    console.log('🔄 重定向舊 API 端點 /api/attendance/course-students 到 /api/course-students');
+    res.redirect(307, '/api/course-students');
+});
+
+app.all('/api/attendance/student-attendance', (req, res) => {
+    console.log('🔄 重定向舊 API 端點 /api/attendance/student-attendance 到 /api/student-attendance');
+    res.redirect(307, '/api/student-attendance');
+});
+
+app.all('/api/attendance/teacher-report', (req, res) => {
+    console.log('🔄 重定向舊 API 端點 /api/attendance/teacher-report 到 /api/teacher-report');
+    res.redirect(307, '/api/teacher-report');
+});
+
+app.all('/api/attendance/teachers', (req, res) => {
+    console.log('🔄 重定向舊 API 端點 /api/attendance/teachers 到 /api/teachers');
+    res.redirect(307, '/api/teachers');
+});
+
+app.all('/api/attendance/courses', (req, res) => {
+    console.log('🔄 重定向舊 API 端點 /api/attendance/courses 到 /api/courses');
+    res.redirect(307, '/api/courses');
+});
+
 // FLB API 基礎URL
 const FLB_API_URL = 'https://script.google.com/macros/s/AKfycbxfj5fwNIc8ncbqkOm763yo6o06wYPHm2nbfd_1yLkHlakoS9FtYfYJhvGCaiAYh_vjIQ/exec';
 
