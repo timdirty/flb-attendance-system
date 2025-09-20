@@ -1265,10 +1265,10 @@ function generateStep3Page(teacher, course, time, students) {
                     </div>
                 </div>
                 <div class="attendance-buttons">
-                    <button class="btn-attendance btn-present" onclick="markAttendance('${student.name}', true)">
+                    <button class="btn-attendance btn-present" onclick="markAttendance('${student.name}', true, this)">
                         <i class="fas fa-check"></i> 出席
                     </button>
-                    <button class="btn-attendance btn-absent" onclick="markAttendance('${student.name}', false)">
+                    <button class="btn-attendance btn-absent" onclick="markAttendance('${student.name}', false, this)">
                         <i class="fas fa-times"></i> 缺席
                     </button>
                 </div>
@@ -1688,7 +1688,7 @@ function generateStep3Page(teacher, course, time, students) {
                 }
                 
                 // 標記學生出勤
-                async function markAttendance(studentName, present) {
+                async function markAttendance(studentName, present, buttonElement) {
                     try {
                         const response = await fetch('/api/student-attendance', {
                             method: 'POST',
@@ -1708,7 +1708,7 @@ function generateStep3Page(teacher, course, time, students) {
                         
                         if (data.success) {
                             // 更新狀態顯示
-                            const studentItem = event.target.closest('.student-item');
+                            const studentItem = buttonElement.closest('.student-item');
                             const statusElement = studentItem.querySelector('.attendance-status');
                             
                             if (present) {
