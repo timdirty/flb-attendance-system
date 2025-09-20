@@ -14,6 +14,7 @@ let students = [];
 let allReportResults = []; // 存儲所有查詢結果
 let filteredReportResults = []; // 存儲篩選後的結果
 let currentMonthFilter = null; // 當前選中的月份篩選
+let isSelectingCourse = false; // 是否正在選擇課程（避免觸發滾動）
 
 // 補簽到功能
 let selectedMakeupCourse = null;
@@ -313,8 +314,10 @@ async function loadTeacherCourses() {
         
         if (data.success && data.courseTimes) {
             displayCourses(data.courseTimes);
-            // 課程載入完成後滾動到課程選擇區域
-            scrollToMainContent();
+            // 課程載入完成後滾動到課程選擇區域（只在第一次載入時滾動）
+            if (currentStep === 2) {
+                scrollToMainContent();
+            }
         } else {
             showError('無法載入課程列表');
         }
@@ -810,6 +813,11 @@ function displayCourses(courses) {
 
 // 選擇課程
 function selectCourse(course, time, note = '', event) {
+    // 設置選擇課程標記，避免觸發滾動
+    isSelectingCourse = true;
+    
+    console.log('📍 選擇課程，避免觸發滾動:', { course, time, note });
+    
     // 移除之前的選擇
     document.querySelectorAll('.course-card').forEach(card => {
         card.classList.remove('selected');
@@ -827,6 +835,12 @@ function selectCourse(course, time, note = '', event) {
     
     // 顯示下一步按鈕
     document.getElementById('next-btn').style.display = 'inline-flex';
+    
+    // 清除選擇課程標記
+    setTimeout(() => {
+        isSelectingCourse = false;
+        console.log('📍 課程選擇完成，恢復滾動功能');
+    }, 500); // 給足夠時間讓DOM更新完成
 }
 
 // 載入學生列表
@@ -1241,6 +1255,12 @@ function goToStep(step) {
 
 // 滾動到主要內容區域
 function scrollToMainContent() {
+    // 如果正在選擇課程，避免觸發滾動
+    if (isSelectingCourse) {
+        console.log('📍 正在選擇課程，跳過滾動');
+        return;
+    }
+    
     // 延遲一點時間確保 DOM 更新完成
     setTimeout(() => {
         const mainContent = document.querySelector('.step-content.active');
