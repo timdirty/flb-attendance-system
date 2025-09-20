@@ -1347,6 +1347,78 @@ function generateStep3Page(teacher, course, time, students) {
                     color: #667eea;
                 }
                 
+                .teacher-checkin-section {
+                    padding: 30px;
+                    background: #f8f9fa;
+                    border-bottom: 1px solid #e9ecef;
+                }
+                
+                .teacher-checkin-section h2 {
+                    color: #495057;
+                    margin-bottom: 20px;
+                }
+                
+                .teacher-checkin-form {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 20px;
+                    max-width: 600px;
+                }
+                
+                .form-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                }
+                
+                .form-group label {
+                    font-weight: 600;
+                    color: #495057;
+                }
+                
+                .form-group textarea,
+                .form-group input {
+                    padding: 12px;
+                    border: 2px solid #e9ecef;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    transition: border-color 0.3s ease;
+                }
+                
+                .form-group textarea:focus,
+                .form-group input:focus {
+                    outline: none;
+                    border-color: #667eea;
+                }
+                
+                .btn-teacher-checkin {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border: none;
+                    padding: 15px 30px;
+                    border-radius: 25px;
+                    font-size: 16px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 10px;
+                    align-self: flex-start;
+                }
+                
+                .btn-teacher-checkin:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+                }
+                
+                .btn-teacher-checkin:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                    transform: none;
+                }
+                
                 .student-section {
                     padding: 30px;
                 }
@@ -1527,6 +1599,23 @@ function generateStep3Page(teacher, course, time, students) {
                     </div>
                 </div>
                 
+                <div class="teacher-checkin-section">
+                    <h2><i class="fas fa-user-tie"></i> 講師簽到</h2>
+                    <div class="teacher-checkin-form">
+                        <div class="form-group">
+                            <label for="course-content">課程內容：</label>
+                            <textarea id="course-content" placeholder="請輸入課程內容..." rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="student-count">學生人數：</label>
+                            <input type="number" id="student-count" value="0" min="0" max="99">
+                        </div>
+                        <button class="btn-teacher-checkin" onclick="submitTeacherCheckin()">
+                            <i class="fas fa-check-circle"></i> 講師簽到
+                        </button>
+                    </div>
+                </div>
+                
                 <div class="student-section">
                     <h2><i class="fas fa-list"></i> 學生名單 (${students.length} 人)</h2>
                     <div class="student-list">
@@ -1536,6 +1625,68 @@ function generateStep3Page(teacher, course, time, students) {
             </div>
             
             <script>
+                // 講師簽到
+                async function submitTeacherCheckin() {
+                    const courseContent = document.getElementById('course-content').value.trim();
+                    const studentCount = parseInt(document.getElementById('student-count').value) || 0;
+                    
+                    if (!courseContent) {
+                        alert('請填寫課程內容');
+                        return;
+                    }
+                    
+                    const button = document.querySelector('.btn-teacher-checkin');
+                    const originalContent = button.innerHTML;
+                    
+                    // 顯示載入狀態
+                    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 處理中...';
+                    button.disabled = true;
+                    
+                    try {
+                        const today = new Date();
+                        const formattedDate = today.getFullYear() + '/' + 
+                            String(today.getMonth() + 1).padStart(2, '0') + '/' + 
+                            String(today.getDate()).padStart(2, '0');
+                        
+                        const response = await fetch('/api/teacher-report', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                teacherName: '${teacher}',
+                                courseName: '${course}',
+                                courseTime: '${time}',
+                                date: formattedDate,
+                                studentCount: studentCount,
+                                courseContent: courseContent,
+                                webApi: '' // 使用預設 API
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            alert('講師簽到成功！');
+                            // 禁用表單
+                            document.getElementById('course-content').disabled = true;
+                            document.getElementById('student-count').disabled = true;
+                            button.innerHTML = '<i class="fas fa-check"></i> 已簽到';
+                        } else {
+                            alert('講師簽到失敗：' + (data.error || '未知錯誤'));
+                            // 恢復按鈕狀態
+                            button.innerHTML = originalContent;
+                            button.disabled = false;
+                        }
+                    } catch (error) {
+                        console.error('講師簽到錯誤:', error);
+                        alert('講師簽到失敗，請檢查網路連線');
+                        // 恢復按鈕狀態
+                        button.innerHTML = originalContent;
+                        button.disabled = false;
+                    }
+                }
+                
                 // 標記學生出勤
                 async function markAttendance(studentName, present) {
                     try {
