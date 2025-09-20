@@ -1014,18 +1014,40 @@ app.post('/api/direct-step3', async (req, res) => {
             });
         }
         
-        const teacherExists = teachersResponse.data.teachers.some(t => t.name === teacher);
+        // 模糊匹配講師名稱（去除空格和特殊字符）
+        const normalizeName = (name) => name.trim().replace(/\s+/g, ' ');
+        const normalizedTeacher = normalizeName(teacher);
+        
+        const teacherExists = teachersResponse.data.teachers.some(t => {
+            const normalizedTeacherName = normalizeName(t.name);
+            return normalizedTeacherName === normalizedTeacher || 
+                   normalizedTeacherName.includes(normalizedTeacher) ||
+                   normalizedTeacher.includes(normalizedTeacherName);
+        });
+        
         if (!teacherExists) {
+            // 提供可用的講師名稱建議
+            const availableTeachers = teachersResponse.data.teachers.map(t => t.name).join(', ');
             return res.status(400).json({
                 success: false,
-                error: `講師 "${teacher}" 不存在`
+                error: `講師 "${teacher}" 不存在。可用的講師：${availableTeachers}`
             });
         }
+        
+        // 找到匹配的講師對象
+        const matchedTeacher = teachersResponse.data.teachers.find(t => {
+            const normalizedTeacherName = normalizeName(t.name);
+            return normalizedTeacherName === normalizedTeacher || 
+                   normalizedTeacherName.includes(normalizedTeacher) ||
+                   normalizedTeacher.includes(normalizedTeacherName);
+        });
+        
+        const actualTeacherName = matchedTeacher.name;
         
         // 驗證課程是否存在
         const coursesResponse = await axios.post(FLB_API_URL, {
             action: 'getCoursesByTeacher',
-            teacher: teacher
+            teacher: actualTeacherName
         });
         
         if (!coursesResponse.data.success || !coursesResponse.data.courseTimes) {
@@ -1098,11 +1120,11 @@ app.post('/api/direct-step3', async (req, res) => {
             success: true,
             message: '成功獲取跳轉資料',
             data: {
-                teacher: teacher,
+                teacher: actualTeacherName, // 使用實際的講師名稱
                 course: course,
                 time: time,
                 students: students,
-                redirectUrl: `/?step=3&teacher=${encodeURIComponent(teacher)}&course=${encodeURIComponent(course)}&time=${encodeURIComponent(time)}`
+                redirectUrl: `/?step=3&teacher=${encodeURIComponent(actualTeacherName)}&course=${encodeURIComponent(course)}&time=${encodeURIComponent(time)}`
             }
         });
         
