@@ -1,7 +1,7 @@
 // 測試直接跳轉到第三步驟的 API
 // 這個文件展示如何在其他程式中調用 API
 
-const API_BASE_URL = 'https://your-railway-domain.railway.app'; // 替換為您的 Railway 網址
+const API_BASE_URL = 'https://liff-sttendence-0908-production.up.railway.app'; // 替換為您的 Railway 網址
 
 // 方法一：直接調用 API 並獲取跳轉 URL
 async function callDirectStep3API(teacher, course, time) {
@@ -54,23 +54,43 @@ function directRedirectWithURL(teacher, course, time) {
     // window.location.href = redirectUrl;
 }
 
+// 方法三：直接訪問步驟三頁面（推薦）
+function directStep3Page(teacher, course, time) {
+    const step3Url = `${API_BASE_URL}/step3?teacher=${encodeURIComponent(teacher)}&course=${encodeURIComponent(course)}&time=${encodeURIComponent(time)}`;
+    
+    console.log('🎯 直接步驟三頁面 URL:', step3Url);
+    
+    // 在新視窗中打開
+    window.open(step3Url, '_blank');
+    
+    // 或在當前視窗中跳轉
+    // window.location.href = step3Url;
+}
+
 // 使用範例
 function exampleUsage() {
-    // 範例 1: 調用 API 方式
-    callDirectStep3API('張老師', '數學課', '09:00-10:00');
+    // 範例 1: 調用 API 方式（返回跳轉 URL）
+    callDirectStep3API('Tim', 'SPM 南京復興教室', '日 1330-1500 松山');
     
-    // 範例 2: 直接 URL 跳轉方式
-    // directRedirectWithURL('張老師', '數學課', '09:00-10:00');
+    // 範例 2: 直接 URL 跳轉方式（需要前端處理）
+    directRedirectWithURL('Tim', 'SPM 南京復興教室', '日 1330-1500 松山');
+    
+    // 範例 3: 直接訪問步驟三頁面（推薦）
+    directStep3Page('Tim', 'SPM 南京復興教室', '日 1330-1500 松山');
 }
 
 // 在 HTML 中的使用範例
 /*
-<button onclick="callDirectStep3API('張老師', '數學課', '09:00-10:00')">
-    跳轉到數學課簽到
+<button onclick="callDirectStep3API('Tim', 'SPM 南京復興教室', '日 1330-1500 松山')">
+    跳轉到簽到頁面 (API 方式)
 </button>
 
-<button onclick="directRedirectWithURL('李老師', '英文課', '14:00-15:00')">
-    跳轉到英文課簽到
+<button onclick="directRedirectWithURL('Tim', 'SPM 南京復興教室', '日 1330-1500 松山')">
+    跳轉到簽到頁面 (URL 方式)
+</button>
+
+<button onclick="directStep3Page('Tim', 'SPM 南京復興教室', '日 1330-1500 松山')">
+    直接打開步驟三頁面 (推薦)
 </button>
 */
 
@@ -138,6 +158,7 @@ async function redirectToStep3(teacher, course, time) {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         callDirectStep3API,
-        directRedirectWithURL
+        directRedirectWithURL,
+        directStep3Page
     };
 }

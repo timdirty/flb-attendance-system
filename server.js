@@ -987,6 +987,586 @@ app.post('/api/teacher-courses-link', async (req, res) => {
     }
 });
 
+// API路由：直接返回步驟三頁面
+app.get('/step3', async (req, res) => {
+    try {
+        const { teacher, course, time } = req.query;
+        
+        // 驗證必要參數
+        if (!teacher || !course || !time) {
+            return res.status(400).send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>參數錯誤</title>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                        .error { color: #dc3545; background: #f8d7da; padding: 20px; border-radius: 5px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="error">
+                        <h2>❌ 缺少必要參數</h2>
+                        <p>請提供 teacher、course 和 time 參數</p>
+                        <p>範例：/step3?teacher=Tim&course=數學課&time=09:00-10:00</p>
+                    </div>
+                </body>
+                </html>
+            `);
+        }
+        
+        console.log(`🎯 直接返回步驟三頁面請求:`, { teacher, course, time });
+        
+        // 驗證講師是否存在
+        const teachersResponse = await axios.post(FLB_API_URL, {
+            action: 'getTeacherList'
+        });
+        
+        if (!teachersResponse.data.success || !teachersResponse.data.teachers) {
+            return res.status(400).send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>講師列表錯誤</title>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                        .error { color: #dc3545; background: #f8d7da; padding: 20px; border-radius: 5px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="error">
+                        <h2>❌ 無法獲取講師列表</h2>
+                        <p>請稍後再試</p>
+                    </div>
+                </body>
+                </html>
+            `);
+        }
+        
+        // 模糊匹配講師名稱
+        const normalizeName = (name) => name.trim().replace(/\s+/g, ' ');
+        const normalizedTeacher = normalizeName(teacher);
+        
+        const teacherExists = teachersResponse.data.teachers.some(t => {
+            const normalizedTeacherName = normalizeName(t.name);
+            return normalizedTeacherName === normalizedTeacher || 
+                   normalizedTeacherName.includes(normalizedTeacher) ||
+                   normalizedTeacher.includes(normalizedTeacherName);
+        });
+        
+        if (!teacherExists) {
+            const availableTeachers = teachersResponse.data.teachers.map(t => t.name).join(', ');
+            return res.status(400).send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>講師不存在</title>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                        .error { color: #dc3545; background: #f8d7da; padding: 20px; border-radius: 5px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="error">
+                        <h2>❌ 講師 "${teacher}" 不存在</h2>
+                        <p>可用的講師：${availableTeachers}</p>
+                    </div>
+                </body>
+                </html>
+            `);
+        }
+        
+        // 找到匹配的講師對象
+        const matchedTeacher = teachersResponse.data.teachers.find(t => {
+            const normalizedTeacherName = normalizeName(t.name);
+            return normalizedTeacherName === normalizedTeacher || 
+                   normalizedTeacherName.includes(normalizedTeacher) ||
+                   normalizedTeacher.includes(normalizedTeacherName);
+        });
+        
+        const actualTeacherName = matchedTeacher.name;
+        
+        // 驗證課程是否存在
+        const coursesResponse = await axios.post(FLB_API_URL, {
+            action: 'getCoursesByTeacher',
+            teacher: actualTeacherName
+        });
+        
+        if (!coursesResponse.data.success || !coursesResponse.data.courseTimes) {
+            return res.status(400).send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>課程列表錯誤</title>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                        .error { color: #dc3545; background: #f8d7da; padding: 20px; border-radius: 5px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="error">
+                        <h2>❌ 無法獲取課程列表</h2>
+                        <p>請稍後再試</p>
+                    </div>
+                </body>
+                </html>
+            `);
+        }
+        
+        const courseExists = coursesResponse.data.courseTimes.some(c => 
+            c.course === course && c.time === time
+        );
+        
+        if (!courseExists) {
+            return res.status(400).send(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>課程不存在</title>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                        .error { color: #dc3545; background: #f8d7da; padding: 20px; border-radius: 5px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="error">
+                        <h2>❌ 課程 "${course}" 在時間 "${time}" 不存在</h2>
+                    </div>
+                </body>
+                </html>
+            `);
+        }
+        
+        // 獲取學生列表
+        const studentsResponse = await axios.post(FLB_API_URL, {
+            action: 'getRosterAttendance',
+            course: course,
+            time: time
+        });
+        
+        let students = [];
+        if (studentsResponse.data.success && studentsResponse.data.students) {
+            // 處理學生簽到狀態
+            const checkDate = new Date().toISOString().split('T')[0];
+            
+            students = studentsResponse.data.students.map(student => {
+                let hasAttendanceToday = null;
+                let todayAttendanceRecord = null;
+                
+                if (student.attendance && Array.isArray(student.attendance)) {
+                    todayAttendanceRecord = student.attendance.find(record => record.date === checkDate);
+                    
+                    if (todayAttendanceRecord) {
+                        if (todayAttendanceRecord.present === true) {
+                            hasAttendanceToday = true;
+                        } else if (todayAttendanceRecord.present === false) {
+                            hasAttendanceToday = false;
+                        } else if (todayAttendanceRecord.present === "leave") {
+                            hasAttendanceToday = "leave";
+                        } else {
+                            hasAttendanceToday = null;
+                        }
+                    } else {
+                        hasAttendanceToday = null;
+                    }
+                } else {
+                    hasAttendanceToday = null;
+                }
+                
+                return {
+                    name: student.name,
+                    foundInCourseSheet: student.foundInCourseSheet,
+                    remaining: student.remaining,
+                    hasAttendanceToday: hasAttendanceToday,
+                    attendanceRecords: student.attendance || [],
+                    todayAttendanceRecord: todayAttendanceRecord
+                };
+            });
+        }
+        
+        // 生成步驟三頁面 HTML
+        const step3HTML = generateStep3Page(actualTeacherName, course, time, students);
+        res.send(step3HTML);
+        
+    } catch (error) {
+        console.error('直接返回步驟三頁面錯誤:', error);
+        res.status(500).send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>伺服器錯誤</title>
+                <meta charset="UTF-8">
+                <style>
+                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                    .error { color: #dc3545; background: #f8d7da; padding: 20px; border-radius: 5px; }
+                </style>
+            </head>
+            <body>
+                <div class="error">
+                    <h2>❌ 伺服器內部錯誤</h2>
+                    <p>請稍後再試</p>
+                </div>
+            </body>
+            </html>
+        `);
+    }
+});
+
+// 生成步驟三頁面的 HTML
+function generateStep3Page(teacher, course, time, students) {
+    const studentsHTML = students.map(student => {
+        let statusText, statusClass;
+        
+        if (student.hasAttendanceToday === true) {
+            statusText = '✅ 已簽到且出席';
+            statusClass = 'status-signed-in-present';
+        } else if (student.hasAttendanceToday === false) {
+            statusText = '❌ 已簽到但缺席';
+            statusClass = 'status-signed-in-absent';
+        } else if (student.hasAttendanceToday === "leave") {
+            statusText = '🏠 請假';
+            statusClass = 'status-leave';
+        } else {
+            statusText = '⚠️ 未簽到';
+            statusClass = 'status-not-signed-in';
+        }
+        
+        return `
+            <div class="student-item">
+                <div class="student-info">
+                    <div class="student-name">${student.name}</div>
+                    <div class="attendance-status ${statusClass}">
+                        ${statusText}
+                    </div>
+                </div>
+                <div class="attendance-buttons">
+                    <button class="btn-attendance btn-present" onclick="markAttendance('${student.name}', true)">
+                        <i class="fas fa-check"></i> 出席
+                    </button>
+                    <button class="btn-attendance btn-absent" onclick="markAttendance('${student.name}', false)">
+                        <i class="fas fa-times"></i> 缺席
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    return `
+        <!DOCTYPE html>
+        <html lang="zh-TW">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>學生簽到 - ${course}</title>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+            <style>
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+                
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }
+                
+                .container {
+                    max-width: 1200px;
+                    margin: 0 auto;
+                    background: white;
+                    border-radius: 15px;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                    overflow: hidden;
+                }
+                
+                .header {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 30px;
+                    text-align: center;
+                }
+                
+                .header h1 {
+                    font-size: 2.5rem;
+                    margin-bottom: 10px;
+                }
+                
+                .course-info {
+                    background: #f8f9fa;
+                    padding: 20px;
+                    border-bottom: 1px solid #e9ecef;
+                }
+                
+                .course-info h2 {
+                    color: #495057;
+                    margin-bottom: 10px;
+                }
+                
+                .course-details {
+                    display: flex;
+                    gap: 30px;
+                    flex-wrap: wrap;
+                }
+                
+                .course-detail {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    color: #6c757d;
+                }
+                
+                .course-detail i {
+                    color: #667eea;
+                }
+                
+                .student-section {
+                    padding: 30px;
+                }
+                
+                .student-list {
+                    display: grid;
+                    gap: 15px;
+                }
+                
+                .student-item {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 20px;
+                    border: 2px solid #e9ecef;
+                    border-radius: 10px;
+                    background: white;
+                    transition: all 0.3s ease;
+                }
+                
+                .student-item:hover {
+                    border-color: #667eea;
+                    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
+                }
+                
+                .student-info {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 5px;
+                }
+                
+                .student-name {
+                    font-size: 1.2rem;
+                    font-weight: 600;
+                    color: #495057;
+                }
+                
+                .attendance-status {
+                    font-size: 0.9rem;
+                    padding: 5px 10px;
+                    border-radius: 20px;
+                    font-weight: 500;
+                }
+                
+                .status-signed-in-present {
+                    background: #d4edda;
+                    color: #155724;
+                }
+                
+                .status-signed-in-absent {
+                    background: #f8d7da;
+                    color: #721c24;
+                }
+                
+                .status-leave {
+                    background: #fff3cd;
+                    color: #856404;
+                }
+                
+                .status-not-signed-in {
+                    background: #f8f9fa;
+                    color: #6c757d;
+                }
+                
+                .attendance-buttons {
+                    display: flex;
+                    gap: 10px;
+                }
+                
+                .btn-attendance {
+                    padding: 10px 20px;
+                    border: none;
+                    border-radius: 25px;
+                    cursor: pointer;
+                    font-weight: 600;
+                    transition: all 0.3s ease;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                
+                .btn-present {
+                    background: #28a745;
+                    color: white;
+                }
+                
+                .btn-present:hover {
+                    background: #218838;
+                    transform: translateY(-2px);
+                }
+                
+                .btn-absent {
+                    background: #dc3545;
+                    color: white;
+                }
+                
+                .btn-absent:hover {
+                    background: #c82333;
+                    transform: translateY(-2px);
+                }
+                
+                .no-students {
+                    text-align: center;
+                    padding: 50px;
+                    color: #6c757d;
+                    font-size: 1.1rem;
+                }
+                
+                .back-button {
+                    position: fixed;
+                    top: 20px;
+                    left: 20px;
+                    background: rgba(255,255,255,0.9);
+                    border: none;
+                    padding: 15px 20px;
+                    border-radius: 50px;
+                    cursor: pointer;
+                    font-weight: 600;
+                    color: #495057;
+                    text-decoration: none;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    transition: all 0.3s ease;
+                }
+                
+                .back-button:hover {
+                    background: white;
+                    transform: translateY(-2px);
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+                }
+                
+                @media (max-width: 768px) {
+                    .student-item {
+                        flex-direction: column;
+                        gap: 15px;
+                        text-align: center;
+                    }
+                    
+                    .attendance-buttons {
+                        width: 100%;
+                        justify-content: center;
+                    }
+                    
+                    .course-details {
+                        flex-direction: column;
+                        gap: 15px;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            <a href="/" class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                返回首頁
+            </a>
+            
+            <div class="container">
+                <div class="header">
+                    <h1><i class="fas fa-users"></i> 學生簽到</h1>
+                </div>
+                
+                <div class="course-info">
+                    <h2><i class="fas fa-book"></i> 課程資訊</h2>
+                    <div class="course-details">
+                        <div class="course-detail">
+                            <i class="fas fa-user-tie"></i>
+                            <span>講師：${teacher}</span>
+                        </div>
+                        <div class="course-detail">
+                            <i class="fas fa-book"></i>
+                            <span>課程：${course}</span>
+                        </div>
+                        <div class="course-detail">
+                            <i class="fas fa-clock"></i>
+                            <span>時間：${time}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="student-section">
+                    <h2><i class="fas fa-list"></i> 學生名單 (${students.length} 人)</h2>
+                    <div class="student-list">
+                        ${students.length > 0 ? studentsHTML : '<div class="no-students">沒有學生資料</div>'}
+                    </div>
+                </div>
+            </div>
+            
+            <script>
+                // 標記學生出勤
+                async function markAttendance(studentName, present) {
+                    try {
+                        const response = await fetch('/api/student-attendance', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                studentName: studentName,
+                                date: new Date().toISOString().split('T')[0],
+                                present: present,
+                                teacherName: '${teacher}',
+                                courseName: '${course}'
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            // 更新狀態顯示
+                            const studentItem = event.target.closest('.student-item');
+                            const statusElement = studentItem.querySelector('.attendance-status');
+                            
+                            if (present) {
+                                statusElement.textContent = '✅ 已簽到且出席';
+                                statusElement.className = 'attendance-status status-signed-in-present';
+                            } else {
+                                statusElement.textContent = '❌ 已簽到但缺席';
+                                statusElement.className = 'attendance-status status-signed-in-absent';
+                            }
+                            
+                            // 禁用按鈕
+                            const buttons = studentItem.querySelectorAll('.btn-attendance');
+                            buttons.forEach(btn => btn.disabled = true);
+                            
+                            alert('簽到成功！');
+                        } else {
+                            alert('簽到失敗：' + (data.error || '未知錯誤'));
+                        }
+                    } catch (error) {
+                        console.error('簽到錯誤:', error);
+                        alert('簽到失敗，請檢查網路連線');
+                    }
+                }
+            </script>
+        </body>
+        </html>
+    `;
+}
+
 // API路由：直接跳轉到第三步驟
 app.post('/api/direct-step3', async (req, res) => {
     try {
