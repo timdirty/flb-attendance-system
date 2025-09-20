@@ -1071,18 +1071,116 @@ app.get('/step3', async (req, res) => {
             `);
         }
         
+        // 高級模糊匹配函數
+        const fuzzyMatch = (input, target, options = {}) => {
+            const {
+                caseSensitive = false,
+                ignoreSpaces = true,
+                minSimilarity = 0.6,
+                exactMatch = true,
+                partialMatch = true
+            } = options;
+            
+            let normalizedInput = input;
+            let normalizedTarget = target;
+            
+            if (!caseSensitive) {
+                normalizedInput = normalizedInput.toLowerCase();
+                normalizedTarget = normalizedTarget.toLowerCase();
+            }
+            
+            if (ignoreSpaces) {
+                normalizedInput = normalizedInput.replace(/\s+/g, ' ').trim();
+                normalizedTarget = normalizedTarget.replace(/\s+/g, ' ').trim();
+            }
+            
+            // 完全匹配
+            if (exactMatch && normalizedInput === normalizedTarget) {
+                return { match: true, similarity: 1.0, type: 'exact' };
+            }
+            
+            // 包含匹配
+            if (partialMatch) {
+                if (normalizedTarget.includes(normalizedInput)) {
+                    return { match: true, similarity: 0.9, type: 'target_includes_input' };
+                }
+                if (normalizedInput.includes(normalizedTarget)) {
+                    return { match: true, similarity: 0.8, type: 'input_includes_target' };
+                }
+            }
+            
+            // 計算相似度（簡化版 Levenshtein 距離）
+            const similarity = calculateSimilarity(normalizedInput, normalizedTarget);
+            
+            return {
+                match: similarity >= minSimilarity,
+                similarity: similarity,
+                type: similarity >= minSimilarity ? 'fuzzy' : 'no_match'
+            };
+        };
+        
+        // 計算字符串相似度
+        const calculateSimilarity = (str1, str2) => {
+            const longer = str1.length > str2.length ? str1 : str2;
+            const shorter = str1.length > str2.length ? str2 : str1;
+            
+            if (longer.length === 0) return 1.0;
+            
+            const distance = levenshteinDistance(longer, shorter);
+            return (longer.length - distance) / longer.length;
+        };
+        
+        // Levenshtein 距離算法
+        const levenshteinDistance = (str1, str2) => {
+            const matrix = [];
+            
+            for (let i = 0; i <= str2.length; i++) {
+                matrix[i] = [i];
+            }
+            
+            for (let j = 0; j <= str1.length; j++) {
+                matrix[0][j] = j;
+            }
+            
+            for (let i = 1; i <= str2.length; i++) {
+                for (let j = 1; j <= str1.length; j++) {
+                    if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                        matrix[i][j] = matrix[i - 1][j - 1];
+                    } else {
+                        matrix[i][j] = Math.min(
+                            matrix[i - 1][j - 1] + 1,
+                            matrix[i][j - 1] + 1,
+                            matrix[i - 1][j] + 1
+                        );
+                    }
+                }
+            }
+            
+            return matrix[str2.length][str1.length];
+        };
+        
         // 模糊匹配講師名稱
-        const normalizeName = (name) => name.trim().replace(/\s+/g, ' ');
-        const normalizedTeacher = normalizeName(teacher);
+        console.log(`🔍 開始模糊匹配講師: "${teacher}"`);
         
-        const teacherExists = teachersResponse.data.teachers.some(t => {
-            const normalizedTeacherName = normalizeName(t.name);
-            return normalizedTeacherName === normalizedTeacher || 
-                   normalizedTeacherName.includes(normalizedTeacher) ||
-                   normalizedTeacher.includes(normalizedTeacherName);
-        });
+        let bestTeacherMatch = null;
+        let bestTeacherSimilarity = 0;
         
-        if (!teacherExists) {
+        for (const t of teachersResponse.data.teachers) {
+            const match = fuzzyMatch(teacher, t.name, {
+                caseSensitive: false,
+                ignoreSpaces: true,
+                minSimilarity: 0.5
+            });
+            
+            console.log(`  - 比對 "${t.name}": 相似度 ${match.similarity.toFixed(3)}, 類型: ${match.type}`);
+            
+            if (match.match && match.similarity > bestTeacherSimilarity) {
+                bestTeacherMatch = t;
+                bestTeacherSimilarity = match.similarity;
+            }
+        }
+        
+        if (!bestTeacherMatch) {
             const availableTeachers = teachersResponse.data.teachers.map(t => t.name).join(', ');
             return res.status(400).send(`
                 <!DOCTYPE html>
@@ -1093,27 +1191,25 @@ app.get('/step3', async (req, res) => {
                     <style>
                         body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
                         .error { color: #dc3545; background: #f8d7da; padding: 20px; border-radius: 5px; }
+                        .suggestions { background: #e9ecef; padding: 15px; margin: 10px 0; border-radius: 5px; }
                     </style>
                 </head>
                 <body>
                     <div class="error">
-                        <h2>❌ 講師 "${teacher}" 不存在</h2>
-                        <p>可用的講師：${availableTeachers}</p>
+                        <h2>❌ 找不到講師 "${teacher}"</h2>
+                        <p>請檢查講師名稱是否正確</p>
+                        <div class="suggestions">
+                            <h4>可用的講師：</h4>
+                            <p>${availableTeachers}</p>
+                        </div>
                     </div>
                 </body>
                 </html>
             `);
         }
         
-        // 找到匹配的講師對象
-        const matchedTeacher = teachersResponse.data.teachers.find(t => {
-            const normalizedTeacherName = normalizeName(t.name);
-            return normalizedTeacherName === normalizedTeacher || 
-                   normalizedTeacherName.includes(normalizedTeacher) ||
-                   normalizedTeacher.includes(normalizedTeacherName);
-        });
-        
-        const actualTeacherName = matchedTeacher.name;
+        const actualTeacherName = bestTeacherMatch.name;
+        console.log(`✅ 找到最佳匹配講師: "${actualTeacherName}" (相似度: ${bestTeacherSimilarity.toFixed(3)})`);
         
         // 驗證課程是否存在
         const coursesResponse = await axios.post(FLB_API_URL, {
@@ -1143,11 +1239,41 @@ app.get('/step3', async (req, res) => {
             `);
         }
         
-        const courseExists = coursesResponse.data.courseTimes.some(c => 
-            c.course === course && c.time === time
-        );
+        // 模糊匹配課程和時間
+        console.log(`🔍 開始模糊匹配課程: "${course}" 時間: "${time}"`);
         
-        if (!courseExists) {
+        let bestCourseMatch = null;
+        let bestCourseSimilarity = 0;
+        
+        for (const c of coursesResponse.data.courseTimes) {
+            // 分別匹配課程名稱和時間
+            const courseMatch = fuzzyMatch(course, c.course, {
+                caseSensitive: false,
+                ignoreSpaces: true,
+                minSimilarity: 0.6
+            });
+            
+            const timeMatch = fuzzyMatch(time, c.time, {
+                caseSensitive: false,
+                ignoreSpaces: true,
+                minSimilarity: 0.6
+            });
+            
+            // 計算綜合相似度（課程和時間各佔50%）
+            const combinedSimilarity = (courseMatch.similarity + timeMatch.similarity) / 2;
+            
+            console.log(`  - 比對課程 "${c.course}" 時間 "${c.time}":`);
+            console.log(`    課程相似度: ${courseMatch.similarity.toFixed(3)}, 時間相似度: ${timeMatch.similarity.toFixed(3)}`);
+            console.log(`    綜合相似度: ${combinedSimilarity.toFixed(3)}`);
+            
+            if (combinedSimilarity > bestCourseSimilarity) {
+                bestCourseMatch = c;
+                bestCourseSimilarity = combinedSimilarity;
+            }
+        }
+        
+        if (!bestCourseMatch || bestCourseSimilarity < 0.6) {
+            const availableCourses = coursesResponse.data.courseTimes.map(c => `${c.course} (${c.time})`).join(', ');
             return res.status(400).send(`
                 <!DOCTYPE html>
                 <html>
@@ -1157,28 +1283,44 @@ app.get('/step3', async (req, res) => {
                     <style>
                         body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
                         .error { color: #dc3545; background: #f8d7da; padding: 20px; border-radius: 5px; }
+                        .suggestions { background: #e9ecef; padding: 15px; margin: 10px 0; border-radius: 5px; }
+                        .input-info { background: #fff3cd; padding: 10px; margin: 10px 0; border-radius: 5px; }
                     </style>
                 </head>
                 <body>
                     <div class="error">
-                        <h2>❌ 課程 "${course}" 在時間 "${time}" 不存在</h2>
+                        <h2>❌ 找不到課程 "${course}" 時間 "${time}"</h2>
+                        <div class="input-info">
+                            <p><strong>您輸入的：</strong></p>
+                            <p>講師：${actualTeacherName}</p>
+                            <p>課程：${course}</p>
+                            <p>時間：${time}</p>
+                        </div>
+                        <div class="suggestions">
+                            <h4>可用的課程：</h4>
+                            <p>${availableCourses}</p>
+                        </div>
                     </div>
                 </body>
                 </html>
             `);
         }
         
+        const actualCourse = bestCourseMatch.course;
+        const actualTime = bestCourseMatch.time;
+        console.log(`✅ 找到最佳匹配課程: "${actualCourse}" 時間: "${actualTime}" (綜合相似度: ${bestCourseSimilarity.toFixed(3)})`);
+        
         // 獲取學生列表
         console.log(`📤 調用 getRosterAttendance API:`, {
-            course: course,
-            time: time,
+            course: actualCourse,
+            time: actualTime,
             action: 'getRosterAttendance'
         });
         
         const studentsResponse = await axios.post('https://script.google.com/macros/s/AKfycbzm0GD-T09Botbs52e8PyeVuA5slJh6Z0AQ7I0uUiGZiE6aWhTO2D0d3XHFrdLNv90uCw/exec', {
             action: 'getRosterAttendance',
-            course: course,
-            period: time
+            course: actualCourse,
+            period: actualTime
         }, {
             timeout: 30000,
             headers: {
@@ -1236,7 +1378,7 @@ app.get('/step3', async (req, res) => {
         }
         
         // 生成步驟三頁面 HTML
-        const step3HTML = generateStep3Page(actualTeacherName, course, time, students);
+        const step3HTML = generateStep3Page(actualTeacherName, actualCourse, actualTime, students);
         res.send(step3HTML);
         
     } catch (error) {
