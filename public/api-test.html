@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API 測試頁面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .url-display {
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>FLB 簽到系統 API 測試</h1>
+        
+        <div class="test-section">
+            <h3>🔗 正確的 API 端點測試</h3>
+            <p>測試正確的 API 端點是否正常工作：</p>
+            <div class="url-display">https://liff-sttendence-0908-production.up.railway.app/api/course-students</div>
+            <button class="test-button" onclick="testCorrectEndpoint()">測試正確端點</button>
+            <div id="correct-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔄 重定向測試</h3>
+            <p>測試舊的 API 端點重定向功能：</p>
+            <div class="url-display">https://liff-sttendence-0908-production.up.railway.app/api/attendance/course-students</div>
+            <button class="test-button" onclick="testRedirect()">測試重定向</button>
+            <div id="redirect-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>❌ 錯誤端點測試</h3>
+            <p>測試錯誤的 API 端點（應該會失敗）：</p>
+            <div class="url-display">https://flb-calendar-liff-new-production.up.railway.app/api/attendance/course-students</div>
+            <button class="test-button" onclick="testWrongEndpoint()">測試錯誤端點</button>
+            <div id="wrong-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 端點對照表</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="background: #f8f9fa;">
+                    <th style="border: 1px solid #ddd; padding: 8px;">功能</th>
+                    <th style="border: 1px solid #ddd; padding: 8px;">舊端點</th>
+                    <th style="border: 1px solid #ddd; padding: 8px;">新端點</th>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">獲取講師列表</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace; font-size: 12px;">/api/attendance/teachers</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace; font-size: 12px;">/api/teachers</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">獲取講師課程</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace; font-size: 12px;">/api/attendance/courses</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace; font-size: 12px;">/api/courses</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">獲取課程學生</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace; font-size: 12px;">/api/attendance/course-students</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace; font-size: 12px;">/api/course-students</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">學生簽到</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace; font-size: 12px;">/api/attendance/student-attendance</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace; font-size: 12px;">/api/student-attendance</td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">講師簽到</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace; font-size: 12px;">/api/attendance/teacher-report</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace; font-size: 12px;">/api/teacher-report</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = 'https://liff-sttendence-0908-production.up.railway.app';
+        const WRONG_BASE_URL = 'https://flb-calendar-liff-new-production.up.railway.app';
+
+        async function testCorrectEndpoint() {
+            const resultDiv = document.getElementById('correct-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '正在測試正確的 API 端點...';
+
+            try {
+                const response = await fetch(`${BASE_URL}/api/course-students`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        course: 'SPM 南京復興教室',
+                        time: '日 1330-1500 松山',
+                        date: new Date().toISOString().split('T')[0]
+                    })
+                });
+
+                const result = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    redirected: response.redirected
+                };
+
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ 成功！\n\n狀態: ${result.status} ${result.statusText}\nURL: ${result.url}\n重定向: ${result.redirected}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ 失敗！\n\n狀態: ${result.status} ${result.statusText}\nURL: ${result.url}\n重定向: ${result.redirected}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 錯誤：${error.message}`;
+            }
+        }
+
+        async function testRedirect() {
+            const resultDiv = document.getElementById('redirect-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '正在測試重定向功能...';
+
+            try {
+                const response = await fetch(`${BASE_URL}/api/attendance/course-students`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        course: 'SPM 南京復興教室',
+                        time: '日 1330-1500 松山',
+                        date: new Date().toISOString().split('T')[0]
+                    })
+                });
+
+                const result = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    redirected: response.redirected
+                };
+
+                if (response.status === 307) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ 重定向成功！\n\n狀態: ${result.status} ${result.statusText}\n原始 URL: ${BASE_URL}/api/attendance/course-students\n重定向到: ${result.url}\n重定向: ${result.redirected}`;
+                } else if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ 重定向並成功！\n\n狀態: ${result.status} ${result.statusText}\nURL: ${result.url}\n重定向: ${result.redirected}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ 重定向失敗！\n\n狀態: ${result.status} ${result.statusText}\nURL: ${result.url}\n重定向: ${result.redirected}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 錯誤：${error.message}`;
+            }
+        }
+
+        async function testWrongEndpoint() {
+            const resultDiv = document.getElementById('wrong-result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '正在測試錯誤的 API 端點...';
+
+            try {
+                const response = await fetch(`${WRONG_BASE_URL}/api/attendance/course-students`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        course: 'SPM 南京復興教室',
+                        time: '日 1330-1500 松山',
+                        date: new Date().toISOString().split('T')[0]
+                    })
+                });
+
+                const result = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    url: response.url,
+                    redirected: response.redirected
+                };
+
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 預期失敗！\n\n狀態: ${result.status} ${result.statusText}\nURL: ${result.url}\n重定向: ${result.redirected}\n\n這就是為什麼其他平台會出現 404 錯誤的原因！`;
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 網路錯誤：${error.message}\n\n這就是為什麼其他平台會出現 404 錯誤的原因！`;
+            }
+        }
+    </script>
+</body>
+</html>
