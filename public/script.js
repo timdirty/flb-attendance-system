@@ -740,10 +740,18 @@ function displayCourses(courses) {
         let clickCount = 0;
         let clickTimer = null;
         
-        courseCard.onclick = () => {
+        courseCard.onclick = (event) => {
+            // 立即設置選擇課程標記，避免觸發滾動
+            isSelectingCourse = true;
+            console.log('📍 課程卡片點擊，設置選擇標記');
+            
+            // 阻止事件冒泡，避免觸發其他事件監聽器
+            event.stopPropagation();
+            
             // 如果是停課課程，禁用點擊
             if (courseStatus.status === 'cancelled') {
                 showToast('此課程已停課，無法選擇', 'warning');
+                isSelectingCourse = false;
                 return;
             }
             
@@ -813,9 +821,6 @@ function displayCourses(courses) {
 
 // 選擇課程
 function selectCourse(course, time, note = '', event) {
-    // 設置選擇課程標記，避免觸發滾動
-    isSelectingCourse = true;
-    
     console.log('📍 選擇課程，避免觸發滾動:', { course, time, note });
     
     // 移除之前的選擇
