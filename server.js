@@ -3,7 +3,19 @@ const axios = require('axios');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
-const DatabaseManager = require('./database');
+// const DatabaseManager = require('./database'); // 已改用 Google Sheets 資料庫
+
+// 引入講師ID對應表模組
+const {
+    teacherIdMapping,
+    findTeacherLineId,
+    findTeacherNameByLineId,
+    getAllTeacherNames,
+    getAllLineIds,
+    isTeacherExists,
+    isLineIdExists,
+    getTeacherCount
+} = require('./teacher_mapping');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +28,10 @@ app.use(express.static('public'));
 
 // FLB API 基礎URL
 const FLB_API_URL = 'https://script.google.com/macros/s/AKfycbxfj5fwNIc8ncbqkOm763yo6o06wYPHm2nbfd_1yLkHlakoS9FtYfYJhvGCaiAYh_vjIQ/exec';
+
+
+// Link Calendar API URL (用於抓取 link_calender 資料庫)
+const LINK_CALENDAR_API_URL = 'https://script.google.com/macros/s/AKfycbzFwsd8I_5WJdl8jU_gycSKFxR836GhOzIHEU1bGj9mH70ESbJPj-uTD_YC9lEbo--v_A/exec';
 
 // 報表查詢 API URL
 const REPORT_API_URL = 'https://script.google.com/macros/s/AKfycbyfoNl1EBk5Wjv6rbAadCb0ZxZLupVl90PVGYUar-qNqVDEa0PbXzwC4t9DL39sVQ-aJQ/exec';
@@ -178,6 +194,76 @@ async function unbindRichMenu(userId) {
     }
 }
 
+// 內部人員 Rich Menu 綁定函數 (使用 bulk link API)
+async function bindInternalRichMenu(userId) {
+    try {
+        if (!LINE_CHANNEL_ACCESS_TOKEN || LINE_CHANNEL_ACCESS_TOKEN === 'YOUR_CHANNEL_ACCESS_TOKEN_HERE') {
+            console.log('LINE Channel Access Token 未設定，跳過內部人員Rich Menu綁定');
+            return { success: false, message: 'LINE Channel Access Token 未設定' };
+        }
+
+        const url = 'https://api.line.me/v2/bot/richmenu/bulk/link';
+        const payload = {
+            richMenuId: 'richmenu-ea240e912adac3d741bacab213f0bbb9',
+            userIds: [userId]
+        };
+        
+        const response = await axios.post(url, payload, {
+            headers: {
+                'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 10000
+        });
+
+        console.log(`✅ 內部人員Rich Menu 綁定成功給 ${userId}:`, response.data);
+        return { success: true, data: response.data };
+    } catch (error) {
+        console.error(`❌ 內部人員Rich Menu 綁定失敗給 ${userId}:`, error.response?.data || error.message);
+        return { 
+            success: false, 
+            error: error.response?.data || error.message,
+            statusCode: error.response?.status
+        };
+    }
+}
+
+// 測試模式：解綁5分鐘後自動重新綁定
+const testModeUsers = new Map(); // 儲存測試模式的使用者
+
+async function startTestMode(userId) {
+    console.log(`🧪 開始測試模式：${userId}`);
+    
+    // 先解綁
+    const unbindResult = await unbindRichMenu(userId);
+    if (!unbindResult.success) {
+        console.log(`❌ 測試模式解綁失敗：${userId}`);
+        return;
+    }
+    
+    // 記錄測試模式使用者
+    testModeUsers.set(userId, {
+        startTime: Date.now(),
+        originalRichMenu: RICH_MENU_ID
+    });
+    
+    // 5分鐘後自動重新綁定
+    setTimeout(async () => {
+        console.log(`🔄 測試模式結束，重新綁定：${userId}`);
+        
+        // 重新綁定內部人員Rich Menu
+        const rebindResult = await bindInternalRichMenu(userId);
+        if (rebindResult.success) {
+            console.log(`✅ 測試模式重新綁定成功：${userId}`);
+        } else {
+            console.log(`❌ 測試模式重新綁定失敗：${userId}`);
+        }
+        
+        // 從測試模式記錄中移除
+        testModeUsers.delete(userId);
+    }, 5 * 60 * 1000); // 5分鐘
+}
+
 // Google Sheets 上傳使用者資訊函數
 async function uploadUserToGoogleSheets(userId, displayName) {
     try {
@@ -212,8 +298,13 @@ async function uploadUserToGoogleSheets(userId, displayName) {
     }
 }
 
-// 路由：首頁
+// 路由：首頁 (直接抓資料庫"上課時間")
 app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// 路由：Link Calendar 版本 (抓資料庫"上課時間（link_calender）")
+app.get('/link_calender', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
@@ -835,40 +926,19 @@ app.get('/api/teachers', async (req, res) => {
     }
 });
 
-// API路由：獲取講師的課程
+// API路由：獲取講師的課程 (直接抓資料庫"上課時間")
 app.post('/api/teacher-courses', async (req, res) => {
     try {
-        const { teacher, useLinkCalendar = false } = req.body;
-        
-        // 根據 useLinkCalendar 參數選擇不同的 API
-        let apiUrl, payload;
-        
-        if (useLinkCalendar) {
-            // 使用 link_calender 資料來源
-            apiUrl = 'https://script.google.com/macros/s/AKfycbzFwsd8I_5WJdl8jU_gycSKFxR836GhOzIHEU1bGj9mH70ESbJPj-uTD_YC9lEbo--v_A/exec';
-            payload = {
-                action: 'getCoursesByTeacher',
-                teacher: teacher,
-                source: 'link'
-            };
-        } else {
-            // 使用直接抓資料庫「上課時間」
-            apiUrl = 'https://script.google.com/macros/s/AKfycbxfj5fwNIc8ncbqkOm763yo6o06wYPHm2nbfd_1yLkHlakoS9FtYfYJhvGCaiAYh_vjIQ/dev';
-            payload = {
-                action: 'getCoursesByTeacher',
-                teacher: teacher
-            };
-        }
-        
-        const response = await axios.post(apiUrl, payload, {
+        const { teacher } = req.body;
+        const response = await axios.post(FLB_API_URL, {
+            action: 'getCoursesByTeacher',
+            teacher: teacher
+        }, {
             timeout: 30000,
             headers: {
-                'Content-Type': 'application/json',
-                'Cookie': 'NID=525=nsWVvbAon67C2qpyiEHQA3SUio_GqBd7RqUFU6BwB97_4LHggZxLpDgSheJ7WN4w3Z4dCQBiFPG9YKAqZgAokFYCuuQw04dkm-FX9-XHAIBIqJf1645n3RZrg86GcUVJOf3gN-5eTHXFIaovTmgRC6cXllv82SnQuKsGMq7CHH60XDSwyC99s9P2gmyXLppI'
+                'Content-Type': 'application/json'
             }
         });
-        
-        console.log(`使用 ${useLinkCalendar ? 'link_calender' : '直接資料庫'} 資料來源獲取講師 ${teacher} 的課程`);
         res.json(response.data);
     } catch (error) {
         console.error('獲取講師課程錯誤:', error);
@@ -886,14 +956,14 @@ app.post('/api/teacher-courses', async (req, res) => {
     }
 });
 
-// API路由：獲取特定課程的學生
-app.post('/api/course-students', async (req, res) => {
+// API路由：獲取講師的課程 (抓資料庫"上課時間（link_calender）")
+app.post('/api/teacher-courses-link', async (req, res) => {
     try {
-        const { course, time } = req.body;
-        const response = await axios.post(FLB_API_URL, {
-            action: 'getStudentsByCourseAndTime',
-            course: course,
-            time: time
+        const { teacher } = req.body;
+        const response = await axios.post(LINK_CALENDAR_API_URL, {
+            action: 'getCoursesByTeacher',
+            teacher: teacher,
+            source: 'link'
         }, {
             timeout: 30000,
             headers: {
@@ -901,6 +971,131 @@ app.post('/api/course-students', async (req, res) => {
             }
         });
         res.json(response.data);
+    } catch (error) {
+        console.error('獲取講師課程錯誤 (Link Calendar):', error);
+        if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+            res.status(500).json({ 
+                success: false,
+                error: '獲取講師課程超時，請稍後再試' 
+            });
+        } else {
+            res.status(500).json({ 
+                success: false,
+                error: '獲取講師課程失敗' 
+            });
+        }
+    }
+});
+
+// API路由：獲取特定課程的學生（使用新的出缺席狀態 API）
+app.post('/api/course-students', async (req, res) => {
+    try {
+        const { course, time, date } = req.body;
+        
+        // 使用新的 API 來獲取學生名單和出缺席狀態
+        console.log(`📤 調用 getRosterAttendance API:`, {
+            course: course,
+            time: time,
+            date: date,
+            action: 'getRosterAttendance'
+        });
+        
+        const response = await axios.post('https://script.google.com/macros/s/AKfycbzm0GD-T09Botbs52e8PyeVuA5slJh6Z0AQ7I0uUiGZiE6aWhTO2D0d3XHFrdLNv90uCw/exec', {
+            action: 'getRosterAttendance',
+            course: course,
+            period: time
+        }, {
+            timeout: 30000,
+            headers: {
+                'Content-Type': 'application/json',
+                'Cookie': 'NID=525=nsWVvbAon67C2qpyiEHQA3SUio_GqBd7RqUFU6BwB97_4LHggZxLpDgSheJ7WN4w3Z4dCQBiFPG9YKAqZgAokFYCuuQw04dkm-FX9-XHAIBIqJf1645n3RZrg86GcUVJOf3gN-5eTHXFIaovTmgRC6cXllv82SnQuKsGMq7CHH60XDSwyC99s9P2gmyXLppI'
+            }
+        });
+        
+        console.log(`📥 getRosterAttendance API 回應:`, {
+            success: response.data.success,
+            course: response.data.course,
+            period: response.data.period,
+            count: response.data.count,
+            studentsCount: response.data.students ? response.data.students.length : 0
+        });
+        
+        // 詳細記錄每個學生的簽到記錄
+        if (response.data.students) {
+            response.data.students.forEach(student => {
+                console.log(`📋 學生 ${student.name} 的簽到記錄:`, student.attendance);
+            });
+        }
+        
+        // 轉換 API 回應格式以符合前端需求
+        if (response.data.success && response.data.students) {
+            // 使用傳入的日期，如果沒有則使用今天的日期
+            const checkDate = date || new Date().toISOString().split('T')[0]; // 格式：YYYY-MM-DD
+            console.log(`🔍 檢查學生簽到狀態，檢查日期: ${checkDate}`);
+            
+            const students = response.data.students.map(student => {
+                // 檢查學生是否有指定日期的簽到紀錄
+                let hasAttendanceToday = null; // null: 未簽到, true: 已簽到且出席, false: 已簽到但缺席
+                let todayAttendanceRecord = null;
+                
+                if (student.attendance && Array.isArray(student.attendance)) {
+                    todayAttendanceRecord = student.attendance.find(record => record.date === checkDate);
+                    
+                    // 判斷簽到狀態：未簽到、已簽到且出席、已簽到但缺席、請假
+                    if (todayAttendanceRecord) {
+                        if (todayAttendanceRecord.present === true) {
+                            hasAttendanceToday = true; // 已簽到且出席
+                        } else if (todayAttendanceRecord.present === false) {
+                            hasAttendanceToday = false; // 已簽到但缺席
+                        } else if (todayAttendanceRecord.present === "leave") {
+                            hasAttendanceToday = "leave"; // 請假
+                        } else {
+                            hasAttendanceToday = null; // 其他情況視為未簽到
+                        }
+                    } else {
+                        hasAttendanceToday = null; // null 表示未簽到
+                    }
+                    
+                    console.log(`👤 學生 ${student.name}:`, {
+                        attendanceRecords: student.attendance,
+                        todayRecord: todayAttendanceRecord,
+                        hasAttendanceToday: hasAttendanceToday,
+                        checkDate: checkDate,
+                        status: todayAttendanceRecord ? 
+                            (todayAttendanceRecord.present === true ? '已簽到且出席' : 
+                             todayAttendanceRecord.present === false ? '已簽到但缺席' :
+                             todayAttendanceRecord.present === "leave" ? '請假' : '未知狀態') : 
+                            '未簽到'
+                    });
+                } else {
+                    console.log(`👤 學生 ${student.name}: 沒有簽到記錄或格式不正確`, student.attendance);
+                    hasAttendanceToday = null; // null 表示未簽到
+                }
+                
+                return {
+                    name: student.name,
+                    foundInCourseSheet: student.foundInCourseSheet,
+                    remaining: student.remaining,
+                    hasAttendanceToday: hasAttendanceToday,
+                    attendanceRecords: student.attendance || [],
+                    todayAttendanceRecord: todayAttendanceRecord
+                };
+            });
+            
+            res.json({
+                success: true,
+                students: students,
+                course: response.data.course,
+                period: response.data.period,
+                count: response.data.count
+            });
+        } else {
+            res.json({
+                success: false,
+                error: '無法獲取學生名單',
+                students: []
+            });
+        }
     } catch (error) {
         console.error('獲取課程學生錯誤:', error);
         if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
@@ -1232,17 +1427,96 @@ app.post('/webhook', async (req, res) => {
     if (events && events.length > 0) {
         for (const event of events) {
             if (event.type === 'message' && event.message.type === 'text') {
-                console.log('收到訊息:', event.message.text);
-                console.log('用戶 ID:', event.source?.userId || '未知');
+                const messageText = event.message.text;
+                const userId = event.source?.userId;
                 
-                if (event.source?.userId) {
+                console.log('收到訊息:', messageText);
+                console.log('用戶 ID:', userId || '未知');
+                
+                if (userId) {
+                    // 檢查關鍵字
+                    if (messageText === '#內部人員') {
+                        console.log(`🔑 檢測到關鍵字「#內部人員」來自 ${userId}`);
+                        
+                        try {
+                            // 綁定內部人員 Rich Menu
+                            const bindResult = await bindInternalRichMenu(userId);
+                            
+                            if (bindResult.success) {
+                                // 發送成功回覆
+                                const successMessage = '切換為內部人員模式,FunLearnBar歡迎您！';
+                                await sendLineMessage(successMessage, userId);
+                                console.log(`✅ 內部人員模式綁定成功: ${userId}`);
+                            } else {
+                                // 發送失敗回覆
+                                const failMessage = '❌ 內部人員模式綁定失敗，請稍後再試';
+                                await sendLineMessage(failMessage, userId);
+                                console.log(`❌ 內部人員模式綁定失敗: ${userId}`);
+                            }
+                        } catch (error) {
+                            console.error('❌ 處理內部人員綁定失敗:', error);
+                            const errorMessage = '❌ 系統錯誤，請稍後再試';
+                            await sendLineMessage(errorMessage, userId);
+                        }
+                        
+                        return; // 處理完關鍵字後直接返回
+                    }
+                    
+                    if (messageText === '#解綁') {
+                        console.log(`🔑 檢測到關鍵字「#解綁」來自 ${userId}`);
+                        
+                        try {
+                            // 解除 Rich Menu 綁定
+                            const unbindResult = await unbindRichMenu(userId);
+                            
+                            if (unbindResult.success) {
+                                // 發送成功回覆
+                                const successMessage = '✅ Rich Menu 已成功解除綁定！';
+                                await sendLineMessage(successMessage, userId);
+                                console.log(`✅ Rich Menu 解綁成功: ${userId}`);
+                            } else {
+                                // 發送失敗回覆
+                                const failMessage = '❌ Rich Menu 解綁失敗，請稍後再試';
+                                await sendLineMessage(failMessage, userId);
+                                console.log(`❌ Rich Menu 解綁失敗: ${userId}`);
+                            }
+                        } catch (error) {
+                            console.error('❌ 處理解綁失敗:', error);
+                            const errorMessage = '❌ 系統錯誤，請稍後再試';
+                            await sendLineMessage(errorMessage, userId);
+                        }
+                        
+                        return; // 處理完關鍵字後直接返回
+                    }
+                    
+                    if (messageText === '#測試') {
+                        console.log(`🔑 檢測到關鍵字「#測試」來自 ${userId}`);
+                        
+                        try {
+                            // 開始測試模式
+                            await startTestMode(userId);
+                            
+                            // 發送測試模式開始通知
+                            const testMessage = '🧪 測試模式已啟動！\n\n⏰ 將在5分鐘後自動重新綁定內部人員模式\n\n📝 測試記錄：\n• 使用者ID：' + userId + '\n• 開始時間：' + new Date().toLocaleString('zh-TW');
+                            await sendLineMessage(testMessage, userId);
+                            console.log(`✅ 測試模式已啟動: ${userId}`);
+                        } catch (error) {
+                            console.error('❌ 處理測試模式失敗:', error);
+                            const errorMessage = '❌ 測試模式啟動失敗，請稍後再試';
+                            await sendLineMessage(errorMessage, userId);
+                        }
+                        
+                        return; // 處理完關鍵字後直接返回
+                    }
+                    
+                    // 原有的使用者註冊和上傳邏輯
                     console.log('請將此 User ID 設定到環境變數:');
-                    console.log('LINE_USER_ID =', event.source.userId);
+                    console.log('LINE_USER_ID =', userId);
                     
                     // 獲取使用者資訊並上傳到Google Sheets
                     try {
                         // 從LINE API獲取使用者資訊
-                        const profileResponse = await axios.get(`https://api.line.me/v2/bot/profile/${event.source.userId}`, {
+                        const profileResponse = await axios.get(`https://api.line.me/v2/bot/profile/${userId}`, {
                             headers: {
                                 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
                             },
@@ -1250,10 +1524,10 @@ app.post('/webhook', async (req, res) => {
                         });
                         
                         const displayName = profileResponse.data.displayName;
-                        console.log(`獲取到使用者資訊: ${displayName} (${event.source.userId})`);
+                        console.log(`獲取到使用者資訊: ${displayName} (${userId})`);
                         
                         // 上傳到Google Sheets
-                        const uploadResult = await uploadUserToGoogleSheets(event.source.userId, displayName);
+                        const uploadResult = await uploadUserToGoogleSheets(userId, displayName);
                         if (uploadResult.success) {
                             console.log('✅ 使用者資訊已成功上傳到Google Sheets');
                         } else {
@@ -1266,7 +1540,7 @@ app.post('/webhook', async (req, res) => {
                             const teacherResponse = await axios.get(FLB_API_URL, { timeout: 10000 });
                             if (teacherResponse.data.success && teacherResponse.data.teachers) {
                                 const teachers = teacherResponse.data.teachers;
-                                isTeacher = teachers.some(teacher => teacher.userId === event.source.userId);
+                                isTeacher = teachers.some(teacher => teacher.userId === userId);
                                 console.log(`使用者 ${displayName} 是否為講師: ${isTeacher}`);
                             }
                         } catch (teacherError) {
@@ -1276,7 +1550,7 @@ app.post('/webhook', async (req, res) => {
                         // 同時儲存到本地資料庫
                         try {
                             await db.registerUser({
-                                userId: event.source.userId,
+                                userId: userId,
                                 displayName: displayName,
                                 userName: displayName,
                                 pictureUrl: profileResponse.data.pictureUrl,
@@ -1287,17 +1561,17 @@ app.post('/webhook', async (req, res) => {
                             
                             // 只有講師才發送綁定通知
                             if (isTeacher) {
-                                const bindingMessage = `🎉 歡迎使用FLB講師簽到系統！\n\n👤 您的資訊：\n• 姓名：${displayName}\n• User ID：${event.source.userId}\n\n📱 請點擊以下連結開始使用：\n${SYSTEM_URL}\n\n💡 首次使用時，系統會要求您選擇講師身份進行綁定。`;
+                                const bindingMessage = `🎉 歡迎使用FLB講師簽到系統！\n\n👤 您的資訊：\n• 姓名：${displayName}\n• User ID：${userId}\n\n📱 請點擊以下連結開始使用：\n${SYSTEM_URL}\n\n💡 首次使用時，系統會要求您選擇講師身份進行綁定。`;
                                 
                                 try {
-                                    await sendLineMessage(bindingMessage, event.source.userId);
+                                    await sendLineMessage(bindingMessage, userId);
                                     console.log('✅ 講師綁定通知已發送');
                                 } catch (notifyError) {
                                     console.log('❌ 發送講師綁定通知失敗:', notifyError.message);
                                 }
                                 
                                 // 發送管理員通知（講師註冊）
-                                const adminMessage = `🔔 講師註冊通知\n\n👤 講師資訊：\n• 姓名：${displayName}\n• User ID：${event.source.userId}\n• 註冊時間：${new Date().toLocaleString('zh-TW')}\n\n📊 系統狀態：\n• 總使用者數：${await db.getUserCount()}\n• 活躍綁定數：${await db.getActiveBindingCount()}`;
+                                const adminMessage = `🔔 講師註冊通知\n\n👤 講師資訊：\n• 姓名：${displayName}\n• User ID：${userId}\n• 註冊時間：${new Date().toLocaleString('zh-TW')}\n\n📊 系統狀態：\n• 總使用者數：${await db.getUserCount()}\n• 活躍綁定數：${await db.getActiveBindingCount()}`;
                                 
                                 try {
                                     await sendLineMessage(adminMessage);
@@ -1318,7 +1592,7 @@ app.post('/webhook', async (req, res) => {
                         
                         // 即使獲取profile失敗，也嘗試上傳已知的userId
                         try {
-                            const uploadResult = await uploadUserToGoogleSheets(event.source.userId, '未知使用者');
+                            const uploadResult = await uploadUserToGoogleSheets(userId, '未知使用者');
                             if (uploadResult.success) {
                                 console.log('✅ 使用者ID已上傳到Google Sheets (無顯示名稱)');
                             }
@@ -1329,6 +1603,65 @@ app.post('/webhook', async (req, res) => {
                 }
             }
         }
+    }
+});
+
+// API路由：獲取講師對應表資訊
+app.get('/api/teacher-mapping', (req, res) => {
+    try {
+        res.json({
+            success: true,
+            data: {
+                teacherCount: getTeacherCount(),
+                teacherNames: getAllTeacherNames(),
+                lineIds: getAllLineIds(),
+                mapping: teacherIdMapping
+            }
+        });
+    } catch (error) {
+        console.error('獲取講師對應表錯誤:', error);
+        res.status(500).json({
+            success: false,
+            error: '獲取講師對應表失敗'
+        });
+    }
+});
+
+// API路由：檢查講師是否存在
+app.post('/api/check-teacher', (req, res) => {
+    try {
+        const { teacherName, lineId } = req.body;
+        
+        if (teacherName) {
+            const exists = isTeacherExists(teacherName);
+            const mappedLineId = findTeacherLineId(teacherName);
+            res.json({
+                success: true,
+                teacherName: teacherName,
+                exists: exists,
+                lineId: mappedLineId
+            });
+        } else if (lineId) {
+            const exists = isLineIdExists(lineId);
+            const mappedTeacherName = findTeacherNameByLineId(lineId);
+            res.json({
+                success: true,
+                lineId: lineId,
+                exists: exists,
+                teacherName: mappedTeacherName
+            });
+        } else {
+            res.status(400).json({
+                success: false,
+                error: '請提供講師名稱或LINE ID'
+            });
+        }
+    } catch (error) {
+        console.error('檢查講師錯誤:', error);
+        res.status(500).json({
+            success: false,
+            error: '檢查講師失敗'
+        });
     }
 });
 
@@ -1344,13 +1677,28 @@ app.post('/api/check-teacher-binding', async (req, res) => {
             });
         }
 
+        // 首先嘗試直接比對講師ID
+        const teacherName = findTeacherNameByLineId(userId);
+        if (teacherName) {
+            console.log(`🎯 直接比對找到講師: ${teacherName} (${userId})`);
+            return res.json({ 
+                success: true, 
+                isBound: true,
+                teacherName: teacherName,
+                teacherId: userId,
+                source: 'direct_mapping'
+            });
+        }
+
+        // 如果直接比對失敗，使用資料庫查詢
         const bindingInfo = await db.isTeacherBound(userId);
         
         res.json({ 
             success: true, 
             isBound: bindingInfo.isBound,
             teacherName: bindingInfo.teacherName,
-            teacherId: bindingInfo.teacherId
+            teacherId: bindingInfo.teacherId,
+            source: 'database'
         });
         
     } catch (error) {
@@ -1585,7 +1933,7 @@ async function startServer() {
 
         // 啟動伺服器
         app.listen(PORT, async () => {
-            console.log(`伺服器運行在 http://localhost:${PORT}`);
+    console.log(`伺服器運行在 http://localhost:${PORT}`);
             console.log('FLB講師簽到系統已啟動！');
             console.log('🎉 系統完全啟動完成！');
         });

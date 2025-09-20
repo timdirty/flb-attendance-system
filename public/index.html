@@ -171,6 +171,30 @@
                                     <span class="mode-value" id="current-mode-display">講師模式</span>
                                 </div>
                             </div>
+                            
+                            <!-- 人數選擇（僅在講師模式且無學生時顯示） -->
+                            <div class="attendance-count-section" id="attendance-count-section" style="display: none;">
+                                <div class="count-header">
+                                    <h4><i class="fas fa-user-friends"></i> 人數設定</h4>
+                                    <p class="count-description">此課程沒有學生資料，請選擇實際出席人數</p>
+                                </div>
+                                <div class="count-buttons">
+                                    <button class="count-btn" id="count-2-btn" onclick="setAttendanceCount(2)">
+                                        <i class="fas fa-users"></i>
+                                        <span class="count-title">2人（含）以下</span>
+                                        <span class="count-desc">小班教學</span>
+                                    </button>
+                                    <button class="count-btn" id="count-30-btn" onclick="setAttendanceCount(30)">
+                                        <i class="fas fa-users"></i>
+                                        <span class="count-title">3人（含）以上</span>
+                                        <span class="count-desc">大班教學</span>
+                                    </button>
+                                </div>
+                                <div class="current-count-display">
+                                    <span class="count-label">選擇人數：</span>
+                                    <span class="count-value" id="current-count-display">未選擇</span>
+                                </div>
+                            </div>
                             <button class="btn-primary complete" id="submit-report-btn" onclick="submitTeacherReport()">
                                 <i class="fas fa-paper-plane"></i> 提交報表
                             </button>
@@ -388,26 +412,6 @@
          <span class="version-text">Tim感恩戴德版本號: 20250903</span>
      </div>
 
-     <!-- 資料來源切換開關 -->
-     <div class="data-source-toggle" id="dataSourceToggle">
-         <div class="toggle-content">
-             <h4><i class="fas fa-database"></i> 資料來源設定</h4>
-             <div class="toggle-switch-container">
-                 <label class="toggle-switch">
-                     <input type="checkbox" id="dataSourceSwitch" onchange="toggleDataSource()">
-                     <span class="slider"></span>
-                 </label>
-                 <div class="toggle-labels">
-                     <span class="label-left" id="labelLeft">直接抓資料庫「上課時間」</span>
-                     <span class="label-right" id="labelRight">抓資料庫上課時間（link_calender）</span>
-                 </div>
-             </div>
-             <div class="toggle-description">
-                 <small id="toggleDescription">目前使用：直接抓資料庫「上課時間」</small>
-             </div>
-         </div>
-     </div>
-
      <!-- LINE使用者資訊顯示區域 -->
      <div class="user-info-footer hidden" id="userInfoFooter">
          <div class="footer-content">
@@ -623,6 +627,36 @@
          // 檢查使用者是否已註冊
          async function checkUserRegistration(userId, profile) {
              try {
+                 // 先檢查本地存儲的綁定狀態
+                 const localBindingState = localStorage.getItem(`teacher_binding_${userId}`);
+                 if (localBindingState) {
+                     try {
+                         const bindingData = JSON.parse(localBindingState);
+                         console.log('📱 從本地存儲讀取綁定狀態:', bindingData);
+                         
+                         // 檢查本地綁定狀態是否仍然有效（24小時內）
+                         const now = Date.now();
+                         const bindingTime = bindingData.timestamp || 0;
+                         const isRecent = (now - bindingTime) < (24 * 60 * 60 * 1000); // 24小時
+                         
+                         if (isRecent && bindingData.isBound && bindingData.teacherName) {
+                             console.log('✅ 使用本地綁定狀態，跳過服務器檢查');
+                             displayFooterUserInfo({
+                                 userName: bindingData.teacherName,
+                                 userId: userId,
+                                 isTeacherBound: true
+                             });
+                             
+                             // 自動選擇已綁定的講師身份
+                             selectTeacherIdentity(bindingData.teacherName, bindingData.teacherId);
+                             return;
+                         }
+                     } catch (e) {
+                         console.warn('⚠️ 本地綁定狀態解析失敗:', e);
+                         localStorage.removeItem(`teacher_binding_${userId}`);
+                     }
+                 }
+                 
                  const response = await fetch('/api/check-user', {
                      method: 'POST',
                      headers: {
@@ -648,6 +682,25 @@
                 }
              } catch (error) {
                  console.error('檢查註冊狀態失敗:', error);
+                 // 如果服務器檢查失敗，嘗試使用本地狀態
+                 const localBindingState = localStorage.getItem(`teacher_binding_${userId}`);
+                 if (localBindingState) {
+                     try {
+                         const bindingData = JSON.parse(localBindingState);
+                         if (bindingData.isBound && bindingData.teacherName) {
+                             console.log('🔄 服務器檢查失敗，使用本地綁定狀態');
+                             displayFooterUserInfo({
+                                 userName: bindingData.teacherName,
+                                 userId: userId,
+                                 isTeacherBound: true
+                             });
+                             selectTeacherIdentity(bindingData.teacherName, bindingData.teacherId);
+                             return;
+                         }
+                     } catch (e) {
+                         console.warn('⚠️ 本地狀態解析失敗:', e);
+                     }
+                 }
              }
          }
 
@@ -724,6 +777,16 @@
 
                 if (result.success) {
                     if (result.isBound) {
+                        // 已綁定講師，保存到本地存儲
+                        const bindingData = {
+                            isBound: true,
+                            teacherName: result.teacherName,
+                            teacherId: result.teacherId,
+                            timestamp: Date.now()
+                        };
+                        localStorage.setItem(`teacher_binding_${userId}`, JSON.stringify(bindingData));
+                        console.log('💾 綁定狀態已保存到本地存儲:', bindingData);
+                        
                         // 已綁定講師，直接跳到第二步驟
                         displayFooterUserInfo({
                             userName: result.teacherName,
@@ -735,6 +798,10 @@
                         // 自動選擇已綁定的講師身份
                         selectTeacherIdentity(result.teacherName, result.teacherId);
                     } else {
+                        // 未綁定講師，清除本地存儲
+                        localStorage.removeItem(`teacher_binding_${userId}`);
+                        console.log('🗑️ 未綁定狀態，清除本地存儲');
+                        
                         // 未綁定講師，先顯示使用者資訊，然後顯示講師選擇彈窗
                         displayFooterUserInfo({
                             userName: currentUser?.displayName || '未綁定講師',
@@ -746,6 +813,25 @@
                 }
             } catch (error) {
                 console.error('檢查講師綁定狀態失敗:', error);
+                // 如果服務器檢查失敗，嘗試使用本地狀態
+                const localBindingState = localStorage.getItem(`teacher_binding_${userId}`);
+                if (localBindingState) {
+                    try {
+                        const bindingData = JSON.parse(localBindingState);
+                        if (bindingData.isBound && bindingData.teacherName) {
+                            console.log('🔄 服務器檢查失敗，使用本地綁定狀態');
+                            displayFooterUserInfo({
+                                userName: bindingData.teacherName,
+                                userId: userId,
+                                isTeacherBound: true
+                            });
+                            selectTeacherIdentity(bindingData.teacherName, bindingData.teacherId);
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn('⚠️ 本地狀態解析失敗:', e);
+                    }
+                }
             }
         }
 
@@ -967,6 +1053,16 @@
                 const result = await response.json();
 
                 if (result.success) {
+                    // 保存綁定狀態到本地存儲
+                    const bindingData = {
+                        isBound: true,
+                        teacherName: teacherName,
+                        teacherId: teacherId,
+                        timestamp: Date.now()
+                    };
+                    localStorage.setItem(`teacher_binding_${userId}`, JSON.stringify(bindingData));
+                    console.log('💾 新綁定狀態已保存到本地存儲:', bindingData);
+                    
                     let message = `講師身份綁定成功！歡迎，${teacherName}！`;
                     
                     // 顯示Rich Menu綁定結果
@@ -1112,6 +1208,10 @@
                 const result = await response.json();
                 
                 if (result.success) {
+                    // 清除本地存儲的綁定狀態
+                    localStorage.removeItem(`teacher_binding_${currentUserId}`);
+                    console.log('🗑️ 解除綁定成功，清除本地存儲');
+                    
                     let message = '講師綁定已解除！';
                     
                     // 顯示Rich Menu解除結果
@@ -1143,29 +1243,6 @@
                 showToast('解除綁定失敗，請稍後再試', 'error');
             }
         }
-
-         // 資料來源切換功能
-         let useLinkCalendar = false; // 預設使用直接抓資料庫「上課時間」
-
-         function toggleDataSource() {
-             const switchElement = document.getElementById('dataSourceSwitch');
-             const description = document.getElementById('toggleDescription');
-             
-             useLinkCalendar = switchElement.checked;
-             
-             if (useLinkCalendar) {
-                 description.textContent = '目前使用：抓資料庫上課時間（link_calender）';
-                 showToast('已切換到 link_calender 資料來源', 'info');
-             } else {
-                 description.textContent = '目前使用：直接抓資料庫「上課時間」';
-                 showToast('已切換到直接資料庫「上課時間」', 'info');
-             }
-             
-             // 如果已經在步驟2且有選中講師，重新載入課程
-             if (currentStep === 2 && selectedTeacher) {
-                 loadTeacherCourses();
-             }
-         }
 
          // 頁面載入時初始化
          window.addEventListener('load', () => {
