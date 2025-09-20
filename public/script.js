@@ -741,17 +741,12 @@ function displayCourses(courses) {
         let clickTimer = null;
         
         courseCard.onclick = (event) => {
-            // 立即設置選擇課程標記，避免觸發滾動
-            isSelectingCourse = true;
-            console.log('📍 課程卡片點擊，設置選擇標記');
-            
             // 阻止事件冒泡，避免觸發其他事件監聽器
             event.stopPropagation();
             
             // 如果是停課課程，禁用點擊
             if (courseStatus.status === 'cancelled') {
                 showToast('此課程已停課，無法選擇', 'warning');
-                isSelectingCourse = false;
                 return;
             }
             
@@ -760,12 +755,21 @@ function displayCourses(courses) {
             if (clickCount === 1) {
                 // 單擊：選擇課程
                 clickTimer = setTimeout(() => {
+                    // 設置選擇課程標記，避免觸發滾動
+                    isSelectingCourse = true;
+                    console.log('📍 課程卡片單擊，設置選擇標記');
+                    
                     selectCourse(course.course, course.time, course.note || '', event);
                     clickCount = 0;
                 }, 200);
             } else if (clickCount === 2) {
                 // 雙擊：選擇課程並進入下一步
                 clearTimeout(clickTimer);
+                
+                // 設置選擇課程標記，避免觸發滾動
+                isSelectingCourse = true;
+                console.log('📍 課程卡片雙擊，設置選擇標記');
+                
                 selectCourse(course.course, course.time, course.note || '', event);
                 clickCount = 0;
                 
@@ -1260,12 +1264,6 @@ function goToStep(step) {
 
 // 滾動到主要內容區域
 function scrollToMainContent() {
-    // 如果正在選擇課程，避免觸發滾動
-    if (isSelectingCourse) {
-        console.log('📍 正在選擇課程，跳過滾動');
-        return;
-    }
-    
     // 延遲一點時間確保 DOM 更新完成
     setTimeout(() => {
         const mainContent = document.querySelector('.step-content.active');
@@ -1285,7 +1283,8 @@ function scrollToMainContent() {
                     targetPosition: targetPosition,
                     currentScroll: window.scrollY,
                     titleText: stepTitle.textContent,
-                    currentStep: currentStep
+                    currentStep: currentStep,
+                    isSelectingCourse: isSelectingCourse
                 });
             } else {
                 // 如果找不到標題，使用原來的邏輯
