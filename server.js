@@ -987,6 +987,134 @@ app.post('/api/teacher-courses-link', async (req, res) => {
     }
 });
 
+// API路由：直接跳轉到第三步驟
+app.post('/api/direct-step3', async (req, res) => {
+    try {
+        const { teacher, course, time } = req.body;
+        
+        // 驗證必要參數
+        if (!teacher || !course || !time) {
+            return res.status(400).json({
+                success: false,
+                error: '缺少必要參數：teacher, course, time'
+            });
+        }
+        
+        console.log(`🎯 直接跳轉到第三步驟請求:`, { teacher, course, time });
+        
+        // 驗證講師是否存在
+        const teachersResponse = await axios.post(FLB_API_URL, {
+            action: 'get_teachers'
+        });
+        
+        if (!teachersResponse.data.success || !teachersResponse.data.teachers) {
+            return res.status(400).json({
+                success: false,
+                error: '無法獲取講師列表'
+            });
+        }
+        
+        const teacherExists = teachersResponse.data.teachers.some(t => t.name === teacher);
+        if (!teacherExists) {
+            return res.status(400).json({
+                success: false,
+                error: `講師 "${teacher}" 不存在`
+            });
+        }
+        
+        // 驗證課程是否存在
+        const coursesResponse = await axios.post(FLB_API_URL, {
+            action: 'get_courses',
+            teacher: teacher
+        });
+        
+        if (!coursesResponse.data.success || !coursesResponse.data.courses) {
+            return res.status(400).json({
+                success: false,
+                error: '無法獲取課程列表'
+            });
+        }
+        
+        const courseExists = coursesResponse.data.courses.some(c => 
+            c.course === course && c.time === time
+        );
+        
+        if (!courseExists) {
+            return res.status(400).json({
+                success: false,
+                error: `課程 "${course}" 在時間 "${time}" 不存在`
+            });
+        }
+        
+        // 獲取學生列表
+        const studentsResponse = await axios.post(FLB_API_URL, {
+            action: 'get_course_students',
+            course: course,
+            time: time
+        });
+        
+        let students = [];
+        if (studentsResponse.data.success && studentsResponse.data.students) {
+            // 處理學生簽到狀態（與 course-students API 相同的邏輯）
+            const checkDate = new Date().toISOString().split('T')[0];
+            
+            students = studentsResponse.data.students.map(student => {
+                let hasAttendanceToday = null;
+                let todayAttendanceRecord = null;
+                
+                if (student.attendance && Array.isArray(student.attendance)) {
+                    todayAttendanceRecord = student.attendance.find(record => record.date === checkDate);
+                    
+                    if (todayAttendanceRecord) {
+                        if (todayAttendanceRecord.present === true) {
+                            hasAttendanceToday = true;
+                        } else if (todayAttendanceRecord.present === false) {
+                            hasAttendanceToday = false;
+                        } else if (todayAttendanceRecord.present === "leave") {
+                            hasAttendanceToday = "leave";
+                        } else {
+                            hasAttendanceToday = null;
+                        }
+                    } else {
+                        hasAttendanceToday = null;
+                    }
+                } else {
+                    hasAttendanceToday = null;
+                }
+                
+                return {
+                    name: student.name,
+                    foundInCourseSheet: student.foundInCourseSheet,
+                    remaining: student.remaining,
+                    hasAttendanceToday: hasAttendanceToday,
+                    attendanceRecords: student.attendance || [],
+                    todayAttendanceRecord: todayAttendanceRecord
+                };
+            });
+        }
+        
+        // 返回跳轉所需的資料
+        res.json({
+            success: true,
+            message: '成功獲取跳轉資料',
+            data: {
+                teacher: teacher,
+                course: course,
+                time: time,
+                students: students,
+                redirectUrl: `/?step=3&teacher=${encodeURIComponent(teacher)}&course=${encodeURIComponent(course)}&time=${encodeURIComponent(time)}`
+            }
+        });
+        
+    } catch (error) {
+        console.error('直接跳轉到第三步驟錯誤:', error);
+        res.status(500).json({
+            success: false,
+            error: '伺服器內部錯誤'
+        });
+    }
+});
+
 // API路由：獲取特定課程的學生（使用新的出缺席狀態 API）
 app.post('/api/course-students', async (req, res) => {
     try {

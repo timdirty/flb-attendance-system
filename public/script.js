@@ -50,6 +50,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化輸入框自動縮放功能
     setupInputAutoResize();
     
+    // 檢查 URL 參數並處理直接跳轉
+    handleDirectStep3Redirect();
+    
     // 添加全局點擊事件監聽器，點擊非輸入框區域時縮放回正常大小
     document.addEventListener('click', function(e) {
         // 如果點擊的不是輸入框
@@ -1552,6 +1555,101 @@ function updateNavigation() {
         nextBtn.onclick = completeProcess;
         nextBtn.classList.add('complete');
     }
+}
+
+// 處理直接跳轉到第三步驟
+async function handleDirectStep3Redirect() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const step = urlParams.get('step');
+    const teacher = urlParams.get('teacher');
+    const course = urlParams.get('course');
+    const time = urlParams.get('time');
+    
+    // 檢查是否要跳轉到第三步驟
+    if (step === '3' && teacher && course && time) {
+        console.log('🎯 檢測到直接跳轉到第三步驟的 URL 參數:', { teacher, course, time });
+        
+        try {
+            // 調用 API 驗證並獲取資料
+            const response = await fetch('/api/direct-step3', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    teacher: teacher,
+                    course: course,
+                    time: time
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log('✅ 成功獲取跳轉資料:', data.data);
+                
+                // 設置全域變數
+                selectedTeacher = data.data.teacher;
+                selectedCourse = data.data.course;
+                selectedCourseTime = data.data.time;
+                students = data.data.students || [];
+                
+                // 查找講師的 Web API 連結
+                const teacherObj = teachers.find(t => t.name === selectedTeacher);
+                if (teacherObj) {
+                    webApi = teacherObj.webApi || '';
+                }
+                
+                // 更新顯示
+                updateDisplayForDirectRedirect();
+                
+                // 跳轉到第三步驟
+                goToStep(3);
+                
+                // 顯示學生列表
+                displayStudents(students);
+                
+                // 顯示成功訊息
+                showToast(`已直接跳轉到第三步驟：${selectedTeacher} - ${selectedCourse}`, 'success');
+                
+                // 清除 URL 參數（可選）
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
+                
+            } else {
+                console.error('❌ 跳轉失敗:', data.error);
+                showToast(`跳轉失敗：${data.error}`, 'error');
+            }
+            
+        } catch (error) {
+            console.error('❌ 跳轉請求失敗:', error);
+            showToast('跳轉請求失敗，請檢查網路連線', 'error');
+        }
+    }
+}
+
+// 更新顯示以配合直接跳轉
+function updateDisplayForDirectRedirect() {
+    // 更新講師名稱顯示
+    const selectedTeacherName = document.getElementById('selected-teacher-name');
+    if (selectedTeacherName) {
+        selectedTeacherName.textContent = selectedTeacher;
+    }
+    
+    // 更新課程名稱顯示
+    const selectedCourseName = document.getElementById('selected-course-name');
+    if (selectedCourseName) {
+        selectedCourseName.textContent = selectedCourse;
+    }
+    
+    // 更新課程時間顯示
+    const selectedCourseTime = document.getElementById('selected-course-time');
+    if (selectedCourseTime) {
+        selectedCourseTime.textContent = selectedCourseTime;
+    }
+    
+    // 更新導航狀態
+    updateNavigation();
 }
 
 // 顯示成功提示
