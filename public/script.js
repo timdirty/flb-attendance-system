@@ -828,6 +828,45 @@ function displayCourses(courses) {
     
     // 更新導航
     updateNavigation();
+    
+    // 課程載入完成後，檢查是否有正在進行的課程需要自動選擇
+    checkAndAutoSelectCourse(sortedCourses);
+}
+
+// 檢查並自動選擇正在進行的課程
+function checkAndAutoSelectCourse(courses) {
+    console.log('🔍 檢查是否有正在進行的課程需要自動選擇');
+    
+    // 找到正在進行的課程（時間距離為 0 的課程）
+    const ongoingCourse = courses.find(course => {
+        const timeDistance = calculateTimeDistance(course.time);
+        return timeDistance === 0; // 正在進行中的課程
+    });
+    
+    if (ongoingCourse) {
+        console.log('✅ 發現正在進行的課程，自動選擇:', {
+            course: ongoingCourse.course,
+            time: ongoingCourse.time,
+            note: ongoingCourse.note
+        });
+        
+        // 顯示自動選擇提示
+        showToast(`檢測到正在進行的課程：${ongoingCourse.course}，自動選擇中...`, 'info');
+        
+        // 延遲一下確保 UI 更新完成，然後自動選擇課程
+        setTimeout(() => {
+            // 自動選擇課程
+            selectCourse(ongoingCourse.course, ongoingCourse.time, ongoingCourse.note || '');
+            
+            // 再延遲一下確保課程選擇完成，然後自動跳轉到第三步驟
+            setTimeout(() => {
+                console.log('🚀 自動跳轉到第三步驟');
+                nextStep();
+            }, 500);
+        }, 1000);
+    } else {
+        console.log('ℹ️ 沒有正在進行的課程，保持正常選擇模式');
+    }
 }
 
 // 選擇課程
