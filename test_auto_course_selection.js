@@ -197,17 +197,16 @@ function mockCanMarkAttendance(courseTime) {
     const courseEndMinutes = endHour * 60 + endMinute;
     const currentTimeInMinutes = 13 * 60 + 20; // 13:20
     
-    // 檢查是否在簽到時間範圍內（上課前10分鐘到課程結束）
-    const tenMinutesBeforeStart = courseStartMinutes - 10;
-    const isWithinAttendanceWindow = currentTimeInMinutes >= tenMinutesBeforeStart && currentTimeInMinutes <= courseEndMinutes;
+    // 檢查是否在簽到時間範圍內（課程開始後到課程結束）
+    const isWithinAttendanceWindow = currentTimeInMinutes >= courseStartMinutes && currentTimeInMinutes <= courseEndMinutes;
     
     if (!isWithinAttendanceWindow) {
-        if (currentTimeInMinutes < tenMinutesBeforeStart) {
-            const minutesUntilAttendance = tenMinutesBeforeStart - currentTimeInMinutes;
+        if (currentTimeInMinutes < courseStartMinutes) {
+            const minutesUntilStart = courseStartMinutes - currentTimeInMinutes;
             return { 
                 canMark: false, 
-                reason: `還需等待 ${minutesUntilAttendance} 分鐘才能開始簽到`,
-                minutesUntil: minutesUntilAttendance
+                reason: `課程尚未開始，還需等待 ${minutesUntilStart} 分鐘`,
+                minutesUntil: minutesUntilStart
             };
         } else {
             return { canMark: false, reason: '課程已結束，無法簽到' };
@@ -219,16 +218,54 @@ function mockCanMarkAttendance(courseTime) {
 
 // 測試不同時間的簽到限制
 const testTimes = [
-    { time: '日 1330-1500 松山', description: '課程 13:30-15:00，當前 13:20' },
-    { time: '日 1400-1500 松山', description: '課程 14:00-15:00，當前 13:20' },
-    { time: '日 1200-1300 松山', description: '課程 12:00-13:00，當前 13:20' }
+    { time: '日 1330-1500 松山', description: '課程 13:30-15:00，當前 13:20（課程開始前）' },
+    { time: '日 1400-1500 松山', description: '課程 14:00-15:00，當前 13:20（課程開始前）' },
+    { time: '日 1200-1300 松山', description: '課程 12:00-13:00，當前 13:20（課程結束後）' },
+    { time: '日 1330-1500 松山', description: '課程 13:30-15:00，當前 13:35（課程開始後）' }
 ];
 
 testTimes.forEach((test, index) => {
-    const result = mockCanMarkAttendance(test.time);
-    console.log(`\n測試 ${index + 1}: ${test.description}`);
-    console.log(`結果: ${result.canMark ? '✅ 可以簽到' : '❌ 不能簽到'}`);
-    console.log(`原因: ${result.reason}`);
+    // 根據測試案例調整當前時間
+    let currentTimeInMinutes;
+    if (test.description.includes('13:35')) {
+        currentTimeInMinutes = 13 * 60 + 35; // 13:35
+    } else {
+        currentTimeInMinutes = 13 * 60 + 20; // 13:20
+    }
+    
+    // 重新計算結果
+    const timeMatch = test.time.match(/([一二三四五六日]+) (\d{4})-(\d{4})/);
+    if (timeMatch) {
+        const startHour = parseInt(timeMatch[2].substring(0, 2));
+        const startMinute = parseInt(timeMatch[2].substring(2, 4));
+        const endHour = parseInt(timeMatch[3].substring(0, 2));
+        const endMinute = parseInt(timeMatch[3].substring(2, 4));
+        
+        const courseStartMinutes = startHour * 60 + startMinute;
+        const courseEndMinutes = endHour * 60 + endMinute;
+        
+        const isWithinAttendanceWindow = currentTimeInMinutes >= courseStartMinutes && currentTimeInMinutes <= courseEndMinutes;
+        
+        let result;
+        if (!isWithinAttendanceWindow) {
+            if (currentTimeInMinutes < courseStartMinutes) {
+                const minutesUntilStart = courseStartMinutes - currentTimeInMinutes;
+                result = { 
+                    canMark: false, 
+                    reason: `課程尚未開始，還需等待 ${minutesUntilStart} 分鐘`,
+                    minutesUntil: minutesUntilStart
+                };
+            } else {
+                result = { canMark: false, reason: '課程已結束，無法簽到' };
+            }
+        } else {
+            result = { canMark: true, reason: '可以進行簽到' };
+        }
+        
+        console.log(`\n測試 ${index + 1}: ${test.description}`);
+        console.log(`結果: ${result.canMark ? '✅ 可以簽到' : '❌ 不能簽到'}`);
+        console.log(`原因: ${result.reason}`);
+    }
 });
 
 console.log('\n=== 測試完成 ===');

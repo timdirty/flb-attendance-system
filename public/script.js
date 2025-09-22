@@ -1201,17 +1201,16 @@ function canMarkAttendance(courseTime) {
             return { canMark: false, reason: '今天不是課程日' };
         }
         
-        // 檢查是否在簽到時間範圍內（上課前10分鐘到課程結束）
-        const tenMinutesBeforeStart = courseStartMinutes - 10;
-        const isWithinAttendanceWindow = currentTimeInMinutes >= tenMinutesBeforeStart && currentTimeInMinutes <= courseEndMinutes;
+        // 檢查是否在簽到時間範圍內（課程開始後到課程結束）
+        const isWithinAttendanceWindow = currentTimeInMinutes >= courseStartMinutes && currentTimeInMinutes <= courseEndMinutes;
         
         if (!isWithinAttendanceWindow) {
-            if (currentTimeInMinutes < tenMinutesBeforeStart) {
-                const minutesUntilAttendance = tenMinutesBeforeStart - currentTimeInMinutes;
+            if (currentTimeInMinutes < courseStartMinutes) {
+                const minutesUntilStart = courseStartMinutes - currentTimeInMinutes;
                 return { 
                     canMark: false, 
-                    reason: `還需等待 ${minutesUntilAttendance} 分鐘才能開始簽到`,
-                    minutesUntil: minutesUntilAttendance
+                    reason: `課程尚未開始，還需等待 ${minutesUntilStart} 分鐘`,
+                    minutesUntil: minutesUntilStart
                 };
             } else {
                 return { canMark: false, reason: '課程已結束，無法簽到' };
