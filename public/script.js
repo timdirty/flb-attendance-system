@@ -833,30 +833,36 @@ function displayCourses(courses) {
     checkAndAutoSelectCourse(sortedCourses);
 }
 
-// 檢查並自動選擇正在進行的課程
+// 檢查並自動選擇即將開始或正在進行的課程
 function checkAndAutoSelectCourse(courses) {
-    console.log('🔍 檢查是否有正在進行的課程需要自動選擇');
+    console.log('🔍 檢查是否有即將開始或正在進行的課程需要自動選擇');
     
-    // 找到正在進行的課程（時間距離為 0 的課程）
-    const ongoingCourse = courses.find(course => {
+    // 找到即將開始（10分鐘內）或正在進行的課程
+    const upcomingCourse = courses.find(course => {
         const timeDistance = calculateTimeDistance(course.time);
-        return timeDistance === 0; // 正在進行中的課程
+        // 課程即將開始（10分鐘內）或正在進行中
+        return timeDistance >= 0 && timeDistance <= 10;
     });
     
-    if (ongoingCourse) {
-        console.log('✅ 發現正在進行的課程，自動選擇:', {
-            course: ongoingCourse.course,
-            time: ongoingCourse.time,
-            note: ongoingCourse.note
+    if (upcomingCourse) {
+        const timeDistance = calculateTimeDistance(upcomingCourse.time);
+        const statusText = timeDistance === 0 ? '正在進行中' : `還有 ${timeDistance} 分鐘開始`;
+        
+        console.log('✅ 發現即將開始或正在進行的課程，自動選擇:', {
+            course: upcomingCourse.course,
+            time: upcomingCourse.time,
+            note: upcomingCourse.note,
+            timeDistance: timeDistance,
+            status: statusText
         });
         
         // 顯示自動選擇提示
-        showToast(`檢測到正在進行的課程：${ongoingCourse.course}，自動選擇中...`, 'info');
+        showToast(`檢測到${statusText}的課程：${upcomingCourse.course}，自動選擇中...`, 'info');
         
         // 延遲一下確保 UI 更新完成，然後自動選擇課程
         setTimeout(() => {
             // 自動選擇課程
-            selectCourse(ongoingCourse.course, ongoingCourse.time, ongoingCourse.note || '');
+            selectCourse(upcomingCourse.course, upcomingCourse.time, upcomingCourse.note || '');
             
             // 再延遲一下確保課程選擇完成，然後自動跳轉到第三步驟
             setTimeout(() => {
@@ -865,7 +871,7 @@ function checkAndAutoSelectCourse(courses) {
             }, 500);
         }, 1000);
     } else {
-        console.log('ℹ️ 沒有正在進行的課程，保持正常選擇模式');
+        console.log('ℹ️ 沒有即將開始或正在進行的課程，保持正常選擇模式');
     }
 }
 
@@ -1071,6 +1077,10 @@ function displayStudents(studentList) {
     // 當重新進入學生簽到區塊時，重置通知狀態以允許重新發送
     onReenterAttendanceArea();
     
+    // 檢查是否可以進行簽到
+    const attendanceCheck = canMarkAttendance(selectedCourseTime);
+    console.log('🕐 簽到時間檢查:', attendanceCheck);
+    
     studentListElement.innerHTML = studentList.map(student => {
         // 檢查學生是否有當天的簽到紀錄
         const hasAttendanceToday = student.hasAttendanceToday;
@@ -1101,6 +1111,12 @@ function displayStudents(studentList) {
             statusText: statusText
         });
         
+        // 根據時間檢查結果決定按鈕狀態
+        const canMark = attendanceCheck.canMark;
+        const buttonDisabled = !canMark ? 'disabled' : '';
+        const buttonClass = !canMark ? 'btn-attendance disabled' : 'btn-attendance';
+        const tooltipText = !canMark ? `title="${attendanceCheck.reason}"` : '';
+        
         return `
         <div class="student-item">
             <div class="student-info">
@@ -1110,10 +1126,10 @@ function displayStudents(studentList) {
                 </div>
             </div>
             <div class="attendance-buttons">
-                <button class="btn-attendance btn-present" onclick="markAttendance('${student.name}', true)">
+                <button class="${buttonClass} btn-present" ${buttonDisabled} ${tooltipText} onclick="markAttendance('${student.name}', true)">
                     <i class="fas fa-check"></i> 出席
                 </button>
-                <button class="btn-attendance btn-absent" onclick="markAttendance('${student.name}', false)">
+                <button class="${buttonClass} btn-absent" ${buttonDisabled} ${tooltipText} onclick="markAttendance('${student.name}', false)">
                     <i class="fas fa-times"></i> 缺席
                 </button>
             </div>
@@ -1132,8 +1148,93 @@ let studentAttendanceStatus = {};
 let attendanceNotificationSent = false;
 let attendanceCheckTimer = null;
 
+// 檢查是否可以進行簽到（上課前10分鐘內）
+function canMarkAttendance(courseTime) {
+    try {
+        // 解析課程時間
+        const timeMatch = courseTime.match(/([一二三四五六日]+) (\d{4})-(\d{4})/);
+        if (!timeMatch) return { canMark: false, reason: '無法解析課程時間' };
+        
+        const weekdayMap = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '日': 7 };
+        const weekdays = timeMatch[1].split('');
+        const startHour = parseInt(timeMatch[2].substring(0, 2));
+        const startMinute = parseInt(timeMatch[2].substring(2, 4));
+        const endHour = parseInt(timeMatch[3].substring(0, 2));
+        const endMinute = parseInt(timeMatch[3].substring(2, 4));
+        
+        // 獲取台灣時間
+        const now = new Date();
+        const taiwanTime = new Intl.DateTimeFormat('zh-TW', {
+            timeZone: 'Asia/Taipei',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        }).formatToParts(now);
+        
+        const taiwanDate = {
+            year: parseInt(taiwanTime.find(p => p.type === 'year').value),
+            month: parseInt(taiwanTime.find(p => p.type === 'month').value),
+            day: parseInt(taiwanTime.find(p => p.type === 'day').value),
+            hour: parseInt(taiwanTime.find(p => p.type === 'hour').value),
+            minute: parseInt(taiwanTime.find(p => p.type === 'minute').value),
+            second: parseInt(taiwanTime.find(p => p.type === 'second').value)
+        };
+        
+        const taiwanNow = new Date(taiwanDate.year, taiwanDate.month - 1, taiwanDate.day, taiwanDate.hour, taiwanDate.minute, taiwanDate.second);
+        const currentWeekday = taiwanNow.getDay() === 0 ? 7 : taiwanNow.getDay(); // 將週日轉換為7
+        
+        const courseStartMinutes = startHour * 60 + startMinute;
+        const courseEndMinutes = endHour * 60 + endMinute;
+        const currentTimeInMinutes = taiwanDate.hour * 60 + taiwanDate.minute;
+        
+        // 檢查是否在課程的星期幾
+        const isCorrectWeekday = weekdays.some(weekdayChar => {
+            const courseWeekday = weekdayMap[weekdayChar];
+            return courseWeekday === currentWeekday;
+        });
+        
+        if (!isCorrectWeekday) {
+            return { canMark: false, reason: '今天不是課程日' };
+        }
+        
+        // 檢查是否在簽到時間範圍內（上課前10分鐘到課程結束）
+        const tenMinutesBeforeStart = courseStartMinutes - 10;
+        const isWithinAttendanceWindow = currentTimeInMinutes >= tenMinutesBeforeStart && currentTimeInMinutes <= courseEndMinutes;
+        
+        if (!isWithinAttendanceWindow) {
+            if (currentTimeInMinutes < tenMinutesBeforeStart) {
+                const minutesUntilAttendance = tenMinutesBeforeStart - currentTimeInMinutes;
+                return { 
+                    canMark: false, 
+                    reason: `還需等待 ${minutesUntilAttendance} 分鐘才能開始簽到`,
+                    minutesUntil: minutesUntilAttendance
+                };
+            } else {
+                return { canMark: false, reason: '課程已結束，無法簽到' };
+            }
+        }
+        
+        return { canMark: true, reason: '可以進行簽到' };
+        
+    } catch (error) {
+        console.error('檢查簽到時間錯誤:', error);
+        return { canMark: false, reason: '時間檢查錯誤' };
+    }
+}
+
 // 標記學生出勤
 async function markAttendance(studentName, present) {
+    // 檢查是否可以進行簽到
+    const attendanceCheck = canMarkAttendance(selectedCourseTime);
+    if (!attendanceCheck.canMark) {
+        showToast(`❌ ${attendanceCheck.reason}`, 'warning');
+        return;
+    }
+    
     // 獲取按鈕元素
     const clickedButton = event.target.closest('.btn-attendance');
     const studentItem = clickedButton.closest('.student-item');

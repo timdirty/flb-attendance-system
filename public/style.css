@@ -1164,6 +1164,26 @@ body {
     animation: spin 1s linear infinite;
 }
 
+/* 禁用狀態的簽到按鈕 */
+.btn-attendance.disabled {
+    background: #6c757d !important;
+    color: #adb5bd !important;
+    cursor: not-allowed !important;
+    opacity: 0.6;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.btn-attendance.disabled:hover {
+    background: #6c757d !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.btn-attendance.disabled i {
+    opacity: 0.5;
+}
+
 /* 導航按鈕 */
 .navigation {
     display: flex;
