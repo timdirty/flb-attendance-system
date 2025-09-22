@@ -1201,8 +1201,9 @@ function canMarkAttendance(courseTime) {
             return { canMark: false, reason: '今天不是課程日' };
         }
         
-        // 檢查是否在簽到時間範圍內（課程開始後到課程結束）
-        const isWithinAttendanceWindow = currentTimeInMinutes >= courseStartMinutes && currentTimeInMinutes <= courseEndMinutes;
+        // 檢查是否在簽到時間範圍內（課程開始後到課程結束後2小時）
+        const twoHoursAfterEnd = courseEndMinutes + 120; // 課程結束後2小時
+        const isWithinAttendanceWindow = currentTimeInMinutes >= courseStartMinutes && currentTimeInMinutes <= twoHoursAfterEnd;
         
         if (!isWithinAttendanceWindow) {
             if (currentTimeInMinutes < courseStartMinutes) {
@@ -1213,7 +1214,7 @@ function canMarkAttendance(courseTime) {
                     minutesUntil: minutesUntilStart
                 };
             } else {
-                return { canMark: false, reason: '課程已結束，無法簽到' };
+                return { canMark: false, reason: '課程結束超過2小時，無法簽到' };
             }
         }
         
