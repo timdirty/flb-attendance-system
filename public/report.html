@@ -287,25 +287,32 @@
 
         .result-details {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
         }
 
         .detail-item {
             display: flex;
             flex-direction: column;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
         }
 
         .detail-label {
             font-weight: 600;
-            color: #6c757d;
+            color: #667eea;
             font-size: 0.9rem;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .detail-value {
             color: #333;
             font-size: 1rem;
+            line-height: 1.4;
         }
 
         .no-results {
@@ -374,6 +381,43 @@
             box-shadow: 0 4px 15px rgba(23, 162, 184, 0.3);
         }
 
+        /* 懸浮按鈕 */
+        .floating-button {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: linear-gradient(135deg, #00B900 0%, #00A000 100%);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 15px 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(0, 185, 0, 0.4);
+            z-index: 1000;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .floating-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(0, 185, 0, 0.5);
+            text-decoration: none;
+            color: white;
+        }
+
+        .floating-button:active {
+            transform: translateY(-1px);
+        }
+
+        .floating-button i {
+            font-size: 1.2rem;
+        }
+
         @media (max-width: 768px) {
             .report-container {
                 padding: 10px;
@@ -414,6 +458,13 @@
 
             .month-buttons {
                 justify-content: center;
+            }
+
+            .floating-button {
+                bottom: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                font-size: 0.9rem;
             }
         }
     </style>
@@ -533,6 +584,12 @@
             <div class="report-results" id="report-results-content"></div>
         </div>
     </div>
+
+    <!-- 懸浮按鈕 -->
+    <a href="https://liff.line.me/1657746214-qp0y8NwZ" target="_blank" class="floating-button">
+        <i class="fas fa-calendar-alt"></i>
+        查看行事曆
+    </a>
 
     <!-- 成功提示 -->
     <div class="toast" id="toast">
@@ -859,13 +916,12 @@
             
             let html = '';
             results.forEach((item, index) => {
-                const date = item.date || item.日期 || item['課程日期'] || item['日期'] || '未知日期';
+                // 只顯示指定的欄位
                 const courseName = item.course || item.課程名稱 || item['課程'] || item['課程名稱'] || '未知課程';
                 const time = item.time || item.上課時間 || item['時間'] || item['上課時間'] || '未知時間';
-                const location = item.location || item.地點 || item['地點'] || item['位置'] || '未知地點';
+                const date = item.date || item.日期 || item['課程日期'] || item['日期'] || '未知日期';
                 const students = item.students || item.學生 || item['學生'] || item['學生名單'] || '未知';
-                const topic = item.topic || item.主題 || item['主題'] || item['課程內容'] || '';
-                const notes = item.notes || item.備註 || item['備註'] || item['備註說明'] || '';
+                const topic = item.topic || item.主題 || item['主題'] || item['課程內容'] || '無';
                 
                 html += `
                     <div class="result-item">
@@ -875,29 +931,25 @@
                         </div>
                         <div class="result-details">
                             <div class="detail-item">
+                                <div class="detail-label">課程名稱</div>
+                                <div class="detail-value">${courseName}</div>
+                            </div>
+                            <div class="detail-item">
                                 <div class="detail-label">上課時間</div>
                                 <div class="detail-value">${time}</div>
                             </div>
                             <div class="detail-item">
-                                <div class="detail-label">地點</div>
-                                <div class="detail-value">${location}</div>
+                                <div class="detail-label">課程日期</div>
+                                <div class="detail-value">${date}</div>
                             </div>
                             <div class="detail-item">
-                                <div class="detail-label">學生</div>
+                                <div class="detail-label">人數 / 助教</div>
                                 <div class="detail-value">${students}</div>
                             </div>
-                            ${topic ? `
                             <div class="detail-item">
-                                <div class="detail-label">主題</div>
+                                <div class="detail-label">課程內容</div>
                                 <div class="detail-value">${topic}</div>
                             </div>
-                            ` : ''}
-                            ${notes ? `
-                            <div class="detail-item">
-                                <div class="detail-label">備註</div>
-                                <div class="detail-value">${notes}</div>
-                            </div>
-                            ` : ''}
                         </div>
                     </div>
                 `;
