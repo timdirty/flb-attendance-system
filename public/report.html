@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLB 報表查詢系統</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* 報表查詢專用樣式 */
+        .report-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+
+        .report-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .report-header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .report-header p {
+            margin: 10px 0 0 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .query-form {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 1rem;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-help {
+            display: block;
+            margin-top: 5px;
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .advanced-filters {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+
+        .filter-toggle {
+            margin-bottom: 15px;
+        }
+
+        .btn-toggle-filters {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-toggle-filters:hover {
+            background: #5a6268;
+        }
+
+        .query-filters {
+            display: none;
+        }
+
+        .query-filters.show {
+            display: block;
+        }
+
+        .date-range-group {
+            display: flex;
+            align-items: end;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .date-range-separator {
+            font-weight: 600;
+            color: #6c757d;
+            margin-bottom: 8px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .query-actions {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .btn-query {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-query:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-query:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .results-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            margin-top: 30px;
+            display: none;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .results-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 1.5rem;
+        }
+
+        .month-filter-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .month-filter-label {
+            font-weight: 600;
+            color: #6c757d;
+        }
+
+        .month-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .month-btn {
+            background: #e9ecef;
+            color: #495057;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .month-btn:hover {
+            background: #dee2e6;
+        }
+
+        .month-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+
+        .report-results {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .result-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .result-item:hover {
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .result-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+        }
+
+        .result-date {
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .result-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+
+        .detail-value {
+            color: #333;
+            font-size: 1rem;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-size: 1.1rem;
+        }
+
+        .no-results i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.1rem;
+        }
+
+        .loading i {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            display: block;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.error {
+            background: #dc3545;
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+        }
+
+        .toast.warning {
+            background: #ffc107;
+            color: #212529;
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+        }
+
+        .toast.info {
+            background: #17a2b8;
+            box-shadow: 0 4px 15px rgba(23, 162, 184, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .report-container {
+                padding: 10px;
+            }
+
+            .report-header h1 {
+                font-size: 2rem;
+            }
+
+            .query-form,
+            .results-section {
+                padding: 20px;
+            }
+
+            .date-range-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .date-range-separator {
+                text-align: center;
+                margin: 10px 0;
+            }
+
+            .form-row {
+                flex-direction: column;
+            }
+
+            .results-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .month-filter-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .month-buttons {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="report-container">
+        <!-- 頁面標題 -->
+        <div class="report-header">
+            <h1><i class="fas fa-chart-line"></i> FLB 報表查詢系統</h1>
+            <p>查詢講師課程報表資料，支援多種篩選條件</p>
+        </div>
+
+        <!-- 查詢表單 -->
+        <div class="query-form">
+            <h3><i class="fas fa-search"></i> 查詢條件</h3>
+            
+            <!-- 基本查詢 -->
+            <div class="form-group">
+                <label for="report-teacher-select">選擇講師：</label>
+                <select id="report-teacher-select" onchange="onTeacherSelectChange()">
+                    <option value="">請選擇講師</option>
+                </select>
+                <small class="form-help">選擇要查詢報表的講師</small>
+            </div>
+
+            <!-- 進階篩選選項 -->
+            <div class="advanced-filters" id="advanced-filters" style="display: none;">
+                <div class="filter-toggle">
+                    <button class="btn-toggle-filters" onclick="toggleAdvancedFilters()">
+                        <i class="fas fa-chevron-down"></i> 進階篩選選項
+                    </button>
+                </div>
+                
+                <div class="query-filters" id="query-filters">
+                    <div class="form-group">
+                        <label for="name-contains">課程名稱（模糊搜尋）：</label>
+                        <input type="text" id="name-contains" placeholder="例如：SPM" maxlength="50">
+                        <small class="form-help">找出所有「課程名稱」包含該字串的資料</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="topic-contains">課程主題（模糊搜尋）：</label>
+                        <input type="text" id="topic-contains" placeholder="例如：海盜" maxlength="50">
+                        <small class="form-help">找出所有「課程內容/主題」包含該字串的資料</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="query-date">日期（精準比對）：</label>
+                        <input type="date" id="query-date">
+                        <small class="form-help">只回傳指定日期的課程，若同時設定日期區間則以區間為優先</small>
+                    </div>
+                    
+                    <div class="date-range-group">
+                        <div class="form-group">
+                            <label for="date-range-start">日期區間開始：</label>
+                            <input type="date" id="date-range-start">
+                            <small class="form-help">起始日期（含）</small>
+                        </div>
+                        <div class="date-range-separator">至</div>
+                        <div class="form-group">
+                            <label for="date-range-end">日期區間結束：</label>
+                            <input type="date" id="date-range-end">
+                            <small class="form-help">結束日期（含）</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="course-time">上課時間（精準比對）：</label>
+                        <input type="text" id="course-time" placeholder="例如：14:30-15:30" maxlength="20">
+                        <small class="form-help">只回傳指定上課時間的課程</small>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="query-limit">回傳筆數限制：</label>
+                            <input type="number" id="query-limit" placeholder="0=不限制" min="0" max="1000">
+                        </div>
+                        <div class="form-group">
+                            <label for="query-offset">從第幾筆開始：</label>
+                            <input type="number" id="query-offset" placeholder="0=從頭開始" min="0">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 查詢按鈕 -->
+            <div class="query-actions">
+                <button class="btn-query" onclick="queryReport()" id="query-report-btn" disabled>
+                    <i class="fas fa-search"></i> 查詢報表
+                </button>
+            </div>
+        </div>
+
+        <!-- 查詢結果 -->
+        <div class="results-section" id="results-section">
+            <div class="results-header">
+                <h3><i class="fas fa-list"></i> 查詢結果</h3>
+                
+                <!-- 月份快速選擇 -->
+                <div class="month-filter-section">
+                    <div class="month-filter-label">
+                        <i class="fas fa-calendar-alt"></i> 快速篩選月份：
+                    </div>
+                    <div class="month-buttons" id="month-buttons">
+                        <!-- 月份按鈕將由 JavaScript 動態生成 -->
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn-secondary btn-sm" onclick="clearMonthFilter()">
+                            <i class="fas fa-times"></i> 清除篩選
+                        </button>
+                        <button class="btn-primary btn-sm" onclick="showAllResults()">
+                            <i class="fas fa-eye"></i> 顯示全部
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="report-results" id="report-results-content"></div>
+        </div>
+    </div>
+
+    <!-- 成功提示 -->
+    <div class="toast" id="toast">
+        <div class="toast-content">
+            <i class="fas fa-check-circle"></i>
+            <span id="toast-message"></span>
+        </div>
+    </div>
+
+    <script>
+        // 全局變量
+        let teachers = [];
+        let allReportResults = [];
+        let filteredReportResults = [];
+        let currentMonthFilter = null;
+
+        // 頁面載入時初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTeachers();
+        });
+
+        // 載入講師列表
+        async function loadTeachers() {
+            try {
+                const response = await fetch('/api/teachers');
+                const data = await response.json();
+                
+                if (data.success && data.teachers) {
+                    teachers = data.teachers;
+                    populateTeacherSelect();
+                } else {
+                    showToast('載入講師列表失敗', 'error');
+                }
+            } catch (error) {
+                console.error('載入講師列表錯誤:', error);
+                showToast('載入講師列表失敗', 'error');
+            }
+        }
+
+        // 填充講師選擇下拉選單
+        function populateTeacherSelect() {
+            const select = document.getElementById('report-teacher-select');
+            select.innerHTML = '<option value="">請選擇講師</option>';
+            
+            teachers.forEach(teacher => {
+                const option = document.createElement('option');
+                option.value = teacher.name;
+                option.textContent = teacher.name;
+                select.appendChild(option);
+            });
+        }
+
+        // 講師選擇變更處理
+        function onTeacherSelectChange() {
+            const select = document.getElementById('report-teacher-select');
+            const queryBtn = document.getElementById('query-report-btn');
+            const advancedFilters = document.getElementById('advanced-filters');
+            
+            if (select.value) {
+                queryBtn.disabled = false;
+                advancedFilters.style.display = 'block';
+            } else {
+                queryBtn.disabled = true;
+                advancedFilters.style.display = 'none';
+            }
+        }
+
+        // 切換進階篩選選項顯示
+        function toggleAdvancedFilters() {
+            const filters = document.getElementById('query-filters');
+            const button = document.querySelector('.btn-toggle-filters');
+            const icon = button.querySelector('i');
+            
+            if (filters.classList.contains('show')) {
+                filters.classList.remove('show');
+                icon.className = 'fas fa-chevron-down';
+                button.innerHTML = '<i class="fas fa-chevron-down"></i> 進階篩選選項';
+            } else {
+                filters.classList.add('show');
+                icon.className = 'fas fa-chevron-up';
+                button.innerHTML = '<i class="fas fa-chevron-up"></i> 隱藏篩選選項';
+            }
+        }
+
+        // 查詢報表
+        async function queryReport() {
+            const selectedTeacher = document.getElementById('report-teacher-select').value;
+            
+            if (!selectedTeacher) {
+                showToast('請先選擇講師', 'error');
+                return;
+            }
+            
+            // 收集查詢參數
+            const queryParams = {};
+            
+            const nameContains = document.getElementById('name-contains')?.value.trim();
+            if (nameContains) queryParams.name_contains = nameContains;
+            
+            const topicContains = document.getElementById('topic-contains')?.value.trim();
+            if (topicContains) queryParams.topic_contains = topicContains;
+            
+            // 處理日期參數（單一日期和日期區間）
+            const queryDate = document.getElementById('query-date')?.value;
+            const dateRangeStart = document.getElementById('date-range-start')?.value;
+            const dateRangeEnd = document.getElementById('date-range-end')?.value;
+            
+            // 優先級：日期區間 > 單一日期
+            if (dateRangeStart && dateRangeEnd) {
+                // 檢查日期區間是否有效
+                const startDate = new Date(dateRangeStart);
+                const endDate = new Date(dateRangeEnd);
+                
+                if (startDate <= endDate) {
+                    queryParams.date_from = dateRangeStart.replace(/-/g, '/');
+                    queryParams.date_to = dateRangeEnd.replace(/-/g, '/');
+                } else {
+                    showToast('開始日期不能晚於結束日期', 'error');
+                    return;
+                }
+            } else if (dateRangeStart || dateRangeEnd) {
+                showToast('請同時選擇開始日期和結束日期', 'error');
+                return;
+            } else if (queryDate) {
+                queryParams.date = queryDate.replace(/-/g, '/');
+            }
+            
+            const courseTime = document.getElementById('course-time')?.value.trim();
+            if (courseTime) queryParams['上課時間'] = courseTime;
+            
+            const limit = document.getElementById('query-limit')?.value;
+            if (limit && limit !== '0') queryParams.limit = parseInt(limit);
+            
+            const offset = document.getElementById('query-offset')?.value;
+            if (offset && offset !== '0') queryParams.offset = parseInt(offset);
+            
+            // 顯示載入狀態
+            const queryBtn = document.getElementById('query-report-btn');
+            const originalText = queryBtn.innerHTML;
+            queryBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 查詢中...';
+            queryBtn.disabled = true;
+            
+            try {
+                // 呼叫本地服務器代理 API
+                const response = await fetch('/api/query-report', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        teacherName: selectedTeacher,
+                        queryParams: queryParams
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API 請求失敗: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success === false) {
+                    throw new Error(data.message || '查詢失敗');
+                }
+                
+                // 顯示查詢結果
+                if (data.data || data.count !== undefined) {
+                    displayReportResults(data.data || data);
+                } else {
+                    displayReportResults([]);
+                }
+                
+            } catch (error) {
+                console.error('查詢報表時發生錯誤:', error);
+                showToast(`查詢報表失敗: ${error.message}`, 'error');
+            } finally {
+                // 恢復按鈕狀態
+                queryBtn.innerHTML = originalText;
+                queryBtn.disabled = false;
+            }
+        }
+
+        // 顯示報表結果
+        function displayReportResults(results) {
+            const resultsContainer = document.getElementById('report-results-content');
+            const resultsSection = document.getElementById('results-section');
+            
+            if (!results || results.length === 0) {
+                resultsContainer.innerHTML = '<div class="no-results"><i class="fas fa-info-circle"></i> 沒有找到相關的報表資料</div>';
+                allReportResults = [];
+                filteredReportResults = [];
+                generateMonthButtons([]);
+            } else {
+                // 按日期排序（最近的在前）
+                const sortedResults = results.sort((a, b) => {
+                    const dateA = a.date || a.日期 || a['課程日期'] || a['日期'] || '';
+                    const dateB = b.date || b.日期 || b['課程日期'] || b['日期'] || '';
+                    
+                    if (!dateA && !dateB) return 0;
+                    if (!dateA) return 1;
+                    if (!dateB) return -1;
+                    
+                    const dateObjA = new Date(dateA.replace(/\//g, '-'));
+                    const dateObjB = new Date(dateB.replace(/\//g, '-'));
+                    
+                    return dateObjB - dateObjA;
+                });
+                
+                // 存儲原始結果
+                allReportResults = [...sortedResults];
+                filteredReportResults = [...sortedResults];
+                
+                // 生成月份按鈕
+                generateMonthButtons(sortedResults);
+                
+                // 顯示結果
+                renderReportResults(sortedResults);
+            }
+            
+            resultsSection.style.display = 'block';
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 生成月份按鈕
+        function generateMonthButtons(results) {
+            const monthButtonsContainer = document.getElementById('month-buttons');
+            if (!monthButtonsContainer) return;
+            
+            // 提取所有唯一的月份
+            const months = new Set();
+            results.forEach(item => {
+                const dateStr = item.date || item.日期 || item['課程日期'] || item['日期'] || '';
+                if (dateStr) {
+                    const dateMatch = dateStr.match(/(\d{4})\/(\d{1,2})/);
+                    if (dateMatch) {
+                        const year = dateMatch[1];
+                        const month = dateMatch[2].padStart(2, '0');
+                        months.add(`${year}/${month}`);
+                    }
+                }
+            });
+            
+            // 轉換為陣列並排序（最新的在前）
+            const sortedMonths = Array.from(months).sort((a, b) => b.localeCompare(a));
+            
+            // 生成按鈕 HTML
+            let buttonsHtml = '';
+            sortedMonths.forEach(month => {
+                const [year, monthNum] = month.split('/');
+                const monthName = getMonthName(parseInt(monthNum));
+                const count = results.filter(item => {
+                    const dateStr = item.date || item.日期 || item['課程日期'] || item['日期'] || '';
+                    return dateStr.includes(month);
+                }).length;
+                
+                buttonsHtml += `
+                    <button class="month-btn" onclick="filterByMonth('${month}')" data-month="${month}">
+                        ${year}年${monthName} (${count})
+                    </button>
+                `;
+            });
+            
+            monthButtonsContainer.innerHTML = buttonsHtml;
+        }
+
+        // 獲取月份名稱
+        function getMonthName(monthNum) {
+            const monthNames = [
+                '1月', '2月', '3月', '4月', '5月', '6月',
+                '7月', '8月', '9月', '10月', '11月', '12月'
+            ];
+            return monthNames[monthNum - 1] || `${monthNum}月`;
+        }
+
+        // 根據月份篩選結果
+        function filterByMonth(month) {
+            currentMonthFilter = month;
+            
+            // 更新按鈕狀態
+            document.querySelectorAll('.month-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.month === month) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // 篩選結果
+            const filtered = allReportResults.filter(item => {
+                const dateStr = item.date || item.日期 || item['課程日期'] || item['日期'] || '';
+                return dateStr.includes(month);
+            });
+            
+            filteredReportResults = filtered;
+            renderReportResults(filtered);
+        }
+
+        // 清除月份篩選
+        function clearMonthFilter() {
+            currentMonthFilter = null;
+            
+            // 更新按鈕狀態
+            document.querySelectorAll('.month-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 顯示所有結果
+            filteredReportResults = [...allReportResults];
+            renderReportResults(allReportResults);
+        }
+
+        // 顯示所有結果
+        function showAllResults() {
+            clearMonthFilter();
+        }
+
+        // 渲染報表結果
+        function renderReportResults(results) {
+            const resultsContainer = document.getElementById('report-results-content');
+            
+            if (!results || results.length === 0) {
+                resultsContainer.innerHTML = '<div class="no-results"><i class="fas fa-info-circle"></i> 沒有找到相關的報表資料</div>';
+                return;
+            }
+            
+            let html = '';
+            results.forEach((item, index) => {
+                const date = item.date || item.日期 || item['課程日期'] || item['日期'] || '未知日期';
+                const courseName = item.course || item.課程名稱 || item['課程'] || item['課程名稱'] || '未知課程';
+                const time = item.time || item.上課時間 || item['時間'] || item['上課時間'] || '未知時間';
+                const location = item.location || item.地點 || item['地點'] || item['位置'] || '未知地點';
+                const students = item.students || item.學生 || item['學生'] || item['學生名單'] || '未知';
+                const topic = item.topic || item.主題 || item['主題'] || item['課程內容'] || '';
+                const notes = item.notes || item.備註 || item['備註'] || item['備註說明'] || '';
+                
+                html += `
+                    <div class="result-item">
+                        <div class="result-header">
+                            <h4 class="result-title">${courseName}</h4>
+                            <div class="result-date">${date}</div>
+                        </div>
+                        <div class="result-details">
+                            <div class="detail-item">
+                                <div class="detail-label">上課時間</div>
+                                <div class="detail-value">${time}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">地點</div>
+                                <div class="detail-value">${location}</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">學生</div>
+                                <div class="detail-value">${students}</div>
+                            </div>
+                            ${topic ? `
+                            <div class="detail-item">
+                                <div class="detail-label">主題</div>
+                                <div class="detail-value">${topic}</div>
+                            </div>
+                            ` : ''}
+                            ${notes ? `
+                            <div class="detail-item">
+                                <div class="detail-label">備註</div>
+                                <div class="detail-value">${notes}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            resultsContainer.innerHTML = html;
+        }
+
+        // 顯示提示訊息
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const messageEl = document.getElementById('toast-message');
+            
+            messageEl.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
