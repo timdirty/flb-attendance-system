@@ -582,6 +582,86 @@
             font-size: 1.3rem;
         }
 
+        /* 載入動畫樣式 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 182, 193, 0.1) 50%, rgba(173, 216, 230, 0.1) 100%);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            opacity: 1;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-container {
+            text-align: center;
+            padding: 40px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.6) 100%);
+            backdrop-filter: blur(20px);
+            border-radius: 30px;
+            border: 2px solid rgba(255, 182, 193, 0.3);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1);
+            animation: glassFloat 3s ease-in-out infinite;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 182, 193, 0.3);
+            border-top: 4px solid #6a4c93;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        .loading-text {
+            font-size: 1.2rem;
+            color: #6a4c93;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+        }
+
+        .loading-subtitle {
+            font-size: 0.9rem;
+            color: #8a7a9a;
+            opacity: 0.8;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-dots {
+            display: inline-block;
+            animation: loadingDots 1.5s infinite;
+        }
+
+        @keyframes loadingDots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+        }
+
+        .loading-dots::after {
+            content: '';
+            animation: loadingDots 1.5s infinite;
+        }
+
         /* 響應式設計 */
         @media (max-width: 768px) {
             .glass-container {
@@ -799,6 +879,24 @@
                 font-size: 1.1rem;
             }
 
+            .loading-container {
+                padding: 30px 20px;
+                border-radius: 20px;
+            }
+
+            .loading-spinner {
+                width: 50px;
+                height: 50px;
+            }
+
+            .loading-text {
+                font-size: 1.1rem;
+            }
+
+            .loading-subtitle {
+                font-size: 0.8rem;
+            }
+
             /* 調整容器寬度避免擠壓 */
             .glass-container {
                 max-width: 100%;
@@ -907,6 +1005,24 @@
                 padding: 10px 15px;
                 font-size: 0.8rem;
             }
+
+            .loading-container {
+                padding: 20px 15px;
+                border-radius: 15px;
+            }
+
+            .loading-spinner {
+                width: 40px;
+                height: 40px;
+            }
+
+            .loading-text {
+                font-size: 1rem;
+            }
+
+            .loading-subtitle {
+                font-size: 0.75rem;
+            }
         }
 
         /* 滾動條樣式 */
@@ -1006,6 +1122,15 @@
         </div>
     </div>
 
+    <!-- 載入動畫覆蓋層 -->
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-container">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">載入講師資料中<span class="loading-dots"></span></div>
+            <div class="loading-subtitle">請稍候，正在獲取最新資料</div>
+        </div>
+    </div>
+
     <!-- 懸浮按鈕 -->
     <a href="https://liff.line.me/1657746214-qp0y8NwZ" target="_blank" class="floating-button" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
         <i class="fas fa-calendar-alt"></i>
@@ -1034,9 +1159,34 @@
             setDefaultDates();
         });
 
+        // 顯示載入動畫
+        function showLoading() {
+            const loadingOverlay = document.getElementById('loading-overlay');
+            if (loadingOverlay) {
+                loadingOverlay.classList.remove('hidden');
+            }
+        }
+
+        // 隱藏載入動畫
+        function hideLoading() {
+            const loadingOverlay = document.getElementById('loading-overlay');
+            if (loadingOverlay) {
+                loadingOverlay.classList.add('hidden');
+                // 動畫完成後移除元素
+                setTimeout(() => {
+                    if (loadingOverlay.parentNode) {
+                        loadingOverlay.parentNode.removeChild(loadingOverlay);
+                    }
+                }, 500);
+            }
+        }
+
         // 載入講師列表
         async function loadTeachers() {
             try {
+                // 顯示載入動畫
+                showLoading();
+                
                 const response = await fetch('/api/teachers');
                 if (!response.ok) {
                     throw new Error('載入講師列表失敗');
@@ -1065,9 +1215,13 @@
                     teacherSelect.appendChild(option);
                 });
                 
+                // 隱藏載入動畫
+                hideLoading();
                 showToast('講師列表載入成功', 'success');
             } catch (error) {
                 console.error('載入講師列表失敗:', error);
+                // 隱藏載入動畫
+                hideLoading();
                 showToast('載入講師列表失敗: ' + error.message, 'error');
             }
         }
@@ -1106,6 +1260,9 @@
                 showToast('請選擇講師', 'warning');
                 return;
             }
+            
+            // 顯示載入動畫
+            showLoading();
             
             const queryButton = document.getElementById('query-button');
             queryButton.disabled = true;
@@ -1180,6 +1337,8 @@
                 console.error('查詢報表時發生錯誤:', error);
                 showToast(`查詢報表失敗: ${error.message}`, 'error');
             } finally {
+                // 隱藏載入動畫
+                hideLoading();
                 // 恢復按鈕狀態
                 queryButton.innerHTML = '<i class="fas fa-search"></i> 查詢報表';
                 queryButton.disabled = false;
