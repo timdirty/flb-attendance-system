@@ -154,147 +154,167 @@
             font-weight: 600;
         }
 
+        /* 月份篩選器樣式 */
         .month-filter-section {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: #f8f9fa;
+            margin: 15px 0;
+            padding: 15px;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
             border-radius: 10px;
+            border: 1px solid #dee2e6;
         }
 
-        .month-filter-title {
+        .month-filter-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             font-weight: 600;
-            color: #333;
-            font-size: 1.1rem;
+            color: #495057;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
         }
 
         .month-buttons {
             display: flex;
-            gap: 10px;
             flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
         }
 
-        .month-button {
-            padding: 8px 16px;
-            border: 2px solid #e9ecef;
-            background: white;
+        .month-btn {
+            padding: 6px 12px;
+            border: 2px solid #6c757d;
             border-radius: 20px;
+            background-color: #ffffff;
+            color: #6c757d;
+            font-size: 0.85rem;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.3s ease;
-            font-size: 0.9rem;
-            font-weight: 500;
+            white-space: nowrap;
         }
 
-        .month-button:hover {
-            border-color: #667eea;
-            color: #667eea;
+        .month-btn:hover {
+            background-color: #e9ecef;
+            border-color: #495057;
+            color: #495057;
+            transform: translateY(-1px);
         }
 
-        .month-button.active {
-            background: #667eea;
-            border-color: #667eea;
+        .month-btn.active {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            border-color: #007bff;
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+        }
+
+        .month-btn.active:hover {
+            background: linear-gradient(135deg, #0056b3, #004085);
+            transform: translateY(-1px);
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border-radius: 6px;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
             color: white;
-        }
-
-        .result-item {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 20px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
-            border: 1px solid #e9ecef;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
             transition: all 0.3s ease;
         }
 
-        .result-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
         }
 
-        .result-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #e9ecef;
-        }
-
-        .result-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: #333;
-            margin: 0;
-        }
-
-        .result-date {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .btn-primary {
+            background: linear-gradient(135deg, #007bff, #0056b3);
             color: white;
-            padding: 6px 12px;
-            border-radius: 15px;
-            font-size: 0.9rem;
-            font-weight: 500;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
 
-        .result-details {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #0056b3, #004085);
+            transform: translateY(-1px);
         }
 
-        .detail-item {
+        .report-results {
+            max-height: 500px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .report-item {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
             display: flex;
             flex-direction: column;
-            padding: 15px;
-            background: white;
+            gap: 12px;
+            background: #fafafa;
             border-radius: 8px;
-            border: 1px solid #e9ecef;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
         }
 
-        .detail-label {
-            font-weight: 600;
-            color: #667eea;
-            font-size: 0.9rem;
+        .report-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .report-item:hover {
+            background: #f0f8ff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .report-item-info {
+            flex: 1;
+        }
+
+        .report-item-name {
+            font-weight: 700;
+            color: #2c3e50;
             margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            font-size: 1.4rem;
         }
 
-        .detail-value {
-            color: #333;
+        .report-item-details {
             font-size: 1rem;
-            line-height: 1.4;
+            color: #555;
+            line-height: 1.6;
         }
 
         .no-results {
             text-align: center;
-            padding: 40px;
-            color: #6c757d;
+            padding: 30px;
+            color: #666;
+            font-style: italic;
         }
 
         .no-results i {
-            font-size: 3rem;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #667eea;
-        }
-
-        .loading i {
             font-size: 2rem;
-            animation: spin 1s linear infinite;
-            margin-bottom: 15px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            margin-bottom: 10px;
+            color: #ccc;
         }
 
         .toast {
@@ -487,11 +507,19 @@
 
             <!-- 月份篩選 -->
             <div class="month-filter-section" id="month-filter-section" style="display: none;">
-                <div class="month-filter-title">
-                    <i class="fas fa-filter"></i> 按月份篩選
+                <div class="month-filter-label">
+                    <i class="fas fa-calendar-alt"></i> 快速篩選月份：
                 </div>
                 <div class="month-buttons" id="month-buttons">
-                    <button class="month-button active" data-month="all">全部</button>
+                    <!-- 月份按鈕將由 JavaScript 動態生成 -->
+                </div>
+                <div class="filter-actions">
+                    <button class="btn-secondary btn-sm" onclick="clearMonthFilter()">
+                        <i class="fas fa-times"></i> 清除篩選
+                    </button>
+                    <button class="btn-primary btn-sm" onclick="showAllResults()">
+                        <i class="fas fa-eye"></i> 顯示全部
+                    </button>
                 </div>
             </div>
 
@@ -517,7 +545,8 @@
         // 全局變量
         let teachers = [];
         let allReportResults = [];
-        let filteredResults = [];
+        let filteredReportResults = [];
+        let currentMonthFilter = null;
 
         // 頁面載入時初始化
         document.addEventListener('DOMContentLoaded', function() {
@@ -566,9 +595,6 @@
         function setupEventListeners() {
             // 查詢表單提交
             document.getElementById('query-form').addEventListener('submit', handleQuery);
-            
-            // 課程篩選輸入
-            document.getElementById('course-filter').addEventListener('input', handleCourseFilter);
         }
 
         // 設置預設日期
@@ -590,12 +616,12 @@
         async function handleQuery(event) {
             event.preventDefault();
             
-            const teacher = document.getElementById('teacher-select').value;
+            const selectedTeacher = document.getElementById('teacher-select').value;
             const startDate = document.getElementById('start-date').value;
             const endDate = document.getElementById('end-date').value;
             const courseFilter = document.getElementById('course-filter').value;
             
-            if (!teacher) {
+            if (!selectedTeacher) {
                 showToast('請選擇講師', 'warning');
                 return;
             }
@@ -605,70 +631,119 @@
             queryButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 查詢中...';
             
             try {
-                const queryData = {
-                    teacher: teacher,
-                    startDate: startDate,
-                    endDate: endDate,
-                    courseFilter: courseFilter
-                };
+                // 收集查詢參數
+                const queryParams = {};
                 
+                // 處理日期參數
+                if (startDate && endDate) {
+                    // 檢查日期區間是否有效
+                    const startDateObj = new Date(startDate);
+                    const endDateObj = new Date(endDate);
+                    
+                    if (startDateObj <= endDateObj) {
+                        queryParams.date_from = startDate.replace(/-/g, '/');
+                        queryParams.date_to = endDate.replace(/-/g, '/');
+                    } else {
+                        showToast('開始日期不能晚於結束日期', 'error');
+                        return;
+                    }
+                } else if (startDate || endDate) {
+                    showToast('請同時選擇開始日期和結束日期', 'error');
+                    return;
+                }
+                
+                if (courseFilter) {
+                    queryParams.name_contains = courseFilter;
+                }
+                
+                // 如果沒有任何查詢條件，則搜尋全部
+                if (Object.keys(queryParams).length === 0) {
+                    queryParams.all = true;
+                }
+                
+                console.log('查詢參數:', queryParams);
+                
+                // 呼叫本地服務器代理 API
                 const response = await fetch('/api/query-report', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(queryData)
+                    body: JSON.stringify({
+                        teacherName: selectedTeacher,
+                        queryParams: queryParams
+                    })
                 });
+                
+                console.log('報表查詢 API 回應狀態:', response.status);
                 
                 if (!response.ok) {
-                    throw new Error('查詢失敗');
+                    throw new Error(`API 請求失敗: ${response.status}`);
                 }
                 
-                const results = await response.json();
-                allReportResults = results;
-                filteredResults = [...results];
+                const data = await response.json();
+                console.log('報表查詢 API 回應資料:', data);
                 
-                displayResults();
-                showToast(`查詢完成，找到 ${results.length} 筆資料`, 'success');
+                if (data.success === false) {
+                    throw new Error(data.message || '查詢失敗');
+                }
+                
+                // 顯示查詢結果
+                if (data.data || data.count !== undefined) {
+                    displayReportResults(data.data || data);
+                } else {
+                    displayReportResults([]);
+                }
                 
             } catch (error) {
-                console.error('查詢失敗:', error);
-                showToast('查詢失敗: ' + error.message, 'error');
+                console.error('查詢報表時發生錯誤:', error);
+                showToast(`查詢報表失敗: ${error.message}`, 'error');
             } finally {
-                queryButton.disabled = false;
+                // 恢復按鈕狀態
                 queryButton.innerHTML = '<i class="fas fa-search"></i> 查詢報表';
+                queryButton.disabled = false;
             }
-        }
-
-        // 處理課程篩選
-        function handleCourseFilter() {
-            const courseFilter = document.getElementById('course-filter').value.toLowerCase();
-            
-            if (courseFilter === '') {
-                filteredResults = [...allReportResults];
-            } else {
-                filteredResults = allReportResults.filter(item => {
-                    const courseName = (item.course || item.課程名稱 || item['課程'] || item['課程名稱'] || '').toLowerCase();
-                    return courseName.includes(courseFilter);
-                });
-            }
-            
-            displayResults();
         }
 
         // 顯示結果
-        function displayResults() {
+        function displayReportResults(results) {
             const resultsSection = document.getElementById('results-section');
             const resultsCount = document.getElementById('results-count');
             const monthFilterSection = document.getElementById('month-filter-section');
             
             resultsSection.style.display = 'block';
-            resultsCount.textContent = `${filteredResults.length} 筆資料`;
+            resultsCount.textContent = `${results.length} 筆資料`;
             
-            if (filteredResults.length > 0) {
-                setupMonthFilter();
-                monthFilterSection.style.display = 'flex';
-                renderReportResults(filteredResults);
+            if (results.length > 0) {
+                // 按日期排序（最近的在前）
+                const sortedResults = results.sort((a, b) => {
+                    // 提取日期字串
+                    const dateA = a.date || a.日期 || a['課程日期'] || a['日期'] || '';
+                    const dateB = b.date || b.日期 || b['課程日期'] || b['日期'] || '';
+                    
+                    // 如果沒有日期，放在最後
+                    if (!dateA && !dateB) return 0;
+                    if (!dateA) return 1;
+                    if (!dateB) return -1;
+                    
+                    // 轉換為 Date 物件進行比較
+                    const dateObjA = new Date(dateA.replace(/\//g, '-'));
+                    const dateObjB = new Date(dateB.replace(/\//g, '-'));
+                    
+                    // 最近的日期在前（降序）
+                    return dateObjB - dateObjA;
+                });
+                
+                // 存儲原始結果
+                allReportResults = [...sortedResults];
+                filteredReportResults = [...sortedResults];
+                
+                // 生成月份按鈕
+                generateMonthButtons(sortedResults);
+                monthFilterSection.style.display = 'block';
+                
+                // 顯示結果
+                renderReportResults(sortedResults);
             } else {
                 monthFilterSection.style.display = 'none';
                 document.getElementById('report-results-content').innerHTML = 
@@ -676,66 +751,99 @@
             }
         }
 
-        // 設置月份篩選
-        function setupMonthFilter() {
+        // 生成月份按鈕
+        function generateMonthButtons(results) {
+            const monthButtonsContainer = document.getElementById('month-buttons');
+            if (!monthButtonsContainer) return;
+            
+            // 提取所有唯一的月份
             const months = new Set();
-            filteredResults.forEach(item => {
-                const date = item.date || item.日期 || item['課程日期'] || item['日期'] || '';
-                if (date) {
-                    const month = date.substring(0, 7); // YYYY-MM
-                    months.add(month);
+            results.forEach(item => {
+                const dateStr = item.date || item.日期 || item['課程日期'] || item['日期'] || '';
+                if (dateStr) {
+                    // 解析日期字串，提取年月
+                    const dateMatch = dateStr.match(/(\d{4})\/(\d{1,2})/);
+                    if (dateMatch) {
+                        const year = dateMatch[1];
+                        const month = dateMatch[2].padStart(2, '0');
+                        months.add(`${year}/${month}`);
+                    }
                 }
             });
             
-            const monthButtons = document.getElementById('month-buttons');
-            monthButtons.innerHTML = '<button class="month-button active" data-month="all">全部</button>';
+            // 轉換為陣列並排序（最新的在前）
+            const sortedMonths = Array.from(months).sort((a, b) => b.localeCompare(a));
             
-            Array.from(months).sort().forEach(month => {
-                const button = document.createElement('button');
-                button.className = 'month-button';
-                button.textContent = formatMonth(month);
-                button.dataset.month = month;
-                button.addEventListener('click', () => filterByMonth(month));
-                monthButtons.appendChild(button);
+            // 生成按鈕 HTML
+            let buttonsHtml = '';
+            sortedMonths.forEach(month => {
+                const [year, monthNum] = month.split('/');
+                const monthName = getMonthName(parseInt(monthNum));
+                const count = results.filter(item => {
+                    const dateStr = item.date || item.日期 || item['課程日期'] || item['日期'] || '';
+                    return dateStr.includes(month);
+                }).length;
+                
+                buttonsHtml += `
+                    <button class="month-btn" onclick="filterByMonth('${month}')" data-month="${month}">
+                        ${year}年${monthName} (${count})
+                    </button>
+                `;
             });
+            
+            monthButtonsContainer.innerHTML = buttonsHtml;
         }
 
-        // 格式化月份顯示
-        function formatMonth(month) {
-            const [year, monthNum] = month.split('-');
-            const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月',
-                              '七月', '八月', '九月', '十月', '十一月', '十二月'];
-            return `${year}年${monthNames[parseInt(monthNum) - 1]}`;
+        // 獲取月份名稱
+        function getMonthName(monthNum) {
+            const monthNames = [
+                '1月', '2月', '3月', '4月', '5月', '6月',
+                '7月', '8月', '9月', '10月', '11月', '12月'
+            ];
+            return monthNames[monthNum - 1] || `${monthNum}月`;
         }
 
-        // 按月份篩選
+        // 根據月份篩選結果
         function filterByMonth(month) {
+            // 更新當前篩選狀態
+            currentMonthFilter = month;
+            
             // 更新按鈕狀態
-            document.querySelectorAll('.month-button').forEach(btn => {
+            document.querySelectorAll('.month-btn').forEach(btn => {
                 btn.classList.remove('active');
+                if (btn.dataset.month === month) {
+                    btn.classList.add('active');
+                }
             });
-            event.target.classList.add('active');
             
-            if (month === 'all') {
-                filteredResults = [...allReportResults];
-            } else {
-                filteredResults = allReportResults.filter(item => {
-                    const date = item.date || item.日期 || item['課程日期'] || item['日期'] || '';
-                    return date.startsWith(month);
-                });
-            }
+            // 篩選結果
+            filteredReportResults = allReportResults.filter(item => {
+                const dateStr = item.date || item.日期 || item['課程日期'] || item['日期'] || '';
+                return dateStr.includes(month);
+            });
             
-            displayResults();
+            // 重新渲染結果
+            renderReportResults(filteredReportResults);
+            
+            // 顯示篩選提示
+            const monthName = getMonthName(parseInt(month.split('/')[1]));
+            showToast(`已篩選 ${month} 的資料，共 ${filteredReportResults.length} 筆`, 'info');
         }
 
         // 清除月份篩選
         function clearMonthFilter() {
-            document.querySelectorAll('.month-button').forEach(btn => {
+            currentMonthFilter = null;
+            
+            // 清除按鈕狀態
+            document.querySelectorAll('.month-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            document.querySelector('[data-month="all"]').classList.add('active');
-            filteredResults = [...allReportResults];
-            displayResults();
+            
+            // 顯示所有結果
+            filteredReportResults = [...allReportResults];
+            renderReportResults(filteredReportResults);
+            
+            showToast('已清除月份篩選', 'info');
         }
 
         // 顯示所有結果
@@ -749,51 +857,37 @@
             
             if (!results || results.length === 0) {
                 resultsContainer.innerHTML = '<div class="no-results"><i class="fas fa-info-circle"></i> 沒有找到相關的報表資料</div>';
-                return;
+            } else {
+                let html = '';
+                results.forEach((item, index) => {
+                    // 只顯示指定的欄位
+                    const courseName = item.course || item.課程名稱 || item['課程名稱'] || '未知課程';
+                    let courseDate = item.date || item.日期 || item['課程日期'] || item['日期'] || '';
+                    // 移除日期後面的 "00:00" 時間部分
+                    if (courseDate && courseDate.includes(' 00:00')) {
+                        courseDate = courseDate.replace(' 00:00', '');
+                    }
+                    const courseTime = item.time || item.上課時間 || item['上課時間'] || '';
+                    const courseContent = item.content || item.課程內容 || item['課程內容'] || '';
+                    const studentCount = item.students || item.人數_助教 || item['人數_助教'] || '';
+                    
+                    html += `
+                        <div class="report-item">
+                            <div class="report-item-info">
+                                <div class="report-item-name">${courseName}</div>
+                                <div class="report-item-details">
+                                    <div><strong>課程名稱：</strong>${courseName}</div>
+                                    <div><strong>上課時間：</strong>${courseTime}</div>
+                                    <div><strong>課程日期：</strong>${courseDate}</div>
+                                    <div><strong>人數 / 助教：</strong>${studentCount}</div>
+                                    <div><strong>課程內容：</strong>${courseContent}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                resultsContainer.innerHTML = html;
             }
-            
-            let html = '';
-            results.forEach((item, index) => {
-                // 只顯示指定的欄位
-                const courseName = item.course || item.課程名稱 || item['課程'] || item['課程名稱'] || '未知課程';
-                const time = item.time || item.上課時間 || item['時間'] || item['上課時間'] || '未知時間';
-                const date = item.date || item.日期 || item['課程日期'] || item['日期'] || '未知日期';
-                const students = item.students || item.學生 || item['學生'] || item['學生名單'] || '未知';
-                const topic = item.topic || item.主題 || item['主題'] || item['課程內容'] || '無';
-                
-                html += `
-                    <div class="result-item">
-                        <div class="result-header">
-                            <h4 class="result-title">${courseName}</h4>
-                            <div class="result-date">${date}</div>
-                        </div>
-                        <div class="result-details">
-                            <div class="detail-item">
-                                <div class="detail-label">課程名稱</div>
-                                <div class="detail-value">${courseName}</div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">上課時間</div>
-                                <div class="detail-value">${time}</div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">課程日期</div>
-                                <div class="detail-value">${date}</div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">人數 / 助教</div>
-                                <div class="detail-value">${students}</div>
-                            </div>
-                            <div class="detail-item">
-                                <div class="detail-label">課程內容</div>
-                                <div class="detail-value">${topic}</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            resultsContainer.innerHTML = html;
         }
 
         // 顯示提示訊息
