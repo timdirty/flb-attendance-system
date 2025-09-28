@@ -640,6 +640,275 @@
             }
         }
 
+        /* 480px 以下特殊優化 */
+        @media (max-width: 480px) {
+            body {
+                padding: 5px;
+            }
+
+            .glass-container {
+                margin: 5px;
+                border-radius: 15px;
+            }
+
+            .report-header {
+                padding: 20px 15px;
+            }
+
+            .report-header h1 {
+                font-size: 1.8rem;
+                line-height: 1.2;
+            }
+
+            .report-header p {
+                font-size: 1rem;
+                margin-top: 10px;
+            }
+
+            .query-form {
+                padding: 20px 15px;
+            }
+
+            .form-group {
+                margin-bottom: 20px;
+            }
+
+            .form-group label {
+                font-size: 1rem;
+                margin-bottom: 8px;
+            }
+
+            .glass-input {
+                padding: 15px 20px;
+                font-size: 1rem;
+                border-radius: 12px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .date-range-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .date-range-separator {
+                font-size: 1rem;
+                margin: 5px 0;
+            }
+
+            .glass-button {
+                padding: 15px 30px;
+                font-size: 1.1rem;
+                border-radius: 20px;
+                margin-top: 20px;
+            }
+
+            .results-section {
+                padding: 20px 15px;
+            }
+
+            .results-header {
+                flex-direction: column;
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+
+            .results-title {
+                font-size: 1.8rem;
+                text-align: center;
+            }
+
+            .results-count {
+                padding: 8px 16px;
+                font-size: 0.9rem;
+                border-radius: 20px;
+            }
+
+            .month-filter-section {
+                padding: 15px;
+                margin: 15px 0;
+            }
+
+            .month-filter-label {
+                font-size: 1rem;
+                margin-bottom: 10px;
+            }
+
+            .month-buttons {
+                gap: 8px;
+                margin-bottom: 10px;
+            }
+
+            .month-btn {
+                padding: 8px 16px;
+                font-size: 0.8rem;
+                border-radius: 20px;
+            }
+
+            .filter-actions {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .btn-secondary,
+            .btn-primary {
+                padding: 10px 20px;
+                font-size: 0.9rem;
+                border-radius: 15px;
+            }
+
+            .report-results {
+                padding: 15px;
+                border-radius: 15px;
+                max-height: 500px;
+            }
+
+            .report-item {
+                padding: 15px;
+                border-radius: 15px;
+                margin-bottom: 15px;
+            }
+
+            .report-item-name {
+                font-size: 1.2rem;
+                margin-bottom: 10px;
+            }
+
+            .report-item-details {
+                font-size: 0.95rem;
+                line-height: 1.6;
+            }
+
+            .report-item-details div {
+                margin-bottom: 6px;
+                padding: 3px 0;
+            }
+
+            .floating-button {
+                bottom: 15px;
+                right: 15px;
+                padding: 12px 20px;
+                font-size: 0.9rem;
+                border-radius: 40px;
+            }
+
+            .floating-button i {
+                font-size: 1.1rem;
+            }
+
+            /* 調整容器寬度避免擠壓 */
+            .glass-container {
+                max-width: 100%;
+                overflow-x: hidden;
+            }
+
+            /* 確保文字不會被截斷 */
+            .report-item-details {
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+
+            /* 調整按鈕間距 */
+            .month-buttons {
+                justify-content: flex-start;
+                flex-wrap: wrap;
+            }
+
+            /* 優化表單間距 */
+            .form-group:last-child {
+                margin-bottom: 0;
+            }
+        }
+
+        /* 320px-480px 超小螢幕優化 */
+        @media (max-width: 480px) and (min-width: 320px) {
+            .month-buttons {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 6px;
+            }
+
+            .month-btn {
+                padding: 6px 12px;
+                font-size: 0.75rem;
+                text-align: center;
+            }
+
+            .filter-actions {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 6px;
+            }
+
+            .btn-secondary,
+            .btn-primary {
+                padding: 8px 16px;
+                font-size: 0.85rem;
+            }
+
+            .report-item {
+                padding: 12px;
+            }
+
+            .report-item-name {
+                font-size: 1.1rem;
+            }
+
+            .report-item-details {
+                font-size: 0.9rem;
+            }
+        }
+
+        /* 320px 以下超小螢幕 */
+        @media (max-width: 320px) {
+            body {
+                padding: 2px;
+            }
+
+            .glass-container {
+                margin: 2px;
+                border-radius: 10px;
+            }
+
+            .report-header {
+                padding: 15px 10px;
+            }
+
+            .report-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .query-form,
+            .results-section {
+                padding: 15px 10px;
+            }
+
+            .month-buttons {
+                grid-template-columns: 1fr;
+                gap: 4px;
+            }
+
+            .month-btn {
+                padding: 5px 10px;
+                font-size: 0.7rem;
+            }
+
+            .filter-actions {
+                grid-template-columns: 1fr;
+                gap: 4px;
+            }
+
+            .floating-button {
+                bottom: 10px;
+                right: 10px;
+                padding: 10px 15px;
+                font-size: 0.8rem;
+            }
+        }
+
         /* 滾動條樣式 */
         ::-webkit-scrollbar {
             width: 8px;
