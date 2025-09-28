@@ -492,12 +492,12 @@
 
         /* 懸浮按鈕液態玻璃樣式 */
         .floating-button {
-            position: fixed;
-            bottom: 40px;
-            right: 40px;
+            position: fixed !important;
+            bottom: 40px !important;
+            right: 40px !important;
             background: linear-gradient(135deg, rgba(0, 185, 0, 0.8), rgba(0, 160, 0, 0.8));
             backdrop-filter: blur(20px);
-            color: white;
+            color: white !important;
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 50px;
             padding: 18px 30px;
@@ -505,15 +505,16 @@
             font-weight: 600;
             cursor: pointer;
             box-shadow: 0 15px 35px rgba(0, 185, 0, 0.4);
-            z-index: 1000;
+            z-index: 9999 !important;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            display: flex;
+            display: flex !important;
             align-items: center;
             gap: 12px;
-            text-decoration: none;
-            position: relative;
+            text-decoration: none !important;
             overflow: hidden;
             animation: float 3s ease-in-out infinite;
+            visibility: visible !important;
+            opacity: 1 !important;
         }
 
         @keyframes float {
@@ -707,7 +708,7 @@
     </div>
 
     <!-- 懸浮按鈕 -->
-    <a href="https://liff.line.me/1657746214-qp0y8NwZ" target="_blank" class="floating-button">
+    <a href="https://liff.line.me/1657746214-qp0y8NwZ" target="_blank" class="floating-button" style="display: flex !important; visibility: visible !important; opacity: 1 !important;">
         <i class="fas fa-calendar-alt"></i>
         查看行事曆
     </a>
@@ -758,8 +759,10 @@
                 
                 teachers.forEach(teacher => {
                     const option = document.createElement('option');
-                    option.value = teacher;
-                    option.textContent = teacher;
+                    // 處理講師資料格式：可能是字串或物件
+                    const teacherName = typeof teacher === 'string' ? teacher : teacher.name;
+                    option.value = teacherName;
+                    option.textContent = teacherName;
                     teacherSelect.appendChild(option);
                 });
                 
