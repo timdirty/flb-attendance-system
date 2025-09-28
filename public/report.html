@@ -15,7 +15,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 25%, #2d2d2d 50%, #1a1a1a 75%, #0a0a0a 100%);
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 25%, #f0f8ff 50%, #ffffff 75%, #f8f9fa 100%);
             min-height: 100vh;
             padding: 20px;
             overflow-x: hidden;
@@ -29,21 +29,22 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: radial-gradient(circle at 20% 80%, rgba(255, 215, 0, 0.1) 0%, transparent 50%),
-                        radial-gradient(circle at 80% 20%, rgba(255, 215, 0, 0.05) 0%, transparent 50%);
+            background: radial-gradient(circle at 20% 80%, rgba(255, 182, 193, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(173, 216, 230, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 50% 50%, rgba(255, 218, 185, 0.05) 0%, transparent 70%);
             pointer-events: none;
             z-index: -1;
         }
 
-        /* 黑金風格容器 */
+        /* 馬卡龍液態玻璃容器 */
         .glass-container {
-            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 20, 0.9) 100%);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.1) 100%);
             backdrop-filter: blur(20px);
-            border: 2px solid rgba(255, 215, 0, 0.3);
-            border-radius: 25px;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), 
-                        0 0 0 1px rgba(255, 215, 0, 0.1),
-                        inset 0 1px 0 rgba(255, 215, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 30px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1), 
+                        0 0 0 1px rgba(255, 255, 255, 0.2),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.4);
             overflow: hidden;
             animation: glassFloat 6s ease-in-out infinite;
         }
@@ -54,14 +55,14 @@
         }
 
         .report-header {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 193, 7, 0.1) 50%, rgba(255, 215, 0, 0.2) 100%);
+            background: linear-gradient(135deg, rgba(255, 182, 193, 0.3) 0%, rgba(173, 216, 230, 0.2) 50%, rgba(255, 218, 185, 0.3) 100%);
             backdrop-filter: blur(20px);
-            color: #FFD700;
+            color: #6a4c93;
             padding: 50px;
             text-align: center;
             position: relative;
             overflow: hidden;
-            border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
         }
 
         .report-header::before {
@@ -90,8 +91,8 @@
         }
 
         @keyframes titleGlow {
-            from { text-shadow: 0 0 20px rgba(255, 215, 0, 0.5), 0 0 30px rgba(255, 193, 7, 0.3); }
-            to { text-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 40px rgba(255, 193, 7, 0.6), 0 0 50px rgba(255, 215, 0, 0.4); }
+            from { text-shadow: 0 0 20px rgba(106, 76, 147, 0.3), 0 0 30px rgba(255, 182, 193, 0.2); }
+            to { text-shadow: 0 0 30px rgba(106, 76, 147, 0.5), 0 0 40px rgba(255, 182, 193, 0.3), 0 0 50px rgba(173, 216, 230, 0.2); }
         }
 
         .report-header p {
@@ -103,9 +104,9 @@
 
         .query-form {
             padding: 50px;
-            background: linear-gradient(135deg, rgba(0, 0, 0, 0.3) 0%, rgba(20, 20, 20, 0.5) 100%);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
             backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .form-group {
@@ -117,38 +118,38 @@
             display: block;
             margin-bottom: 12px;
             font-weight: 600;
-            color: #FFD700;
+            color: #6a4c93;
             font-size: 1.1rem;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
         }
 
         .glass-input {
             width: 100%;
             padding: 18px 25px;
-            background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(20, 20, 20, 0.8) 100%);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 100%);
             backdrop-filter: blur(10px);
-            border: 2px solid rgba(255, 215, 0, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.4);
             border-radius: 15px;
             font-size: 1.1rem;
-            color: #FFD700;
+            color: #6a4c93;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
         }
 
         .glass-input::placeholder {
-            color: rgba(255, 215, 0, 0.6);
+            color: rgba(106, 76, 147, 0.6);
         }
 
         .glass-input:focus {
             outline: none;
-            border-color: rgba(255, 215, 0, 0.8);
-            box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.2), 0 0 30px rgba(255, 215, 0, 0.3);
+            border-color: rgba(255, 182, 193, 0.8);
+            box-shadow: 0 0 0 4px rgba(255, 182, 193, 0.2), 0 0 30px rgba(255, 182, 193, 0.3);
             transform: translateY(-2px);
         }
 
         .glass-input:hover {
-            border-color: rgba(255, 215, 0, 0.5);
+            border-color: rgba(173, 216, 230, 0.6);
             transform: translateY(-1px);
         }
 
@@ -166,15 +167,15 @@
 
         .date-range-separator {
             font-weight: 600;
-            color: #FFD700;
+            color: #6a4c93;
             font-size: 1.1rem;
         }
 
         .glass-button {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.8) 0%, rgba(255, 193, 7, 0.6) 100%);
+            background: linear-gradient(135deg, rgba(255, 182, 193, 0.8) 0%, rgba(173, 216, 230, 0.6) 100%);
             backdrop-filter: blur(20px);
-            color: #000;
-            border: 2px solid rgba(255, 215, 0, 0.5);
+            color: #6a4c93;
+            border: 2px solid rgba(255, 255, 255, 0.5);
             padding: 20px 40px;
             border-radius: 25px;
             font-size: 1.2rem;
@@ -185,7 +186,7 @@
             margin-top: 30px;
             position: relative;
             overflow: hidden;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
         }
 
         .glass-button::before {
@@ -242,21 +243,21 @@
         .results-title {
             font-size: 2.2rem;
             font-weight: 700;
-            color: #FFD700;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            color: #6a4c93;
+            text-shadow: 0 2px 4px rgba(255,255,255,0.8);
         }
 
         .results-count {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.8), rgba(255, 193, 7, 0.6));
+            background: linear-gradient(135deg, rgba(255, 182, 193, 0.8), rgba(173, 216, 230, 0.6));
             backdrop-filter: blur(20px);
-            color: #000;
+            color: #6a4c93;
             padding: 12px 24px;
             border-radius: 25px;
             font-size: 1rem;
             font-weight: 600;
-            border: 1px solid rgba(255, 215, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.5);
             animation: pulse 2s ease-in-out infinite;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
         }
 
         @keyframes pulse {
@@ -268,10 +269,10 @@
         .month-filter-section {
             margin: 25px 0;
             padding: 25px;
-            background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(20, 20, 20, 0.8) 100%);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
             backdrop-filter: blur(20px);
             border-radius: 20px;
-            border: 1px solid rgba(255, 215, 0, 0.3);
+            border: 1px solid rgba(255, 182, 193, 0.3);
             animation: fadeInScale 0.5s ease-out;
         }
 
@@ -285,7 +286,7 @@
             align-items: center;
             gap: 10px;
             font-weight: 600;
-            color: #FFD700;
+            color: #6a4c93;
             margin-bottom: 15px;
             font-size: 1.1rem;
         }
@@ -299,11 +300,11 @@
 
         .month-btn {
             padding: 10px 20px;
-            background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(20, 20, 20, 0.8) 100%);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 100%);
             backdrop-filter: blur(10px);
-            border: 2px solid rgba(255, 215, 0, 0.3);
+            border: 2px solid rgba(255, 182, 193, 0.3);
             border-radius: 25px;
-            color: #FFD700;
+            color: #6a4c93;
             font-size: 0.9rem;
             font-weight: 500;
             cursor: pointer;
@@ -329,19 +330,19 @@
         }
 
         .month-btn:hover {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 193, 7, 0.1) 100%);
-            border-color: rgba(255, 215, 0, 0.6);
+            background: linear-gradient(135deg, rgba(255, 182, 193, 0.3) 0%, rgba(173, 216, 230, 0.2) 100%);
+            border-color: rgba(255, 182, 193, 0.6);
             transform: translateY(-2px) scale(1.05);
-            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
+            box-shadow: 0 8px 25px rgba(255, 182, 193, 0.3);
         }
 
         .month-btn.active {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.8), rgba(255, 193, 7, 0.6));
-            border-color: rgba(255, 215, 0, 0.8);
-            color: #000;
-            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+            background: linear-gradient(135deg, rgba(255, 182, 193, 0.8), rgba(173, 216, 230, 0.6));
+            border-color: rgba(255, 182, 193, 0.8);
+            color: #6a4c93;
+            box-shadow: 0 8px 25px rgba(255, 182, 193, 0.4);
             transform: translateY(-2px);
-            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
         }
 
         .filter-actions {
@@ -357,60 +358,61 @@
         }
 
         .btn-secondary {
-            background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(20, 20, 20, 0.8) 100%);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.1) 100%);
             backdrop-filter: blur(10px);
-            color: #FFD700;
-            border: 2px solid rgba(255, 215, 0, 0.3);
+            color: #6a4c93;
+            border: 2px solid rgba(255, 182, 193, 0.3);
             cursor: pointer;
             transition: all 0.3s ease;
         }
 
         .btn-secondary:hover {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 193, 7, 0.1) 100%);
+            background: linear-gradient(135deg, rgba(255, 182, 193, 0.3) 0%, rgba(173, 216, 230, 0.2) 100%);
             transform: translateY(-2px);
-            border-color: rgba(255, 215, 0, 0.6);
+            border-color: rgba(255, 182, 193, 0.6);
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.8), rgba(255, 193, 7, 0.6));
+            background: linear-gradient(135deg, rgba(255, 182, 193, 0.8), rgba(173, 216, 230, 0.6));
             backdrop-filter: blur(10px);
-            color: #000;
-            border: 2px solid rgba(255, 215, 0, 0.5);
+            color: #6a4c93;
+            border: 2px solid rgba(255, 255, 255, 0.5);
             cursor: pointer;
             transition: all 0.3s ease;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
         }
 
         .btn-primary:hover {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.9), rgba(255, 193, 7, 0.8));
+            background: linear-gradient(135deg, rgba(255, 182, 193, 0.9), rgba(173, 216, 230, 0.8));
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+            box-shadow: 0 8px 25px rgba(255, 182, 193, 0.4);
         }
 
         .report-results {
             max-height: 600px;
             overflow-y: auto;
-            background: linear-gradient(135deg, rgba(0, 0, 0, 0.3) 0%, rgba(20, 20, 20, 0.5) 100%);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
             backdrop-filter: blur(20px);
             border-radius: 20px;
             padding: 30px;
-            border: 1px solid rgba(255, 215, 0, 0.2);
-            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255, 182, 193, 0.2);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
         }
 
         .report-item {
             padding: 25px;
-            background: #ffffff;
-            border: 2px solid rgba(255, 215, 0, 0.3);
-            border-radius: 15px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 182, 193, 0.4);
+            border-radius: 20px;
             margin-bottom: 20px;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
             animation: slideInLeft 0.5s ease-out;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2), 
-                        0 0 0 1px rgba(255, 215, 0, 0.1),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1), 
+                        0 0 0 1px rgba(255, 182, 193, 0.2),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.9);
         }
 
         @keyframes slideInLeft {
@@ -435,10 +437,10 @@
 
         .report-item:hover {
             transform: translateY(-5px) scale(1.02);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3), 
-                        0 0 0 2px rgba(255, 215, 0, 0.5),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.9);
-            border-color: rgba(255, 215, 0, 0.6);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15), 
+                        0 0 0 2px rgba(255, 182, 193, 0.6),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.95);
+            border-color: rgba(255, 182, 193, 0.7);
         }
 
         .report-item-info {
@@ -449,15 +451,15 @@
 
         .report-item-name {
             font-weight: 700;
-            color: #1a1a1a;
+            color: #6a4c93;
             margin-bottom: 15px;
             font-size: 1.5rem;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
         }
 
         .report-item-details {
             font-size: 1.1rem;
-            color: #333;
+            color: #5a5a5a;
             line-height: 1.8;
         }
 
