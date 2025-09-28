@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>報表查詢系統</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
@@ -532,7 +533,17 @@
                 if (!response.ok) {
                     throw new Error('載入講師列表失敗');
                 }
-                teachers = await response.json();
+                const data = await response.json();
+                
+                // 檢查回應格式
+                if (data.success && data.teachers && Array.isArray(data.teachers)) {
+                    teachers = data.teachers;
+                } else if (Array.isArray(data)) {
+                    // 如果直接回傳陣列
+                    teachers = data;
+                } else {
+                    throw new Error('講師列表格式錯誤');
+                }
                 
                 const teacherSelect = document.getElementById('teacher-select');
                 teacherSelect.innerHTML = '<option value="">請選擇講師...</option>';
