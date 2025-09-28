@@ -1341,6 +1341,12 @@
             } else {
                 let html = '';
                 results.forEach((item, index) => {
+                    // 調試：打印第一個項目的所有欄位
+                    if (index === 0) {
+                        console.log('第一個報表項目的所有欄位:', item);
+                        console.log('可用的欄位名稱:', Object.keys(item));
+                    }
+                    
                     // 只顯示指定的欄位
                     const courseName = item.course || item.課程名稱 || item['課程名稱'] || '未知課程';
                     let courseDate = item.date || item.日期 || item['課程日期'] || item['日期'] || '';
@@ -1350,7 +1356,14 @@
                     }
                     const courseTime = item.time || item.上課時間 || item['上課時間'] || '';
                     const courseContent = item.content || item.課程內容 || item['課程內容'] || '';
-                    const studentCount = item.students || item.人數_助教 || item['人數_助教'] || '';
+                    const studentCount = item.students || item.人數_助教 || item['人數_助教'] || item.人數 || item['人數'] || item.助教 || item['助教'] || item.assistantCount || item['assistantCount'] || '';
+                    
+                    // 調試：打印人數/助教欄位的值
+                    if (index === 0) {
+                        console.log('人數/助教欄位值:', studentCount);
+                        console.log('item.人數_助教:', item.人數_助教);
+                        console.log('item["人數_助教"]:', item['人數_助教']);
+                    }
                     
                     html += `
                         <div class="report-item">
