@@ -15,320 +15,464 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
             min-height: 100vh;
             padding: 20px;
+            overflow-x: hidden;
         }
 
-        .report-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        /* 液態玻璃容器 */
+        .glass-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 30px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
             overflow: hidden;
+            animation: glassFloat 6s ease-in-out infinite;
+        }
+
+        @keyframes glassFloat {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(0.5deg); }
         }
 
         .report-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
+            backdrop-filter: blur(20px);
             color: white;
-            padding: 40px;
+            padding: 50px;
             text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .report-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: shimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { transform: translateX(-100%) translateY(-100%) rotate(0deg); }
+            50% { transform: translateX(0%) translateY(0%) rotate(180deg); }
         }
 
         .report-header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
+            font-size: 3rem;
+            margin-bottom: 15px;
             font-weight: 700;
+            position: relative;
+            z-index: 1;
+            animation: titleGlow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes titleGlow {
+            from { text-shadow: 0 0 20px rgba(255,255,255,0.5); }
+            to { text-shadow: 0 0 30px rgba(255,255,255,0.8), 0 0 40px rgba(102,126,234,0.6); }
         }
 
         .report-header p {
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             opacity: 0.9;
+            position: relative;
+            z-index: 1;
         }
 
         .query-form {
-            padding: 40px;
-            background: #f8f9fa;
+            padding: 50px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
         }
 
         .form-group {
-            margin-bottom: 25px;
+            margin-bottom: 30px;
+            position: relative;
         }
 
         .form-group label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
             font-weight: 600;
-            color: #333;
-            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.1rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
-        .form-group select,
-        .form-group input {
+        .glass-input {
             width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e9ecef;
-            border-radius: 10px;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-            background: white;
+            padding: 18px 25px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            font-size: 1.1rem;
+            color: white;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
         }
 
-        .form-group select:focus,
-        .form-group input:focus {
+        .glass-input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .glass-input:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            border-color: rgba(102, 126, 234, 0.8);
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2), 0 0 30px rgba(102, 126, 234, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .glass-input:hover {
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-1px);
         }
 
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            gap: 25px;
         }
 
         .date-range-group {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 20px;
         }
 
         .date-range-separator {
             font-weight: 600;
-            color: #6c757d;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.1rem;
         }
 
-        .query-button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .glass-button {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.8) 0%, rgba(118, 75, 162, 0.8) 100%);
+            backdrop-filter: blur(20px);
             color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 10px;
-            font-size: 1.1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 20px 40px;
+            border-radius: 25px;
+            font-size: 1.2rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             width: 100%;
-            margin-top: 20px;
+            margin-top: 30px;
+            position: relative;
+            overflow: hidden;
         }
 
-        .query-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        .glass-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.6s;
         }
 
-        .query-button:disabled {
-            background: #6c757d;
+        .glass-button:hover::before {
+            left: 100%;
+        }
+
+        .glass-button:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4), 0 0 0 1px rgba(255,255,255,0.2);
+        }
+
+        .glass-button:active {
+            transform: translateY(-1px) scale(0.98);
+        }
+
+        .glass-button:disabled {
+            background: rgba(108, 117, 125, 0.5);
             cursor: not-allowed;
             transform: none;
             box-shadow: none;
         }
 
         .results-section {
-            padding: 40px;
+            padding: 50px;
             display: none;
+            animation: slideInUp 0.6s ease-out;
+        }
+
+        @keyframes slideInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .results-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 40px;
+            padding-bottom: 25px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
         }
 
         .results-title {
-            font-size: 1.8rem;
+            font-size: 2.2rem;
             font-weight: 700;
-            color: #333;
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
         .results-count {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.8), rgba(118, 75, 162, 0.8));
+            backdrop-filter: blur(20px);
             color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.9rem;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 1rem;
             font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            animation: pulse 2s ease-in-out infinite;
         }
 
-        /* 月份篩選器樣式 */
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        /* 月份篩選器液態玻璃樣式 */
         .month-filter-section {
-            margin: 15px 0;
-            padding: 15px;
-            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-            border-radius: 10px;
-            border: 1px solid #dee2e6;
+            margin: 25px 0;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: fadeInScale 0.5s ease-out;
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
         }
 
         .month-filter-label {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             font-weight: 600;
-            color: #495057;
-            margin-bottom: 12px;
-            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 15px;
+            font-size: 1.1rem;
         }
 
         .month-buttons {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 12px;
+            gap: 12px;
+            margin-bottom: 15px;
         }
 
         .month-btn {
-            padding: 6px 12px;
-            border: 2px solid #6c757d;
-            border-radius: 20px;
-            background-color: #ffffff;
-            color: #6c757d;
-            font-size: 0.85rem;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 25px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .month-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .month-btn:hover::before {
+            left: 100%;
         }
 
         .month-btn:hover {
-            background-color: #e9ecef;
-            border-color: #495057;
-            color: #495057;
-            transform: translateY(-1px);
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
         }
 
         .month-btn.active {
-            background: linear-gradient(135deg, #007bff, #0056b3);
-            border-color: #007bff;
-            color: #ffffff;
-            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
-        }
-
-        .month-btn.active:hover {
-            background: linear-gradient(135deg, #0056b3, #004085);
-            transform: translateY(-1px);
+            background: linear-gradient(135deg, rgba(0, 123, 255, 0.8), rgba(0, 86, 179, 0.8));
+            border-color: rgba(0, 123, 255, 0.6);
+            color: white;
+            box-shadow: 0 8px 25px rgba(0, 123, 255, 0.4);
+            transform: translateY(-2px);
         }
 
         .filter-actions {
             display: flex;
-            gap: 8px;
+            gap: 12px;
             justify-content: flex-end;
         }
 
         .btn-sm {
-            padding: 6px 12px;
-            font-size: 0.8rem;
-            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            border-radius: 20px;
         }
 
         .btn-secondary {
-            background: #6c757d;
+            background: rgba(108, 117, 125, 0.6);
+            backdrop-filter: blur(10px);
             color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
             cursor: pointer;
             transition: all 0.3s ease;
         }
 
         .btn-secondary:hover {
-            background: #5a6268;
-            transform: translateY(-1px);
+            background: rgba(90, 98, 104, 0.8);
+            transform: translateY(-2px);
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #007bff, #0056b3);
+            background: linear-gradient(135deg, rgba(0, 123, 255, 0.8), rgba(0, 86, 179, 0.8));
+            backdrop-filter: blur(10px);
             color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
             cursor: pointer;
             transition: all 0.3s ease;
         }
 
         .btn-primary:hover {
-            background: linear-gradient(135deg, #0056b3, #004085);
-            transform: translateY(-1px);
+            background: linear-gradient(135deg, rgba(0, 86, 179, 0.9), rgba(0, 64, 133, 0.9));
+            transform: translateY(-2px);
         }
 
         .report-results {
-            max-height: 500px;
+            max-height: 600px;
             overflow-y: auto;
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
         }
 
         .report-item {
-            padding: 20px;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            background: #fafafa;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            transition: all 0.3s ease;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            margin-bottom: 20px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            animation: slideInLeft 0.5s ease-out;
         }
 
-        .report-item:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .report-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+            transition: left 0.6s;
+        }
+
+        .report-item:hover::before {
+            left: 100%;
         }
 
         .report-item:hover {
-            background: #f0f8ff;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            border-color: rgba(255, 255, 255, 0.4);
         }
 
         .report-item-info {
             flex: 1;
+            position: relative;
+            z-index: 1;
         }
 
         .report-item-name {
             font-weight: 700;
-            color: #2c3e50;
-            margin-bottom: 8px;
-            font-size: 1.4rem;
+            color: white;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
         .report-item-details {
-            font-size: 1rem;
-            color: #555;
-            line-height: 1.6;
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.9);
+            line-height: 1.8;
+        }
+
+        .report-item-details div {
+            margin-bottom: 8px;
+            padding: 5px 0;
         }
 
         .no-results {
             text-align: center;
-            padding: 30px;
-            color: #666;
+            padding: 50px;
+            color: rgba(255, 255, 255, 0.7);
             font-style: italic;
+            font-size: 1.2rem;
         }
 
         .no-results i {
-            font-size: 2rem;
-            margin-bottom: 10px;
-            color: #ccc;
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: rgba(255, 255, 255, 0.4);
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
         }
 
         .toast {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #28a745;
+            top: 30px;
+            right: 30px;
+            background: rgba(40, 167, 69, 0.9);
+            backdrop-filter: blur(20px);
             color: white;
-            padding: 15px 20px;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+            padding: 20px 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(40, 167, 69, 0.4);
             z-index: 1000;
             transform: translateX(400px);
-            transition: transform 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .toast.show {
@@ -338,84 +482,104 @@
         .toast-content {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
 
-        .toast.success {
-            background: #28a745;
-            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
-        }
+        .toast.success { background: rgba(40, 167, 69, 0.9); }
+        .toast.error { background: rgba(220, 53, 69, 0.9); }
+        .toast.warning { background: rgba(255, 193, 7, 0.9); color: #333; }
+        .toast.info { background: rgba(23, 162, 184, 0.9); }
 
-        .toast.error {
-            background: #dc3545;
-            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
-        }
-
-        .toast.warning {
-            background: #ffc107;
-            color: #333;
-            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
-        }
-
-        .toast.info {
-            background: #17a2b8;
-            box-shadow: 0 4px 15px rgba(23, 162, 184, 0.3);
-        }
-
-        /* 懸浮按鈕 */
+        /* 懸浮按鈕液態玻璃樣式 */
         .floating-button {
             position: fixed;
-            bottom: 30px;
-            right: 30px;
-            background: linear-gradient(135deg, #00B900 0%, #00A000 100%);
+            bottom: 40px;
+            right: 40px;
+            background: linear-gradient(135deg, rgba(0, 185, 0, 0.8), rgba(0, 160, 0, 0.8));
+            backdrop-filter: blur(20px);
             color: white;
-            border: none;
+            border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 50px;
-            padding: 15px 25px;
-            font-size: 1rem;
+            padding: 18px 30px;
+            font-size: 1.1rem;
             font-weight: 600;
             cursor: pointer;
-            box-shadow: 0 8px 25px rgba(0, 185, 0, 0.4);
+            box-shadow: 0 15px 35px rgba(0, 185, 0, 0.4);
             z-index: 1000;
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             text-decoration: none;
+            position: relative;
+            overflow: hidden;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .floating-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.6s;
+        }
+
+        .floating-button:hover::before {
+            left: 100%;
         }
 
         .floating-button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 35px rgba(0, 185, 0, 0.5);
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 20px 45px rgba(0, 185, 0, 0.6);
             text-decoration: none;
             color: white;
         }
 
         .floating-button:active {
-            transform: translateY(-1px);
+            transform: translateY(-2px) scale(0.95);
         }
 
         .floating-button i {
-            font-size: 1.2rem;
+            font-size: 1.3rem;
         }
 
+        /* 響應式設計 */
         @media (max-width: 768px) {
-            .report-container {
-                padding: 10px;
+            .glass-container {
+                margin: 10px;
+                border-radius: 20px;
+            }
+
+            .report-header {
+                padding: 30px 20px;
             }
 
             .report-header h1 {
-                font-size: 2rem;
+                font-size: 2.2rem;
             }
 
             .query-form,
             .results-section {
-                padding: 20px;
+                padding: 30px 20px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 20px;
             }
 
             .date-range-group {
                 flex-direction: column;
                 align-items: stretch;
+                gap: 15px;
             }
 
             .date-range-separator {
@@ -423,18 +587,14 @@
                 margin: 10px 0;
             }
 
-            .form-row {
-                flex-direction: column;
-            }
-
             .results-header {
                 flex-direction: column;
                 align-items: stretch;
+                gap: 20px;
             }
 
             .month-filter-section {
-                flex-direction: column;
-                align-items: stretch;
+                padding: 20px;
             }
 
             .month-buttons {
@@ -444,14 +604,33 @@
             .floating-button {
                 bottom: 20px;
                 right: 20px;
-                padding: 12px 20px;
-                font-size: 0.9rem;
+                padding: 15px 25px;
+                font-size: 1rem;
             }
+        }
+
+        /* 滾動條樣式 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
         }
     </style>
 </head>
 <body>
-    <div class="report-container">
+    <div class="glass-container">
         <!-- 頁面標題 -->
         <div class="report-header">
             <h1><i class="fas fa-chart-line"></i> 報表查詢系統</h1>
@@ -465,7 +644,7 @@
                     <label for="teacher-select">
                         <i class="fas fa-user-tie"></i> 選擇講師
                     </label>
-                    <select id="teacher-select" required>
+                    <select id="teacher-select" class="glass-input" required>
                         <option value="">請選擇講師...</option>
                     </select>
                 </div>
@@ -475,13 +654,13 @@
                         <label for="start-date">
                             <i class="fas fa-calendar-alt"></i> 開始日期
                         </label>
-                        <input type="date" id="start-date">
+                        <input type="date" id="start-date" class="glass-input">
                     </div>
                     <div class="form-group">
                         <label for="end-date">
                             <i class="fas fa-calendar-alt"></i> 結束日期
                         </label>
-                        <input type="date" id="end-date">
+                        <input type="date" id="end-date" class="glass-input">
                     </div>
                 </div>
 
@@ -489,10 +668,10 @@
                     <label for="course-filter">
                         <i class="fas fa-book"></i> 課程篩選 (可選)
                     </label>
-                    <input type="text" id="course-filter" placeholder="輸入課程名稱關鍵字...">
+                    <input type="text" id="course-filter" class="glass-input" placeholder="輸入課程名稱關鍵字...">
                 </div>
 
-                <button type="submit" class="query-button" id="query-button">
+                <button type="submit" class="glass-button" id="query-button">
                     <i class="fas fa-search"></i> 查詢報表
                 </button>
             </form>
