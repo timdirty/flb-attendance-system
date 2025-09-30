@@ -87,6 +87,43 @@ body {
     text-align: center;
     margin-bottom: 30px;
     color: white;
+    position: relative;
+}
+
+/* 頂部操作按鈕 */
+.header-top-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+}
+
+.settings-link,
+.admin-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    color: white;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.settings-link:hover,
+.admin-link:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1) rotate(90deg);
+}
+
+.settings-link i,
+.admin-link i {
+    font-size: 18px;
 }
 
 .logo-container {
@@ -1201,7 +1238,7 @@ body {
     border-radius: 8px;
     padding: 15px 20px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    z-index: 1000;
+    z-index: 99999; /* 提高z-index，確保在所有元素之上 */
     transform: translateX(400px);
     transition: transform 0.3s ease;
     display: flex;

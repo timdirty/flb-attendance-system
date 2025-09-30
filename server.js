@@ -53,7 +53,7 @@ app.all('/api/attendance/courses', (req, res) => {
 });
 
 // FLB API 基礎URL
-const FLB_API_URL = 'https://script.google.com/macros/s/AKfycbxfj5fwNIc8ncbqkOm763yo6o06wYPHm2nbfd_1yLkHlakoS9FtYfYJhvGCaiAYh_vjIQ/exec';
+const FLB_API_URL = process.env.FLB_API_URL || 'https://script.google.com/macros/s/AKfycbzm0GD-T09Botbs52e8PyeVuA5slJh6Z0AQ7I0uUiGZiE6aWhTO2D0d3XHFrdLNv90uCw/exec';
 
 
 // Link Calendar API URL (用於抓取 link_calender 資料庫)
@@ -69,6 +69,14 @@ const LINE_MESSAGING_API = 'https://api.line.me/v2/bot/message/push';
 const LINE_RICH_MENU_API = 'https://api.line.me/v2/bot/user/{userId}/richmenu';
 const RICH_MENU_ID = '6636245039f343a37a8b7edc830c8cfa';
 
+// 第二個Bot配置
+const LINE_CHANNEL_ACCESS_TOKEN_2 = process.env.LINE_CHANNEL_ACCESS_TOKEN_2 || '';
+const LINE_USER_ID_2 = process.env.LINE_USER_ID_2 || '';
+const LINE_CHANNEL_ACCESS_TOKEN_3 = process.env.LINE_CHANNEL_ACCESS_TOKEN_3 || '';
+const LINE_USER_ID_3 = process.env.LINE_USER_ID_3 || '';
+const ENABLE_DUAL_BOT = process.env.ENABLE_DUAL_BOT === 'true';
+const ENABLE_TRIPLE_BOT = process.env.ENABLE_TRIPLE_BOT === 'true';
+
 // 系統配置
 const SYSTEM_URL = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'https://your-railway-url.railway.app';
 
@@ -80,21 +88,120 @@ const GOOGLE_SHEETS_COOKIE = 'NID=525=IPIqwCVm1Z3C00Y2MFXoevvCftm-rj9UdMlgYFhlRA
 const GoogleSheetsDatabaseWithLocal = require('./googleSheetsDatabaseWithLocal');
 const db = new GoogleSheetsDatabaseWithLocal();
 
+// 設定 API 路由
+const setupSettingsRoutes = require('./settings-api');
+
 // 新的資料庫會自動處理初始化同步
 
 
-// LINE Messaging API 通知函數
-async function sendLineMessage(message, targetUserId = null) {
+// ==================== 多 Bot 支援函數 ====================
+
+/**
+ * 獲取可用的 Bot 列表
+ */
+function getAvailableBots() {
+    const bots = [];
+    
+    if (config.line.bots.primary.enabled && config.line.bots.primary.channelAccessToken) {
+        bots.push({
+            id: 'primary',
+            name: config.line.bots.primary.name,
+            token: config.line.bots.primary.channelAccessToken,
+            secret: config.line.bots.primary.channelSecret
+        });
+    }
+    
+    if (config.line.bots.secondary.enabled && config.line.bots.secondary.channelAccessToken) {
+        bots.push({
+            id: 'secondary',
+            name: config.line.bots.secondary.name,
+            token: config.line.bots.secondary.channelAccessToken,
+            secret: config.line.bots.secondary.channelSecret
+        });
+    }
+    
+    return bots;
+}
+
+/**
+ * 選擇要使用的 Bot
+ */
+function selectBot(strategy = 'round_robin') {
+    const availableBots = getAvailableBots();
+    
+    if (availableBots.length === 0) {
+        return null;
+    }
+    
+    if (availableBots.length === 1) {
+        return availableBots[0];
+    }
+    
+    switch (strategy) {
+        case 'round_robin':
+            // 簡單的輪詢策略（可以改進為更複雜的實現）
+            const index = Math.floor(Math.random() * availableBots.length);
+            return availableBots[index];
+            
+        case 'random':
+            const randomIndex = Math.floor(Math.random() * availableBots.length);
+            return availableBots[randomIndex];
+            
+        case 'primary_first':
+            // 優先使用 primary bot
+            return availableBots.find(bot => bot.id === 'primary') || availableBots[0];
+            
+        default:
+            return availableBots[0];
+    }
+}
+
+/**
+ * 使用指定 Bot 發送訊息
+ */
+async function sendLineMessageWithBot(message, targetUserId, botId = null) {
     try {
-        if (!LINE_CHANNEL_ACCESS_TOKEN || LINE_CHANNEL_ACCESS_TOKEN === 'YOUR_CHANNEL_ACCESS_TOKEN_HERE') {
-            console.log('LINE Channel Access Token 未設定，跳過通知');
-            return { success: false, message: 'LINE Channel Access Token 未設定' };
+        // 準備Bot列表
+        const bots = [];
+        
+        // 第一個Bot（主要Bot）
+        if (LINE_CHANNEL_ACCESS_TOKEN && LINE_CHANNEL_ACCESS_TOKEN !== 'YOUR_CHANNEL_ACCESS_TOKEN_HERE') {
+            bots.push({
+                id: 'primary',
+                name: '主要Bot',
+                token: LINE_CHANNEL_ACCESS_TOKEN,
+                userId: LINE_USER_ID
+            });
+        }
+        
+        // 第二個Bot（如果啟用且配置了）
+        if (ENABLE_DUAL_BOT && LINE_CHANNEL_ACCESS_TOKEN_2 && LINE_CHANNEL_ACCESS_TOKEN_2 !== '') {
+            bots.push({
+                id: 'secondary',
+                name: '第二個Bot',
+                token: LINE_CHANNEL_ACCESS_TOKEN_2,
+                userId: LINE_USER_ID_2
+            });
+        }
+        
+        if (ENABLE_TRIPLE_BOT && LINE_CHANNEL_ACCESS_TOKEN_3 && LINE_CHANNEL_ACCESS_TOKEN_3 !== '') {
+            bots.push({
+                id: 'tertiary',
+                name: '第三個Bot',
+                token: LINE_CHANNEL_ACCESS_TOKEN_3,
+                userId: LINE_USER_ID_3
+            });
+        }
+        
+        if (bots.length === 0) {
+            console.log('沒有可用的Bot，跳過發送訊息');
+            return { success: false, message: '沒有可用的Bot' };
         }
 
         // 準備發送目標列表
         const targetUsers = [];
         
-        // 總是發送給管理員
+        // 總是發送給管理員（如果設定了LINE_USER_ID）
         if (LINE_USER_ID && LINE_USER_ID !== 'YOUR_USER_ID_HERE') {
             targetUsers.push(LINE_USER_ID);
         }
@@ -109,54 +216,1061 @@ async function sendLineMessage(message, targetUserId = null) {
             return { success: false, message: '沒有有效的發送目標' };
         }
 
-        // 發送給所有目標使用者（改為順序發送以便更好的錯誤處理）
-        const results = [];
+        const allResults = [];
         
-        for (const userId of targetUsers) {
-            try {
-                console.log(`正在發送LINE訊息給 ${userId}...`);
+        // 對每個Bot發送訊息
+        for (const bot of bots) {
+            console.log(`🤖 使用 ${bot.name} (${bot.id}) 發送訊息`);
+            
+            const botResults = [];
+            
+            for (const userId of targetUsers) {
+                try {
+                    console.log(`正在發送LINE訊息給 ${userId} (透過 ${bot.name})...`);
 
         const response = await axios.post(LINE_MESSAGING_API, {
-                    to: userId,
+                        to: userId,
             messages: [{
                 type: 'text',
                 text: message
             }]
         }, {
-            headers: {
-                'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
-                'Content-Type': 'application/json'
-                    },
-                    timeout: 10000 // 10秒超時
-                });
-                
-                console.log(`✅ LINE 訊息發送成功給 ${userId}:`, response.data);
-                results.push({ success: true, userId, data: response.data });
-                
-                // 添加小延遲避免API限制
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-            } catch (error) {
-                console.error(`❌ LINE 訊息發送失敗給 ${userId}:`, error.response?.data || error.message);
-                results.push({ 
-                    success: false, 
-                    userId, 
-                    error: error.response?.data || error.message,
-                    statusCode: error.response?.status
-                });
+                        headers: {
+                            'Authorization': `Bearer ${bot.token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 10000
+                    });
+                    
+                    console.log(`✅ ${bot.name} 訊息發送成功給 ${userId}:`, response.data);
+                    botResults.push({ 
+                        success: true, 
+                        userId, 
+                        botId: bot.id,
+                        botName: bot.name,
+                        data: response.data 
+                    });
+                    
+                    // 添加小延遲避免API限制
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    
+                } catch (error) {
+                    console.error(`❌ ${bot.name} 訊息發送失敗給 ${userId}:`, error.response?.data || error.message);
+                    botResults.push({ 
+                        success: false, 
+                        userId, 
+                        botId: bot.id,
+                        botName: bot.name,
+                        error: error.response?.data || error.message,
+                        statusCode: error.response?.status
+                    });
+                }
+            }
+            
+            allResults.push({
+                botId: bot.id,
+                botName: bot.name,
+                results: botResults
+            });
+        }
+        
+        const totalSuccessCount = allResults.reduce((sum, bot) => 
+            sum + bot.results.filter(r => r.success).length, 0
+        );
+        const totalAttempts = allResults.reduce((sum, bot) => 
+            sum + bot.results.length, 0
+        );
+        
+        console.log(`📊 總發送結果: ${totalSuccessCount}/${totalAttempts} 成功 (${bots.length} 個Bot)`);
+        
+        return { 
+            success: totalSuccessCount > 0, 
+            message: `成功發送給 ${totalSuccessCount}/${totalAttempts} 個使用者 (${bots.length} 個Bot)`,
+            botResults: allResults,
+            totalSuccess: totalSuccessCount,
+            totalAttempts: totalAttempts
+        };
+    } catch (error) {
+        console.error('LINE 訊息發送失敗:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 使用指定 Bot 發送 Flex Message
+ */
+async function sendLineFlexMessageWithBot(flexMessage, targetUserId, botId = null) {
+    try {
+        let selectedBot;
+        
+        if (botId) {
+            selectedBot = getAvailableBots().find(bot => bot.id === botId);
+            if (!selectedBot) {
+                throw new Error(`指定的 Bot ID "${botId}" 不存在或未啟用`);
+            }
+        } else {
+            const strategy = config.line.messaging.loadBalancing.strategy;
+            selectedBot = selectBot(strategy);
+            if (!selectedBot) {
+                throw new Error('沒有可用的 Bot');
             }
         }
         
-        const successCount = results.filter(r => r.success).length;
+        console.log(`🤖 使用 ${selectedBot.name} (${selectedBot.id}) 發送 Flex Message`);
         
+        const response = await axios.post(config.line.messagingApi, {
+            to: targetUserId,
+            messages: [flexMessage]
+        }, {
+            headers: {
+                'Authorization': `Bearer ${selectedBot.token}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: config.server.timeout.line
+        });
+
+        console.log(`✅ Flex Message 發送成功給 ${targetUserId}`);
         return { 
-            success: successCount > 0, 
-            message: `成功發送給 ${successCount}/${targetUsers.length} 個使用者`,
-            results: results
+            success: true, 
+            data: response.data,
+            botUsed: selectedBot
         };
+
     } catch (error) {
-        console.error('LINE 訊息發送失敗:', error.response?.data || error.message);
-        return { success: false, error: error.response?.data || error.message };
+        console.error(`❌ Flex Message 發送失敗:`, error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+// ==================== Flex Message 支援函數 ====================
+
+
+/**
+ * 創建出缺勤 Flex Message（高質感黑金風格）
+ */
+function createAttendanceFlexMessage(studentData, mode = 'compact', displayType = 'remaining') {
+    console.log('📊 創建Flex Message，學生數據:', JSON.stringify(studentData, null, 2));
+    console.log('📊 顯示模式:', mode, '顯示類型:', displayType);
+    
+    const { name, course, period, remaining, attendance = [] } = studentData;
+    
+    console.log('📊 解析後的數據:', {
+        name,
+        course,
+        period,
+        remaining,
+        attendanceLength: attendance.length,
+        attendance: attendance
+    });
+    
+    // 高質感黑金風格顏色配置
+    const colors = {
+        primary: '#0F0F0F',      // 深黑
+        gold: '#B8860B',         // 深金色
+        goldLight: '#DAA520',    // 亮金色
+        goldAccent: '#FFD700',   // 金色點綴
+        success: '#2E8B57',      // 深綠色
+        warning: '#DAA520',      // 金色警告
+        danger: '#B22222',       // 深紅色
+        text: '#1C1C1C',         // 深灰文字
+        textSecondary: '#5A5A5A', // 次要文字
+        textLight: '#8A8A8A',    // 淺色文字
+        background: '#FEFEFE',    // 純白背景
+        cardBackground: '#F8F9FA', // 卡片背景
+        border: '#D3D3D3',       // 邊框色
+        shadow: '#E8E8E8'        // 陰影色
+    };
+    
+    // 確保 attendance 是陣列
+    const attendanceArray = Array.isArray(attendance) ? attendance : [];
+    
+    // 計算出席統計
+    const totalRecords = attendanceArray.length;
+    const presentCount = attendanceArray.filter(r => r.present === true).length;
+    const leaveCount = attendanceArray.filter(r => r.present === 'leave').length;
+    const absentCount = attendanceArray.filter(r => r.present === false).length;
+    const attendanceRate = totalRecords > 0 ? Math.round((presentCount / totalRecords) * 100) : 0;
+    
+    // 根據模式決定顯示記錄數量
+    const attendanceLimit = mode === 'compact' ? 5 : attendanceArray.length;
+    const recentAttendance = attendanceArray.slice(-attendanceLimit);
+    
+    // 格式化出席記錄 - 高質感版本
+    const attendanceBoxes = recentAttendance.map((record, index) => {
+        let statusIcon = '';
+        let statusColor = '';
+        let statusBg = '';
+        
+        if (record.present === true) {
+            statusIcon = '✓';
+            statusColor = '#2E8B57';  // 深綠色
+            statusBg = '#E8F5E8';     // 淺綠色背景
+        } else if (record.present === 'leave') {
+            statusIcon = '📝';
+            statusColor = '#DAA520';  // 金色
+            statusBg = '#FFF8DC';     // 淺金色背景
+        } else {
+            statusIcon = '✗';
+            statusColor = '#B22222';  // 深紅色
+            statusBg = '#FFE4E1';     // 淺紅色背景
+        }
+        
+        // 格式化日期顯示
+        const dateStr = record.date;
+        console.log('📅 處理日期:', dateStr);
+        
+        let displayDate = '??/??';
+        try {
+            if (dateStr && typeof dateStr === 'string') {
+                // 先嘗試直接解析 YYYY-MM-DD 格式
+                if (dateStr.includes('-')) {
+                    const parts = dateStr.split('-');
+                    if (parts.length >= 3) {
+                        const month = parts[1].padStart(2, '0');
+                        const day = parts[2].padStart(2, '0');
+                        displayDate = `${month}/${day}`;
+                        console.log('📅 直接解析成功:', displayDate);
+                    }
+                } else {
+                    // 嘗試使用 Date 物件解析
+                    const dateObj = new Date(dateStr);
+                    if (!isNaN(dateObj.getTime())) {
+                        const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                        const day = dateObj.getDate().toString().padStart(2, '0');
+                        displayDate = `${month}/${day}`;
+                        console.log('📅 Date物件解析成功:', displayDate);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('❌ 日期解析錯誤:', error, '原始日期:', dateStr);
+            displayDate = '??/??';
+        }
+        
+        console.log('📅 顯示日期:', displayDate);
+        
+        return {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                {
+                    type: 'text',
+                    text: displayDate,
+                    size: 'xxs',
+                    color: colors.textSecondary,
+                    align: 'center'
+                },
+                {
+                    type: 'text',
+                    text: statusIcon,
+                    size: 'xxs',
+                    color: statusColor,
+                    align: 'center'
+                }
+            ],
+            paddingAll: '6px',
+            cornerRadius: '4px',
+            backgroundColor: statusBg,
+            borderColor: statusColor,
+            borderWidth: '0.5px',
+            margin: '1px',
+            width: '48px'
+        };
+    });
+
+    // 決定剩餘堂數顏色和圖示
+    let remainingColor = colors.success;
+    let remainingIcon = '●';
+    if (remaining <= 0) {
+        remainingColor = colors.danger;
+        remainingIcon = '●';
+    } else if (remaining <= 5) {
+        remainingColor = colors.warning;
+        remainingIcon = '●';
+    }
+
+    // 根據 displayType 決定標題
+    const headerTitle = displayType === 'attendance' ? '完整出缺勤記錄' : '剩餘堂數查詢';
+    const headerSubtitle = displayType === 'attendance' 
+        ? (mode === 'compact' ? '近5堂課' : '所有記錄')
+        : (mode === 'compact' ? '近5堂課' : '完整記錄');
+    
+    return {
+        type: 'flex',
+        altText: `${name} 的${headerTitle}`,
+        contents: {
+            type: 'bubble',
+            header: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    {
+                        type: 'text',
+                        text: 'FunLearnBar 智慧課程管理系統',
+                        size: 'xs',
+                        color: colors.goldLight,
+                        weight: 'bold',
+                        align: 'center',
+                        margin: 'none'
+                    },
+                    {
+                        type: 'text',
+                        text: headerTitle,
+                        size: 'lg',
+                        color: colors.goldAccent,
+                        weight: 'bold',
+                        align: 'center',
+                        margin: 'xs'
+                    },
+                    {
+                        type: 'text',
+                        text: headerSubtitle,
+                        size: 'xs',
+                        color: colors.goldLight,
+                        align: 'center',
+                        margin: 'xs'
+                    }
+                ],
+                backgroundColor: colors.primary,
+                paddingAll: '12px'
+            },
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    // 學生資訊 - 優先顯示
+                    {
+                        type: 'text',
+                        text: '學生資訊',
+                        weight: 'bold',
+                        size: 'xs',
+                        color: colors.primary,
+                        margin: 'none'
+                    },
+                    {
+                        type: 'box',
+                        layout: 'vertical',
+                        contents: [
+                            {
+                                type: 'text',
+                                text: name,
+                                size: 'sm',
+                                weight: 'bold',
+                                color: colors.text,
+                                margin: 'none',
+                                wrap: true
+                            },
+                            {
+                                type: 'text',
+                                text: `${course} • ${period}`,
+                                size: 'xs',
+                                color: colors.textSecondary,
+                                margin: 'xs',
+                                wrap: true
+                            }
+                        ],
+                        margin: 'xs',
+                        paddingAll: '8px',
+                        backgroundColor: colors.cardBackground,
+                        cornerRadius: '6px',
+                        borderColor: colors.border,
+                        borderWidth: '0.5px'
+                    },
+                    
+                    // 剩餘堂數 - 只在 displayType === 'remaining' 時顯示
+                    ...(displayType === 'remaining' ? [
+                        {
+                            type: 'text',
+                            text: '🎯 剩餘堂數',
+                            weight: 'bold',
+                            size: 'xs',
+                            color: colors.primary,
+                            margin: 'sm'
+                        },
+                        {
+                            type: 'box',
+                            layout: 'vertical',
+                            contents: [
+                                {
+                                    type: 'text',
+                                    text: `${remaining}`,
+                                    size: 'xl',
+                                    weight: 'bold',
+                                    color: colors.primary,
+                                    align: 'center',
+                                    margin: 'none'
+                                },
+                                {
+                                    type: 'text',
+                                    text: '剩餘堂數',
+                                    size: 'xxs',
+                                    color: colors.textSecondary,
+                                    align: 'center',
+                                    margin: 'xs'
+                                }
+                            ],
+                            margin: 'xs',
+                            paddingAll: '16px',
+                            backgroundColor: colors.cardBackground,
+                            cornerRadius: '12px',
+                            borderColor: colors.gold,
+                            borderWidth: '2px'
+                        }
+                    ] : []),
+                    
+                    // 統計資訊 - 精緻版
+                    {
+                        type: 'text',
+                        text: '統計資訊',
+                        weight: 'bold',
+                        size: 'xs',
+                        color: colors.primary,
+                        margin: 'sm'
+                    },
+                    {
+                        type: 'box',
+                        layout: 'horizontal',
+                        contents: [
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    {
+                                        type: 'text',
+                                        text: `${attendanceRate}%`,
+                                        size: 'xxs',
+                                        color: colors.primary,
+                                        align: 'center'
+                                    },
+                                    {
+                                        type: 'text',
+                                        text: '出席率',
+                                        size: 'xxs',
+                                        color: colors.textLight,
+                                        align: 'center'
+                                    }
+                                ],
+                                flex: 1,
+                                paddingAll: '3px',
+                                backgroundColor: colors.cardBackground,
+                                cornerRadius: '4px',
+                                margin: '1px',
+                                borderColor: colors.border,
+                                borderWidth: '0.5px'
+                            },
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    {
+                                        type: 'text',
+                                        text: `${presentCount}`,
+                                        size: 'xxs',
+                                        color: colors.success,
+                                        align: 'center'
+                                    },
+                                    {
+                                        type: 'text',
+                                        text: '出席',
+                                        size: 'xxs',
+                                        color: colors.textLight,
+                                        align: 'center'
+                                    }
+                                ],
+                                flex: 1,
+                                paddingAll: '3px',
+                                backgroundColor: colors.cardBackground,
+                                cornerRadius: '4px',
+                                margin: '1px',
+                                borderColor: colors.border,
+                                borderWidth: '0.5px'
+                            },
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    {
+                                        type: 'text',
+                                        text: `${absentCount}`,
+                                        size: 'xxs',
+                                        color: colors.danger,
+                                        align: 'center'
+                                    },
+                                    {
+                                        type: 'text',
+                                        text: '缺席',
+                                        size: 'xxs',
+                                        color: colors.textLight,
+                                        align: 'center'
+                                    }
+                                ],
+                                flex: 1,
+                                paddingAll: '3px',
+                                backgroundColor: colors.cardBackground,
+                                cornerRadius: '4px',
+                                margin: '1px',
+                                borderColor: colors.border,
+                                borderWidth: '0.5px'
+                            }
+                        ],
+                        margin: 'xs'
+                    },
+                    
+                    // 出席記錄
+                    {
+                        type: 'text',
+                        text: mode === 'compact' ? '近5堂課' : '完整記錄',
+                        weight: 'bold',
+                        size: 'xs',
+                        color: colors.primary,
+                        margin: 'sm'
+                    },
+                    {
+                        type: 'box',
+                        layout: 'vertical',
+                        contents: attendanceArray.length > 0 ? [
+                            {
+                                type: 'box',
+                                layout: 'horizontal',
+                                contents: attendanceBoxes,
+                                margin: 'xs'
+                            },
+                            {
+                                type: 'text',
+                                text: '✓出席 📝請假 ✗缺席',
+                                size: 'xxs',
+                                color: colors.textLight,
+                                align: 'center',
+                                margin: 'xs'
+                            }
+                        ] : [
+                            {
+                                type: 'text',
+                                text: '暫無出席記錄',
+                                size: 'xs',
+                                color: colors.textLight,
+                                align: 'center',
+                                margin: 'xs'
+                            }
+                        ],
+                        margin: 'xs',
+                        paddingAll: '8px',
+                        backgroundColor: colors.cardBackground,
+                        cornerRadius: '6px',
+                        borderColor: colors.border,
+                        borderWidth: '0.5px'
+                    },
+                    
+                    // 底部
+                    {
+                        type: 'text',
+                        text: 'FunLearnBar',
+                        size: 'xs',
+                        color: colors.gold,
+                        weight: 'bold',
+                        align: 'center',
+                        margin: 'sm'
+                    }
+                ],
+                paddingAll: '12px'
+            }
+        }
+    };
+}
+
+// 創建多學生 Flex Message
+function createMultiStudentFlexMessage(students, mode = 'compact', displayType = 'remaining') {
+    console.log('📊 創建多學生Flex Message，學生數量:', students.length);
+    console.log('📊 顯示模式:', mode, '顯示類型:', displayType);
+    
+    const colors = {
+        primary: '#0F0F0F',
+        gold: '#B8860B',
+        goldLight: '#DAA520',
+        goldAccent: '#FFD700',
+        text: '#333333',
+        textSecondary: '#666666',
+        textLight: '#999999',
+        success: '#28a745',
+        warning: '#ffc107',
+        danger: '#dc3545',
+        cardBackground: '#F8F9FA',
+        border: '#E9ECEF'
+    };
+    
+    // 創建學生選項按鈕
+    const studentButtons = students.map((student, index) => {
+        const remaining = student.remaining || 0;
+        const remainingColor = remaining > 5 ? colors.success : remaining > 2 ? colors.warning : colors.danger;
+        
+        return {
+            type: 'button',
+            action: {
+                type: 'postback',
+                label: `${student.name}`,
+                data: `student_${index}`,
+                displayText: `查看 ${student.name} 的詳細記錄`
+            },
+            style: 'primary',
+            color: remainingColor,
+            height: 'sm'
+        };
+    });
+    
+    // 創建學生資訊摘要
+    const studentSummary = students.map((student, index) => {
+        const remaining = student.remaining || 0;
+        const attendance = student.attendance || [];
+        const presentCount = attendance.filter(record => record.present === true).length;
+        const absentCount = attendance.filter(record => record.present === false).length;
+        const leaveCount = attendance.filter(record => record.present === 'leave').length;
+        
+        // 根據 displayType 決定要顯示的統計資訊
+        const statsContents = displayType === 'remaining' ? [
+            {
+                type: 'text',
+                text: `剩餘: ${remaining}堂`,
+                size: 'xs',
+                color: remaining > 5 ? colors.success : remaining > 2 ? colors.warning : colors.danger,
+                weight: 'bold'
+            },
+            {
+                type: 'text',
+                text: `出席: ${presentCount}`,
+                size: 'xs',
+                color: colors.textSecondary
+            },
+            {
+                type: 'text',
+                text: `缺席: ${absentCount}`,
+                size: 'xs',
+                color: colors.textSecondary
+            }
+        ] : [
+            {
+                type: 'text',
+                text: `出席: ${presentCount}`,
+                size: 'xs',
+                color: colors.success,
+                weight: 'bold'
+            },
+            {
+                type: 'text',
+                text: `請假: ${leaveCount}`,
+                size: 'xs',
+                color: colors.warning
+            },
+            {
+                type: 'text',
+                text: `缺席: ${absentCount}`,
+                size: 'xs',
+                color: colors.danger
+            }
+        ];
+        
+        return {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                {
+                    type: 'text',
+                    text: student.name,
+                    size: 'sm',
+                    weight: 'bold',
+                    color: colors.text,
+                    margin: 'none'
+                },
+                {
+                    type: 'text',
+                    text: `${student.course} • ${student.period}`,
+                    size: 'xs',
+                    color: colors.textSecondary,
+                    margin: 'xs'
+                },
+                {
+                    type: 'box',
+                    layout: 'horizontal',
+                    contents: statsContents,
+                    margin: 'xs',
+                    spacing: 'sm'
+                }
+            ],
+            paddingAll: '8px',
+            backgroundColor: colors.cardBackground,
+            cornerRadius: '6px',
+            borderColor: colors.border,
+            borderWidth: '0.5px',
+            margin: 'xs'
+        };
+    });
+    
+    // 根據 displayType 決定標題
+    const altText = displayType === 'attendance' 
+        ? `完整出缺勤記錄 (${students.length}個學生)` 
+        : `多學生出缺勤記錄 (${students.length}個學生)`;
+    
+    return {
+        type: 'flex',
+        altText: altText,
+        contents: {
+            type: 'carousel',
+            contents: students.map((student, index) => {
+                const remaining = student.remaining || 0;
+                const attendance = student.attendance || [];
+                const attendanceArray = Array.isArray(attendance) ? attendance : [];
+                const recentAttendance = attendanceArray.slice(-5);
+                
+                // 創建出席記錄方塊
+                const attendanceBoxes = recentAttendance.map((record) => {
+                    let statusIcon = '';
+                    let statusColor = '';
+                    let statusBg = '';
+                    
+                    if (record.present === true) {
+                        statusIcon = '✓';
+                        statusColor = '#2E8B57';
+                        statusBg = '#E8F5E8';
+                    } else if (record.present === 'leave') {
+                        statusIcon = '📝';
+                        statusColor = '#DAA520';
+                        statusBg = '#FFF8DC';
+                    } else {
+                        statusIcon = '✗';
+                        statusColor = '#B22222';
+                        statusBg = '#FFE4E1';
+                    }
+                    
+                    // 格式化日期
+                    const dateStr = record.date;
+                    let displayDate = '??/??';
+                    if (dateStr && typeof dateStr === 'string' && dateStr.includes('-')) {
+                        const parts = dateStr.split('-');
+                        if (parts.length >= 3) {
+                            const month = parts[1].padStart(2, '0');
+                            const day = parts[2].padStart(2, '0');
+                            displayDate = `${month}/${day}`;
+                        }
+                    }
+                    
+                    return {
+                        type: 'box',
+                        layout: 'vertical',
+                        contents: [
+                            {
+                                type: 'text',
+                                text: displayDate,
+                                size: 'xxs',
+                                color: colors.textSecondary,
+                                align: 'center'
+                            },
+                            {
+                                type: 'text',
+                                text: statusIcon,
+                                size: 'xxs',
+                                color: statusColor,
+                                align: 'center'
+                            }
+                        ],
+                        paddingAll: '6px',
+                        cornerRadius: '4px',
+                        backgroundColor: statusBg,
+                        borderColor: statusColor,
+                        borderWidth: '0.5px',
+                        margin: '1px',
+                        width: '48px'
+                    };
+                });
+                
+                return {
+                    type: 'bubble',
+                    header: {
+                        type: 'box',
+                        layout: 'vertical',
+                        contents: [
+                            {
+                                type: 'text',
+                                text: 'FunLearnBar 智慧課程管理系統',
+                                size: 'xs',
+                                color: colors.goldLight,
+                                weight: 'bold',
+                                align: 'center',
+                                margin: 'none'
+                            },
+                            {
+                                type: 'text',
+                                text: '剩餘堂數查詢',
+                                size: 'lg',
+                                color: colors.goldAccent,
+                                weight: 'bold',
+                                align: 'center',
+                                margin: 'xs'
+                            },
+                            {
+                                type: 'text',
+                                text: `${student.name} (${index + 1}/${students.length})`,
+                                size: 'xs',
+                                color: colors.goldLight,
+                                align: 'center',
+                                margin: 'xs'
+                            }
+                        ],
+                        backgroundColor: colors.primary,
+                        paddingAll: '12px'
+                    },
+                    body: {
+                        type: 'box',
+                        layout: 'vertical',
+                        contents: [
+                            // 學生資訊
+                            {
+                                type: 'text',
+                                text: '學生資訊',
+                                weight: 'bold',
+                                size: 'xs',
+                                color: colors.primary,
+                                margin: 'none'
+                            },
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    {
+                                        type: 'text',
+                                        text: student.name,
+                                        size: 'sm',
+                                        weight: 'bold',
+                                        color: colors.text,
+                                        margin: 'none',
+                                        wrap: true
+                                    },
+                                    {
+                                        type: 'text',
+                                        text: `${student.course} • ${student.period}`,
+                                        size: 'xs',
+                                        color: colors.textSecondary,
+                                        margin: 'xs',
+                                        wrap: true
+                                    }
+                                ],
+                                margin: 'xs',
+                                paddingAll: '8px',
+                                backgroundColor: colors.cardBackground,
+                                cornerRadius: '6px',
+                                borderColor: colors.border,
+                                borderWidth: '0.5px'
+                            },
+                            
+                            // 剩餘堂數
+                            {
+                                type: 'text',
+                                text: '🎯 剩餘堂數',
+                                weight: 'bold',
+                                size: 'xs',
+                                color: colors.primary,
+                                margin: 'sm'
+                            },
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    {
+                                        type: 'text',
+                                        text: `${remaining}`,
+                                        size: 'xl',
+                                        weight: 'bold',
+                                        color: colors.primary,
+                                        align: 'center',
+                                        margin: 'none'
+                                    },
+                                    {
+                                        type: 'text',
+                                        text: '剩餘堂數',
+                                        size: 'xxs',
+                                        color: colors.textSecondary,
+                                        align: 'center',
+                                        margin: 'xs'
+                                    }
+                                ],
+                                margin: 'xs',
+                                paddingAll: '16px',
+                                backgroundColor: colors.cardBackground,
+                                cornerRadius: '12px',
+                                borderColor: colors.gold,
+                                borderWidth: '2px'
+                            },
+                            
+                            // 近5堂課
+                            {
+                                type: 'text',
+                                text: mode === 'compact' ? '近5堂課' : '完整記錄',
+                                weight: 'bold',
+                                size: 'xs',
+                                color: colors.primary,
+                                margin: 'sm'
+                            },
+                            {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: attendanceArray.length > 0 ? [
+                                    {
+                                        type: 'box',
+                                        layout: 'horizontal',
+                                        contents: attendanceBoxes,
+                                        margin: 'xs'
+                                    },
+                                    {
+                                        type: 'text',
+                                        text: '✓出席 📝請假 ✗缺席',
+                                        size: 'xxs',
+                                        color: colors.textLight,
+                                        align: 'center',
+                                        margin: 'xs'
+                                    }
+                                ] : [
+                                    {
+                                        type: 'text',
+                                        text: '暫無出席記錄',
+                                        size: 'xs',
+                                        color: colors.textLight,
+                                        align: 'center',
+                                        margin: 'xs'
+                                    }
+                                ],
+                                margin: 'xs',
+                                paddingAll: '8px',
+                                backgroundColor: colors.cardBackground,
+                                cornerRadius: '6px',
+                                borderColor: colors.border,
+                                borderWidth: '0.5px'
+                            },
+                            
+                            // 底部
+                            {
+                                type: 'text',
+                                text: 'FunLearnBar',
+                                size: 'xs',
+                                color: colors.gold,
+                                weight: 'bold',
+                                align: 'center',
+                                margin: 'sm'
+                            }
+                        ],
+                        paddingAll: '12px'
+                    }
+                };
+            })
+        }
+    };
+}
+
+// ==================== 原有函數（向後相容） ====================
+
+// LINE Loading Animation 函數
+async function showLoadingAnimation(userId, loadingSeconds = 5) {
+    try {
+        const bots = [
+            { token: process.env.LINE_CHANNEL_ACCESS_TOKEN, name: '主要Bot' },
+            { token: process.env.LINE_CHANNEL_ACCESS_TOKEN_2, name: '第二個Bot' },
+            { token: process.env.LINE_CHANNEL_ACCESS_TOKEN_3, name: '第三個Bot' }
+        ];
+        
+        for (const bot of bots) {
+            if (!bot.token) continue;
+            
+            try {
+                const response = await axios.post('https://api.line.me/v2/bot/chat/loading/start', {
+                    chatId: userId,
+                    loadingSeconds: loadingSeconds
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${bot.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 10000
+                });
+                
+                console.log(`✅ ${bot.name} Loading Animation 發送成功給: ${userId}`);
+                return { success: true, bot: bot.name };
+            } catch (error) {
+                console.log(`❌ ${bot.name} Loading Animation 發送失敗給: ${userId}:`, error.response?.data || error.message);
+                continue;
+            }
+        }
+        
+        console.log('❌ 所有 Bot Loading Animation 發送失敗');
+        return { success: false };
+    } catch (error) {
+        console.error('❌ Loading Animation 發送錯誤:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// LINE Messaging API 通知函數（向後相容，使用多 Bot 支援）
+async function sendLineMessage(message, targetUserId = null) {
+    // 使用新的多 Bot 支援函數
+    return await sendLineMessageWithBot(message, targetUserId);
+}
+
+// LINE Flex Message 發送函數（向後相容，使用多 Bot 支援）
+async function sendLineFlexMessage(flexMessage, targetUserId) {
+    // 使用雙Bot支援發送Flex Message
+    try {
+        // 準備Bot列表
+        const bots = [];
+        
+        // 第一個Bot（主要Bot）
+        if (LINE_CHANNEL_ACCESS_TOKEN && LINE_CHANNEL_ACCESS_TOKEN !== 'YOUR_CHANNEL_ACCESS_TOKEN_HERE') {
+            bots.push({
+                id: 'primary',
+                name: '主要Bot',
+                token: LINE_CHANNEL_ACCESS_TOKEN
+            });
+        }
+        
+        // 第二個Bot（如果啟用且配置了）
+        if (ENABLE_DUAL_BOT && LINE_CHANNEL_ACCESS_TOKEN_2 && LINE_CHANNEL_ACCESS_TOKEN_2 !== '') {
+            bots.push({
+                id: 'secondary',
+                name: '第二個Bot',
+                token: LINE_CHANNEL_ACCESS_TOKEN_2
+            });
+        }
+        
+        if (bots.length === 0) {
+            console.log('沒有可用的Bot，跳過發送 Flex Message');
+            return { success: false, message: '沒有可用的Bot' };
+        }
+
+        // 嘗試使用每個Bot發送
+        for (const bot of bots) {
+            try {
+                console.log(`🤖 使用 ${bot.name} (${bot.id}) 發送 Flex Message`);
+
+                const response = await axios.post(LINE_MESSAGING_API, {
+                    to: targetUserId,
+                    messages: [flexMessage]
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${bot.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 10000
+                });
+
+                console.log(`✅ ${bot.name} Flex Message 發送成功給 ${targetUserId}:`, response.data);
+                return { success: true, data: response.data, botUsed: bot };
+
+            } catch (error) {
+                console.error(`❌ ${bot.name} Flex Message 發送失敗給 ${targetUserId}:`, error.response?.data || error.message);
+                // 繼續嘗試下一個Bot
+            }
+        }
+        
+        return { success: false, error: '所有Bot都無法發送Flex Message' };
+
+    } catch (error) {
+        console.error('Flex Message 發送失敗:', error.message);
+        return { success: false, error: error.message };
     }
 }
 
@@ -338,6 +1452,14 @@ app.get('/link_calender', (req, res) => {
 app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
+
+// 路由：系統設定
+app.get('/settings', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'settings.html'));
+});
+
+// 註冊設定 API 路由
+setupSettingsRoutes(app);
 
 // 管理員API：獲取統計資料
 app.get('/api/admin/stats', async (req, res) => {
@@ -2478,6 +3600,73 @@ app.post('/webhook', async (req, res) => {
                 
                 if (userId) {
                     // 檢查關鍵字
+                    if (messageText === '#剩餘堂數' || messageText === '#剩餘堂數完整' || messageText === '#完整出缺勤') {
+                        console.log(`🔑 檢測到關鍵字「${messageText}」來自 ${userId}`);
+                        
+                        try {
+                            // 發送 Loading Animation
+                            await showLoadingAnimation(userId, 5);
+                            
+                            // 調用學生資料 API
+                            const response = await axios.get('https://calendar.funlearnbar.synology.me/api/student-data', {
+                                timeout: 30000
+                            });
+                            
+                            if (response.data && response.data.success && response.data.data.students) {
+                                const students = response.data.data.students;
+                                const matchingStudents = students.filter(student => student.userId === userId);
+                                
+                                console.log('🔍 查詢到的學生數據:', JSON.stringify(matchingStudents, null, 2));
+                                console.log(`📊 找到 ${matchingStudents.length} 個學生的資料`);
+                                
+                                if (matchingStudents.length > 0) {
+                                    // 根據關鍵字決定模式和顯示類型
+                                    let mode = 'compact';
+                                    let displayType = 'remaining'; // 'remaining' 或 'attendance'
+                                    
+                                    if (messageText === '#剩餘堂數完整') {
+                                        mode = 'full';
+                                        displayType = 'remaining';
+                                    } else if (messageText === '#完整出缺勤') {
+                                        mode = 'full';
+                                        displayType = 'attendance';
+                                    } else {
+                                        mode = 'compact';
+                                        displayType = 'remaining';
+                                    }
+                                    
+                                    if (matchingStudents.length === 1) {
+                                        // 單一學生：發送單一 Flex Message
+                                        const studentData = matchingStudents[0];
+                                        const flexMessage = createAttendanceFlexMessage(studentData, mode, displayType);
+                                        await sendLineFlexMessage(flexMessage, userId);
+                                        console.log(`✅ 出缺勤記錄已發送給: ${userId} (學生: ${studentData.name}, 模式: ${mode}, 顯示類型: ${displayType})`);
+                                    } else {
+                                        // 多個學生：發送多頁選單 Flex Message
+                                        const multiStudentFlexMessage = createMultiStudentFlexMessage(matchingStudents, mode, displayType);
+                                        await sendLineFlexMessage(multiStudentFlexMessage, userId);
+                                        console.log(`✅ 多學生出缺勤記錄已發送給: ${userId} (共 ${matchingStudents.length} 個學生, 模式: ${mode}, 顯示類型: ${displayType})`);
+                                    }
+                                    
+                                    // 不管是單一學生還是多個學生，都發送總結訊息
+                                    await sendLineMessage(`📚 已顯示 ${matchingStudents.length} 個學生的出缺勤記錄`, userId);
+                                } else {
+                                    await sendLineMessage('❌ 找不到您的出缺勤記錄\n\n可能原因：\n1. 您尚未綁定學生身份\n2. 系統中沒有您的課程資料\n\n如有疑問，請聯繫客服人員。', userId);
+                                }
+                            } else {
+                                console.log('❌ API 回應格式錯誤:', JSON.stringify(response.data, null, 2));
+                                throw new Error('API 回應格式錯誤');
+                            }
+                            
+                        } catch (error) {
+                            console.error('❌ 查詢出缺勤失敗:', error);
+                            const errorMessage = '❌ 查詢出缺勤記錄失敗，請稍後再試\n\n可能原因：\n1. 網路連線問題\n2. 系統暫時無法使用\n\n如有疑問，請聯繫客服人員。';
+                            await sendLineMessage(errorMessage, userId);
+                        }
+                        
+                        return; // 處理完關鍵字後直接返回
+                    }
+                    
                     if (messageText === '#內部人員') {
                         console.log(`🔑 檢測到關鍵字「#內部人員」來自 ${userId}`);
                         
@@ -2646,6 +3835,39 @@ app.post('/webhook', async (req, res) => {
                 }
             }
         }
+    }
+});
+
+// API路由：測試雙Bot功能
+app.post('/api/test-dual-bot', async (req, res) => {
+    try {
+        const { message, targetUserId } = req.body;
+        
+        if (!message) {
+            return res.status(400).json({
+                success: false,
+                error: '請提供訊息內容'
+            });
+        }
+        
+        console.log('🧪 測試雙Bot功能:', { message, targetUserId });
+        
+        const result = await sendLineMessageWithBot(message, targetUserId);
+        
+        res.json({
+            success: result.success,
+            message: result.message,
+            botResults: result.botResults,
+            totalSuccess: result.totalSuccess,
+            totalAttempts: result.totalAttempts
+        });
+        
+    } catch (error) {
+        console.error('測試雙Bot功能錯誤:', error);
+        res.status(500).json({
+            success: false,
+            error: '測試雙Bot功能失敗'
+        });
     }
 });
 
