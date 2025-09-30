@@ -110,24 +110,59 @@ function setupSettingsRoutes(app) {
                 });
             }
             
-            // 備份現有配置
-            const backupPath = configManager.backupConfig();
-            if (backupPath) {
-                console.log(`📦 配置已備份至: ${backupPath}`);
+            // 檢測運行環境
+            const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID;
+            
+            if (isRailway) {
+                // Railway 環境：更新 process.env（臨時生效，直到重啟）
+                console.log('🚂 偵測到 Railway 環境，更新環境變數（臨時）...');
+                
+                Object.keys(newConfig).forEach(key => {
+                    if (newConfig[key]) {
+                        process.env[key] = newConfig[key];
+                    }
+                });
+                
+                console.log('✅ 配置已更新到當前實例');
+                
+                res.json({
+                    success: true,
+                    message: '配置已更新（當前實例臨時生效）',
+                    environment: 'Railway',
+                    note: '⚠️ 重要：配置只在當前實例生效。要永久保存，請前往 Railway Settings → Variables 手動設定環境變數。',
+                    railwayUrl: 'https://railway.com/project/03d500c8-66cc-48a6-9e07-b5eb29b61913/service/83e4c777-b44c-40d3-bbb1-7d2fdb114124?environmentId=e9a493c1-d31e-442c-83d8-d4c49cf46a7a'
+                });
+                
+            } else {
+                // 本地/NAS 環境：寫入 .env 文件
+                console.log('🏠 偵測到本地/NAS 環境，寫入 .env 文件...');
+                
+                // 備份現有配置
+                const backupPath = configManager.backupConfig();
+                if (backupPath) {
+                    console.log(`📦 配置已備份至: ${backupPath}`);
+                }
+                
+                // 寫入新配置到 .env
+                configManager.writeConfig(newConfig);
+                
+                // 同時更新 process.env
+                Object.keys(newConfig).forEach(key => {
+                    if (newConfig[key]) {
+                        process.env[key] = newConfig[key];
+                    }
+                });
+                
+                console.log('✅ 配置已儲存到 .env 文件並更新到當前實例');
+                
+                res.json({
+                    success: true,
+                    message: '配置已成功儲存',
+                    environment: 'Local/NAS',
+                    backupPath: backupPath,
+                    note: '配置已儲存，部分設定需要重新啟動才能完全生效'
+                });
             }
-            
-            // 寫入新配置
-            configManager.writeConfig(newConfig);
-            
-            console.log('✅ 配置儲存成功');
-            console.log('⚠️  注意: 部分配置需要重新啟動系統才能生效');
-            
-            res.json({
-                success: true,
-                message: '配置已成功儲存',
-                backupPath: backupPath,
-                note: '部分配置需要重新啟動系統才能生效'
-            });
             
         } catch (error) {
             console.error('❌ 儲存配置失敗:', error);

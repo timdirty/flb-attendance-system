@@ -123,12 +123,34 @@ async function saveConfig() {
         
         const result = await response.json();
         
-        showMessage('配置儲存成功！系統將在 3 秒後重新啟動以套用新配置...', 'success');
-        
-        // 3秒後重新載入頁面
-        setTimeout(() => {
-            window.location.reload();
-        }, 3000);
+        // 根據環境顯示不同訊息
+        if (result.environment === 'Railway') {
+            showMessage(
+                '⚠️ Railway 環境偵測\n\n' +
+                '配置已更新到當前實例（臨時生效）。\n\n' +
+                '要永久保存配置，請前往：\n' +
+                'Railway → Settings → Variables\n' +
+                '手動添加環境變數。\n\n' +
+                '點擊「測試連線」可驗證當前配置是否正確。',
+                'info'
+            );
+            
+            // 如果有 Railway URL，可以提供連結
+            if (result.railwayUrl) {
+                console.log('Railway Variables 設定頁面:', result.railwayUrl);
+            }
+        } else {
+            showMessage(
+                '✅ 配置已成功儲存！\n\n' +
+                (result.note || '部分設定需要重新啟動才能完全生效'),
+                'success'
+            );
+            
+            // 本地/NAS 環境：3秒後重新載入頁面
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        }
         
     } catch (error) {
         console.error('儲存配置錯誤:', error);
@@ -281,4 +303,5 @@ window.addEventListener('beforeunload', function(e) {
         return '';
     }
 });
+
 
