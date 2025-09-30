@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FLB 簽到系統 - 系統設定</title>
+    <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔧 系統設定</h1>
+            <p>管理 FLB 簽到系統的所有配置參數</p>
+        </header>
+
+        <!-- 訊息顯示區 -->
+        <div id="messageBox" class="message-box" style="display: none;"></div>
+
+        <!-- 快速操作區 -->
+        <div class="quick-actions">
+            <button onclick="loadConfig()" class="btn btn-secondary">
+                <span>🔄</span> 重新載入
+            </button>
+            <button onclick="saveConfig()" class="btn btn-primary">
+                <span>💾</span> 儲存設定
+            </button>
+            <button onclick="testConnection()" class="btn btn-info">
+                <span>🔌</span> 測試連線
+            </button>
+            <button onclick="window.location.href='/'" class="btn btn-secondary">
+                <span>🏠</span> 返回首頁
+            </button>
+        </div>
+
+        <!-- 設定表單 -->
+        <form id="settingsForm">
+            
+            <!-- LINE Bot 配置 -->
+            <section class="settings-section">
+                <h2>🤖 LINE Bot 配置</h2>
+                
+                <!-- Bot 1 (主要) -->
+                <div class="settings-group">
+                    <h3>Bot 1 (主要 Bot)</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="bot1_enabled">
+                                <input type="checkbox" id="bot1_enabled" checked disabled>
+                                啟用 Bot 1 (主要 Bot 必須啟用)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group flex-2">
+                            <label for="bot1_token">Channel Access Token</label>
+                            <input type="password" id="bot1_token" name="LINE_CHANNEL_ACCESS_TOKEN" 
+                                   placeholder="請輸入 Channel Access Token">
+                            <button type="button" class="btn-toggle-password" onclick="togglePassword('bot1_token')">👁️</button>
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="bot1_secret">Channel Secret</label>
+                            <input type="password" id="bot1_secret" name="LINE_CHANNEL_SECRET" 
+                                   placeholder="請輸入 Channel Secret">
+                            <button type="button" class="btn-toggle-password" onclick="togglePassword('bot1_secret')">👁️</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bot 2 (備用) -->
+                <div class="settings-group">
+                    <h3>Bot 2 (備用 Bot)</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="bot2_enabled">
+                                <input type="checkbox" id="bot2_enabled" name="LINE_BOT_2_ENABLED">
+                                啟用 Bot 2 (用於分散 API 負載)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group flex-2">
+                            <label for="bot2_token">Channel Access Token</label>
+                            <input type="password" id="bot2_token" name="LINE_CHANNEL_ACCESS_TOKEN_2" 
+                                   placeholder="請輸入 Channel Access Token (選填)">
+                            <button type="button" class="btn-toggle-password" onclick="togglePassword('bot2_token')">👁️</button>
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="bot2_secret">Channel Secret</label>
+                            <input type="password" id="bot2_secret" name="LINE_CHANNEL_SECRET_2" 
+                                   placeholder="請輸入 Channel Secret (選填)">
+                            <button type="button" class="btn-toggle-password" onclick="togglePassword('bot2_secret')">👁️</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 管理員設定 -->
+                <div class="settings-group">
+                    <h3>管理員設定</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="admin_user_id">管理員 LINE User ID</label>
+                            <input type="text" id="admin_user_id" name="LINE_USER_ID" 
+                                   placeholder="請輸入管理員 LINE User ID">
+                            <small>用於接收系統通知</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rich Menu 設定 -->
+                <div class="settings-group">
+                    <h3>Rich Menu 設定</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="rich_menu_id">預設 Rich Menu ID</label>
+                            <input type="text" id="rich_menu_id" name="RICH_MENU_ID" 
+                                   placeholder="請輸入 Rich Menu ID">
+                        </div>
+                        <div class="form-group">
+                            <label for="internal_rich_menu_id">內部人員 Rich Menu ID</label>
+                            <input type="text" id="internal_rich_menu_id" name="INTERNAL_RICH_MENU_ID" 
+                                   placeholder="請輸入內部人員 Rich Menu ID">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 訊息發送策略 -->
+                <div class="settings-group highlight-box">
+                    <h3>💰 訊息發送策略 (節省 API 費用)</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="load_balancing_enabled">
+                                <input type="checkbox" id="load_balancing_enabled" name="LINE_LOAD_BALANCING">
+                                啟用負載平衡
+                            </label>
+                            <small>啟用後將在多個 Bot 之間分配訊息發送</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="load_balancing_strategy">負載平衡策略</label>
+                            <select id="load_balancing_strategy" name="LINE_LOAD_BALANCING_STRATEGY">
+                                <option value="round_robin">輪詢 (Round Robin) - 平均分配</option>
+                                <option value="random">隨機 (Random) - 隨機選擇</option>
+                                <option value="primary_first">主要優先 (Primary First) - 優先使用主要 Bot</option>
+                            </select>
+                            <small>選擇訊息如何分配到不同的 Bot</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="fallback_to_primary">
+                                <input type="checkbox" id="fallback_to_primary" name="LINE_FALLBACK_TO_PRIMARY" checked>
+                                失敗時回退到主要 Bot
+                            </label>
+                            <small>當備用 Bot 失敗時，自動使用主要 Bot 重試</small>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="batch_delay">批次發送延遲 (毫秒)</label>
+                            <input type="number" id="batch_delay" name="LINE_BATCH_DELAY" 
+                                   value="100" min="0" max="5000" step="50">
+                            <small>批次發送訊息時的延遲時間，避免觸發速率限制</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="max_retries">最大重試次數</label>
+                            <input type="number" id="max_retries" name="LINE_MAX_RETRIES" 
+                                   value="3" min="0" max="10">
+                            <small>發送失敗時的最大重試次數</small>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Google Sheets API 配置 -->
+            <section class="settings-section">
+                <h2>📊 Google Sheets API 配置</h2>
+                
+                <div class="settings-group">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="google_sheets_api">主要 API URL</label>
+                            <input type="url" id="google_sheets_api" name="GOOGLE_SHEETS_API" 
+                                   placeholder="請輸入 Google Sheets API URL">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="google_sheets_sync">
+                                <input type="checkbox" id="google_sheets_sync" name="GOOGLE_SHEETS_SYNC" checked>
+                                啟用自動同步
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label for="sync_interval">同步間隔 (毫秒)</label>
+                            <input type="number" id="sync_interval" name="GOOGLE_SHEETS_SYNC_INTERVAL" 
+                                   value="3600000" min="60000" step="60000">
+                            <small>預設: 3600000ms (1小時)</small>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- FLB API 端點 -->
+            <section class="settings-section">
+                <h2>🔗 FLB API 端點</h2>
+                
+                <div class="settings-group">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="flb_api_url">主要 FLB API</label>
+                            <input type="url" id="flb_api_url" name="FLB_API_URL" 
+                                   placeholder="處理講師、課程和學生資料">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="link_calendar_api_url">Link Calendar API</label>
+                            <input type="url" id="link_calendar_api_url" name="LINK_CALENDAR_API_URL" 
+                                   placeholder="處理課程日曆相關資料">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="report_api_url">報表查詢 API</label>
+                            <input type="url" id="report_api_url" name="REPORT_API_URL" 
+                                   placeholder="查詢報表資料">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="student_attendance_api_url">學生簽到狀態 API</label>
+                            <input type="url" id="student_attendance_api_url" name="STUDENT_ATTENDANCE_API_URL" 
+                                   placeholder="查詢學生簽到狀態">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 功能開關 -->
+            <section class="settings-section">
+                <h2>⚡ 功能開關</h2>
+                
+                <div class="settings-group">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="feature_attendance_query">
+                                <input type="checkbox" id="feature_attendance_query" name="FEATURE_ATTENDANCE_QUERY" checked>
+                                出缺勤查詢功能
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label for="feature_internal_mode">
+                                <input type="checkbox" id="feature_internal_mode" name="FEATURE_INTERNAL_MODE" checked>
+                                內部人員模式
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="feature_test_mode">
+                                <input type="checkbox" id="feature_test_mode" name="FEATURE_TEST_MODE" checked>
+                                測試模式
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label for="feature_teacher_checkin">
+                                <input type="checkbox" id="feature_teacher_checkin" name="FEATURE_TEACHER_CHECKIN" checked>
+                                講師簽到功能
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="feature_student_checkin">
+                                <input type="checkbox" id="feature_student_checkin" name="FEATURE_STUDENT_CHECKIN" checked>
+                                學生簽到功能
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label for="feature_reports">
+                                <input type="checkbox" id="feature_reports" name="FEATURE_REPORTS" checked>
+                                報表功能
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 關鍵字設定 -->
+            <section class="settings-section">
+                <h2>🔑 關鍵字設定</h2>
+                
+                <div class="settings-group">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="keyword_internal">內部人員綁定</label>
+                            <input type="text" id="keyword_internal" name="KEYWORD_INTERNAL" 
+                                   value="#內部人員">
+                        </div>
+                        <div class="form-group">
+                            <label for="keyword_unbind">解除綁定</label>
+                            <input type="text" id="keyword_unbind" name="KEYWORD_UNBIND" 
+                                   value="#解綁">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="keyword_test">測試模式</label>
+                            <input type="text" id="keyword_test" name="KEYWORD_TEST" 
+                                   value="#測試">
+                        </div>
+                        <div class="form-group">
+                            <label for="keyword_attendance_query">查詢出缺勤</label>
+                            <input type="text" id="keyword_attendance_query" name="KEYWORD_ATTENDANCE_QUERY" 
+                                   value="#查詢出缺勤">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- UI 配置 -->
+            <section class="settings-section">
+                <h2>🎨 UI 配置</h2>
+                
+                <div class="settings-group">
+                    <h3>主題色彩</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ui_primary_color">主要色</label>
+                            <input type="color" id="ui_primary_color" name="UI_PRIMARY_COLOR" value="#667EEA">
+                        </div>
+                        <div class="form-group">
+                            <label for="ui_success_color">成功色</label>
+                            <input type="color" id="ui_success_color" name="UI_SUCCESS_COLOR" value="#06C755">
+                        </div>
+                        <div class="form-group">
+                            <label for="ui_warning_color">警告色</label>
+                            <input type="color" id="ui_warning_color" name="UI_WARNING_COLOR" value="#FFB400">
+                        </div>
+                        <div class="form-group">
+                            <label for="ui_danger_color">危險色</label>
+                            <input type="color" id="ui_danger_color" name="UI_DANGER_COLOR" value="#FF334B">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 安全配置 -->
+            <section class="settings-section">
+                <h2>🔒 安全配置</h2>
+                
+                <div class="settings-group">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="security_verify_signature">
+                                <input type="checkbox" id="security_verify_signature" name="SECURITY_VERIFY_SIGNATURE" checked>
+                                驗證 LINE Webhook 簽名
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="security_rate_limit">
+                                <input type="checkbox" id="security_rate_limit" name="SECURITY_RATE_LIMIT" checked>
+                                啟用 API 速率限制
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label for="rate_limit_max">速率限制 (請求數/分鐘)</label>
+                            <input type="number" id="rate_limit_max" name="SECURITY_RATE_LIMIT_MAX" 
+                                   value="100" min="10" max="1000">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 日誌配置 -->
+            <section class="settings-section">
+                <h2>📝 日誌配置</h2>
+                
+                <div class="settings-group">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="log_level">日誌級別</label>
+                            <select id="log_level" name="LOG_LEVEL">
+                                <option value="debug">Debug (詳細)</option>
+                                <option value="info" selected>Info (一般)</option>
+                                <option value="warn">Warn (警告)</option>
+                                <option value="error">Error (錯誤)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="log_verbose">
+                                <input type="checkbox" id="log_verbose" name="LOG_VERBOSE">
+                                啟用詳細日誌
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </form>
+
+        <!-- 儲存按鈕 -->
+        <div class="bottom-actions">
+            <button onclick="saveConfig()" class="btn btn-primary btn-large">
+                <span>💾</span> 儲存所有設定
+            </button>
+        </div>
+    </div>
+
+    <script src="settings.js"></script>
+</body>
+</html>
+
