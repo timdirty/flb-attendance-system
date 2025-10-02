@@ -3,6 +3,7 @@ const axios = require('axios');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
+const config = require('./config');
 // const DatabaseManager = require('./database'); // 已改用 Google Sheets 資料庫
 
 // 引入講師ID對應表模組
@@ -74,7 +75,7 @@ const LINE_CHANNEL_ACCESS_TOKEN_2 = process.env.LINE_CHANNEL_ACCESS_TOKEN_2 || '
 const LINE_USER_ID_2 = process.env.LINE_USER_ID_2 || '';
 const LINE_CHANNEL_ACCESS_TOKEN_3 = process.env.LINE_CHANNEL_ACCESS_TOKEN_3 || '';
 const LINE_USER_ID_3 = process.env.LINE_USER_ID_3 || '';
-const ENABLE_DUAL_BOT = process.env.ENABLE_DUAL_BOT === 'true';
+const ENABLE_DUAL_BOT = false;
 const ENABLE_TRIPLE_BOT = process.env.ENABLE_TRIPLE_BOT === 'true';
 
 // 系統配置
@@ -344,6 +345,185 @@ async function sendLineFlexMessageWithBot(flexMessage, targetUserId, botId = nul
 
 // ==================== Flex Message 支援函數 ====================
 
+
+function extractCoursePlanMedia(coursePlanField) {
+    if (!coursePlanField) {
+        return {
+            imageUrl: null,
+            linkUrl: null,
+            altText: null
+        };
+    }
+
+    let content = coursePlanField;
+    if (typeof content !== 'string') {
+        try {
+            content = String(content);
+        } catch (error) {
+            console.error('❌ 解析課程規劃內容失敗:', error);
+            content = '';
+        }
+    }
+
+    const imageMatch = content.match(/src=["']([^"']+)["']/i);
+    const linkMatch = content.match(/href=["']([^"']+)["']/i);
+    const altMatch = content.match(/alt=["']([^"']+)["']/i);
+
+    let imageUrl = imageMatch ? imageMatch[1] : null;
+    let linkUrl = linkMatch ? linkMatch[1] : null;
+    const altText = altMatch ? altMatch[1] : null;
+
+    const urlRegex = /https?:\/\/[^\s"']+/i;
+
+    if (!imageUrl && urlRegex.test(content)) {
+        const directUrlMatch = content.match(urlRegex);
+        if (directUrlMatch) {
+            imageUrl = directUrlMatch[0];
+        }
+    }
+
+    if (!linkUrl && imageUrl) {
+        linkUrl = imageUrl;
+    }
+
+    return {
+        imageUrl,
+        linkUrl,
+        altText
+    };
+}
+
+function createCoursePlanBubble(student, index = null, total = null) {
+    const { name = '未知學生', course = '未設定課程', period = '未設定時段', coursePlan } = student || {};
+    const media = extractCoursePlanMedia(coursePlan);
+    const colors = {
+        primary: '#0F0F0F',
+        gold: '#B8860B',
+        text: '#1C1C1C',
+        textSecondary: '#5A5A5A',
+        border: '#D3D3D3',
+        background: '#FFFFFF'
+    };
+
+    const headerLines = [];
+    headerLines.push({
+        type: 'text',
+        text: index && total ? `${name} (${index}/${total})` : name,
+        weight: 'bold',
+        size: 'lg',
+        color: colors.primary
+    });
+
+    headerLines.push({
+        type: 'text',
+        text: course,
+        size: 'sm',
+        color: colors.textSecondary,
+        margin: 'sm'
+    });
+
+    headerLines.push({
+        type: 'text',
+        text: period,
+        size: 'xs',
+        color: colors.textSecondary
+    });
+
+    const bodyContents = [
+        {
+            type: 'box',
+            layout: 'vertical',
+            contents: headerLines
+        }
+    ];
+
+    if (!media.imageUrl) {
+        bodyContents.push({
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                {
+                    type: 'text',
+                    text: '暫無課程規劃圖片',
+                    size: 'sm',
+                    color: colors.textSecondary
+                }
+            ],
+            backgroundColor: '#F8F9FA',
+            paddingAll: '12px',
+            margin: 'lg',
+            cornerRadius: '6px',
+            borderColor: colors.border,
+            borderWidth: '1px'
+        });
+    }
+
+    const bubble = {
+        type: 'bubble',
+        size: 'mega',
+        body: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'md',
+            paddingAll: '16px',
+            backgroundColor: colors.background,
+            contents: bodyContents
+        }
+    };
+
+    if (media.imageUrl) {
+        bubble.hero = {
+            type: 'image',
+            url: media.imageUrl,
+            size: 'full',
+            aspectRatio: '20:13',
+            aspectMode: 'cover'
+        };
+    }
+
+    if (media.linkUrl) {
+        bubble.footer = {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+                {
+                    type: 'button',
+                    style: 'primary',
+                    color: colors.gold,
+                    action: {
+                        type: 'uri',
+                        label: '開啟完整課程規劃',
+                        uri: media.linkUrl
+                    }
+                }
+            ]
+        };
+    }
+
+    return bubble;
+}
+
+function createCoursePlanFlexMessage(student) {
+    return {
+        type: 'flex',
+        altText: `${student?.name || '學生'} 的本期課程規劃`,
+        contents: createCoursePlanBubble(student)
+    };
+}
+
+function createCoursePlanFlexCarousel(students) {
+    return {
+        type: 'flex',
+        altText: `本期課程規劃 (${students.length} 位學生)`,
+        contents: {
+            type: 'carousel',
+            contents: students.map((student, index) =>
+                createCoursePlanBubble(student, index + 1, students.length)
+            )
+        }
+    };
+}
 
 /**
  * 創建出缺勤 Flex Message（高質感黑金風格）
@@ -1163,6 +1343,392 @@ function createMultiStudentFlexMessage(students, mode = 'compact', displayType =
     };
 }
 
+function chunkArray(array, size) {
+    const result = [];
+    if (!Array.isArray(array) || size <= 0) {
+        return result;
+    }
+    for (let i = 0; i < array.length; i += size) {
+        result.push(array.slice(i, i + size));
+    }
+    return result;
+}
+
+function buildAttendanceStatusBox(record, colors) {
+    let statusIcon = '';
+    let statusColor = '';
+    let statusBg = '';
+    let statusLabel = '';
+
+    if (record.present === true) {
+        statusIcon = '✓';
+        statusColor = '#2E8B57';
+        statusBg = '#E8F5E8';
+        statusLabel = '出席';
+    } else if (record.present === 'leave') {
+        statusIcon = '📝';
+        statusColor = '#DAA520';
+        statusBg = '#FFF8DC';
+        statusLabel = '請假';
+    } else {
+        statusIcon = '✗';
+        statusColor = '#B22222';
+        statusBg = '#FFE4E1';
+        statusLabel = '缺席';
+    }
+
+    let displayDate = '??/??';
+    const dateStr = record.date;
+    try {
+        if (dateStr && typeof dateStr === 'string') {
+            if (dateStr.includes('-')) {
+                const parts = dateStr.split('-');
+                if (parts.length >= 3) {
+                    const month = parts[1].padStart(2, '0');
+                    const day = parts[2].padStart(2, '0');
+                    displayDate = `${month}/${day}`;
+                }
+            } else {
+                const dateObj = new Date(dateStr);
+                if (!isNaN(dateObj.getTime())) {
+                    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                    const day = dateObj.getDate().toString().padStart(2, '0');
+                    displayDate = `${month}/${day}`;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('❌ 日期解析錯誤:', error, '原始日期:', dateStr);
+    }
+
+    return {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+            {
+                type: 'text',
+                text: displayDate,
+                size: 'xxs',
+                color: colors.textSecondary,
+                align: 'center'
+            },
+            {
+                type: 'text',
+                text: statusIcon,
+                size: 'xxs',
+                color: statusColor,
+                align: 'center'
+            },
+            {
+                type: 'text',
+                text: statusLabel,
+                size: 'xxs',
+                color: statusColor,
+                align: 'center',
+                margin: 'xs'
+            }
+        ],
+        paddingAll: '6px',
+        cornerRadius: '4px',
+        backgroundColor: statusBg,
+        borderColor: statusColor,
+        borderWidth: '0.5px',
+        margin: '1px',
+        width: '53px'
+    };
+}
+
+function createFullAttendanceBubble(studentData, index = null, total = null) {
+    const colors = {
+        primary: '#0F0F0F',
+        gold: '#B8860B',
+        goldLight: '#DAA520',
+        goldAccent: '#FFD700',
+        text: '#1C1C1C',
+        textSecondary: '#5A5A5A',
+        textLight: '#8A8A8A',
+        cardBackground: '#F8F9FA',
+        border: '#D3D3D3'
+    };
+
+    const { name, course, period, attendance = [], remaining = 0 } = studentData;
+    const attendanceArray = Array.isArray(attendance) ? attendance : [];
+
+    const totalRecords = attendanceArray.length;
+    const presentCount = attendanceArray.filter(r => r.present === true).length;
+    const leaveCount = attendanceArray.filter(r => r.present === 'leave').length;
+    const absentCount = attendanceArray.filter(r => r.present === false).length;
+    const attendanceRate = totalRecords > 0 ? Math.round((presentCount / totalRecords) * 100) : 0;
+
+    const attendanceRows = chunkArray(attendanceArray, 5).map(row => ({
+        type: 'box',
+        layout: 'horizontal',
+        contents: row.map(record => buildAttendanceStatusBox(record, colors)),
+        spacing: 'sm',
+        margin: 'xs'
+    }));
+
+    const attendanceSection = attendanceRows.length > 0 ? attendanceRows : [
+        {
+            type: 'text',
+            text: '暫無出缺勤記錄',
+            size: 'xs',
+            color: colors.textLight,
+            align: 'center',
+            margin: 'sm'
+        }
+    ];
+
+    const headerTitle = '完整出缺勤記錄';
+    const headerSubtitle = totalRecords > 0 ? `共 ${totalRecords} 筆記錄` : '尚無記錄';
+    const indexLabel = index && total ? `(${index}/${total})` : '';
+
+    return {
+        type: 'bubble',
+        header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                {
+                    type: 'text',
+                    text: 'FunLearnBar 智慧課程管理系統',
+                    size: 'xs',
+                    color: colors.goldLight,
+                    weight: 'bold',
+                    align: 'center'
+                },
+                {
+                    type: 'text',
+                    text: `${headerTitle}${indexLabel}`,
+                    size: 'lg',
+                    color: colors.goldAccent,
+                    weight: 'bold',
+                    align: 'center',
+                    margin: 'xs'
+                },
+                {
+                    type: 'text',
+                    text: headerSubtitle,
+                    size: 'xs',
+                    color: colors.goldLight,
+                    align: 'center',
+                    margin: 'xs'
+                }
+            ],
+            backgroundColor: colors.primary,
+            paddingAll: '12px'
+        },
+        body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                {
+                    type: 'text',
+                    text: '學生資訊',
+                    weight: 'bold',
+                    size: 'xs',
+                    color: colors.primary,
+                    margin: 'none'
+                },
+                {
+                    type: 'box',
+                    layout: 'vertical',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: name,
+                            size: 'sm',
+                            weight: 'bold',
+                            color: colors.text,
+                            wrap: true
+                        },
+                        {
+                            type: 'text',
+                            text: `${course} • ${period}`,
+                            size: 'xs',
+                            color: colors.textSecondary,
+                            margin: 'xs',
+                            wrap: true
+                        }
+                    ],
+                    margin: 'xs',
+                    paddingAll: '8px',
+                    backgroundColor: colors.cardBackground,
+                    cornerRadius: '6px',
+                    borderColor: colors.border,
+                    borderWidth: '0.5px'
+                },
+                {
+                    type: 'text',
+                    text: '統計資訊',
+                    weight: 'bold',
+                    size: 'xs',
+                    color: colors.primary,
+                    margin: 'sm'
+                },
+                {
+                    type: 'box',
+                    layout: 'horizontal',
+                    contents: [
+                        {
+                            type: 'box',
+                            layout: 'vertical',
+                            contents: [
+                                {
+                                    type: 'text',
+                                    text: `${attendanceRate}%`,
+                                    size: 'xxs',
+                                    color: colors.primary,
+                                    align: 'center'
+                                },
+                                {
+                                    type: 'text',
+                                    text: '出席率',
+                                    size: 'xxs',
+                                    color: colors.textLight,
+                                    align: 'center'
+                                }
+                            ],
+                            flex: 1,
+                            paddingAll: '3px',
+                            backgroundColor: colors.cardBackground,
+                            cornerRadius: '4px',
+                            margin: '1px',
+                            borderColor: colors.border,
+                            borderWidth: '0.5px'
+                        },
+                        {
+                            type: 'box',
+                            layout: 'vertical',
+                            contents: [
+                                {
+                                    type: 'text',
+                                    text: `${presentCount}`,
+                                    size: 'xxs',
+                                    color: '#2E8B57',
+                                    align: 'center'
+                                },
+                                {
+                                    type: 'text',
+                                    text: '出席',
+                                    size: 'xxs',
+                                    color: colors.textLight,
+                                    align: 'center'
+                                }
+                            ],
+                            flex: 1,
+                            paddingAll: '3px',
+                            backgroundColor: colors.cardBackground,
+                            cornerRadius: '4px',
+                            margin: '1px',
+                            borderColor: colors.border,
+                            borderWidth: '0.5px'
+                        },
+                        {
+                            type: 'box',
+                            layout: 'vertical',
+                            contents: [
+                                {
+                                    type: 'text',
+                                    text: `${leaveCount}`,
+                                    size: 'xxs',
+                                    color: '#DAA520',
+                                    align: 'center'
+                                },
+                                {
+                                    type: 'text',
+                                    text: '請假',
+                                    size: 'xxs',
+                                    color: colors.textLight,
+                                    align: 'center'
+                                }
+                            ],
+                            flex: 1,
+                            paddingAll: '3px',
+                            backgroundColor: colors.cardBackground,
+                            cornerRadius: '4px',
+                            margin: '1px',
+                            borderColor: colors.border,
+                            borderWidth: '0.5px'
+                        },
+                        {
+                            type: 'box',
+                            layout: 'vertical',
+                            contents: [
+                                {
+                                    type: 'text',
+                                    text: `${absentCount}`,
+                                    size: 'xxs',
+                                    color: '#B22222',
+                                    align: 'center'
+                                },
+                                {
+                                    type: 'text',
+                                    text: '缺席',
+                                    size: 'xxs',
+                                    color: colors.textLight,
+                                    align: 'center'
+                                }
+                            ],
+                            flex: 1,
+                            paddingAll: '3px',
+                            backgroundColor: colors.cardBackground,
+                            cornerRadius: '4px',
+                            margin: '1px',
+                            borderColor: colors.border,
+                            borderWidth: '0.5px'
+                        }
+                    ]
+                },
+                {
+                    type: 'text',
+                    text: '完整出缺勤紀錄',
+                    weight: 'bold',
+                    size: 'xs',
+                    color: colors.primary,
+                    margin: 'sm'
+                },
+                ...attendanceSection,
+                {
+                    type: 'text',
+                    text: '✓出席 | 📝請假 | ✗缺席',
+                    size: 'xxs',
+                    color: colors.textLight,
+                    align: 'center',
+                    margin: 'sm'
+                },
+                {
+                    type: 'text',
+                    text: `剩餘堂數：${remaining}`,
+                    size: 'xxs',
+                    color: colors.textSecondary,
+                    align: 'center'
+                }
+            ],
+            paddingAll: '12px'
+        }
+    };
+}
+
+function createFullAttendanceFlexMessage(studentData) {
+    return {
+        type: 'flex',
+        altText: `${studentData.name} 的出缺勤完整記錄`,
+        contents: createFullAttendanceBubble(studentData)
+    };
+}
+
+function createFullAttendanceCarousel(students) {
+    return {
+        type: 'flex',
+        altText: `出缺勤完整記錄 (${students.length} 位學生)`,
+        contents: {
+            type: 'carousel',
+            contents: students.map((student, index) => createFullAttendanceBubble(student, index + 1, students.length))
+        }
+    };
+}
+
 // ==================== 原有函數（向後相容） ====================
 
 // LINE Loading Animation 函數
@@ -1344,7 +1910,7 @@ async function bindInternalRichMenu(userId) {
 
         const url = 'https://api.line.me/v2/bot/richmenu/bulk/link';
         const payload = {
-            richMenuId: 'richmenu-ea240e912adac3d741bacab213f0bbb9',
+            richMenuId: 'richmenu-54c7c6af88146d270c56496118f2b145',
             userIds: [userId]
         };
         
@@ -3600,7 +4166,94 @@ app.post('/webhook', async (req, res) => {
                 
                 if (userId) {
                     // 檢查關鍵字
-                    if (messageText === '#剩餘堂數' || messageText === '#剩餘堂數完整' || messageText === '#完整出缺勤') {
+                    if (messageText === '#本期課程規劃') {
+                        console.log(`🔑 檢測到關鍵字「#本期課程規劃」來自 ${userId}`);
+
+                        try {
+                            await showLoadingAnimation(userId, 5);
+
+                            const requestHeaders = {
+                                'Content-Type': 'application/json'
+                            };
+
+                            if (config.googleSheets && config.googleSheets.cookie) {
+                                requestHeaders.Cookie = config.googleSheets.cookie;
+                            }
+
+                            const coursePlanResponse = await axios.post(
+                                config.api.studentAttendance,
+                                { action: 'getStudentList' },
+                                {
+                                    headers: requestHeaders,
+                                    timeout: config.server.timeout.api
+                                }
+                            );
+
+                            const rawData = coursePlanResponse.data || {};
+                            let studentsData = [];
+
+                            if (Array.isArray(rawData.students)) {
+                                studentsData = rawData.students;
+                            } else if (rawData.data && Array.isArray(rawData.data.students)) {
+                                studentsData = rawData.data.students;
+                            } else if (rawData.result && Array.isArray(rawData.result.students)) {
+                                studentsData = rawData.result.students;
+                            }
+
+                            console.log('🔍 課程規劃原始資料:', JSON.stringify(studentsData, null, 2));
+
+                            // 過濾 userId 匹配的學生，並且只保留 remaining > 0 的學生（當期課程）
+                            const matchingStudents = studentsData.filter(student => {
+                                const isUserMatch = student.userId === userId;
+                                const isActiveStudent = !student.hasOwnProperty('remaining') || (student.remaining && student.remaining > 0);
+                                
+                                if (isUserMatch && !isActiveStudent) {
+                                    console.log(`⏭️ 跳過舊期學生: ${student.name} (remaining: ${student.remaining})`);
+                                }
+                                
+                                return isUserMatch && isActiveStudent;
+                            });
+
+                            if (matchingStudents.length === 0) {
+                                await sendLineMessage('❌ 找不到您的課程規劃資料，請確認是否完成綁定或稍後再試。', userId);
+                                console.log(`⚠️ 未找到課程規劃資料: ${userId}`);
+                                return;
+                            }
+
+                            const studentsWithPlan = matchingStudents.filter(student =>
+                                student && student.coursePlan && String(student.coursePlan).trim() !== ''
+                            );
+
+                            if (studentsWithPlan.length === 0) {
+                                await sendLineMessage('❌ 目前尚未為您設定課程規劃內容，請稍後再試或聯繫客服。', userId);
+                                console.log(`⚠️ 無課程規劃內容: ${userId}`);
+                                return;
+                            }
+
+                            if (studentsWithPlan.length === 1) {
+                                const flexMessage = createCoursePlanFlexMessage(studentsWithPlan[0]);
+                                await sendLineFlexMessage(flexMessage, userId);
+                            } else {
+                                const carouselMessage = createCoursePlanFlexCarousel(studentsWithPlan);
+                                await sendLineFlexMessage(carouselMessage, userId);
+                            }
+
+                            await sendLineMessage(`📘 已顯示 ${studentsWithPlan.length} 位學生的本期課程規劃`, userId);
+                            console.log(`✅ 課程規劃已發送給: ${userId} (共 ${studentsWithPlan.length} 位學生)`);
+
+                        } catch (error) {
+                            console.error('❌ 查詢課程規劃失敗:', error);
+                            const errorMessage = '❌ 查詢課程規劃失敗，請稍後再試\n\n可能原因：\n1. 網路連線問題\n2. 系統暫時無法使用\n\n如有疑問，請聯繫客服人員。';
+                            await sendLineMessage(errorMessage, userId);
+                        }
+
+                        return; // 處理完關鍵字後直接返回
+                    }
+
+                    if (messageText === '#剩餘堂數' 
+                        || messageText === '#剩餘堂數完整' 
+                        || messageText === '#完整出缺勤'
+                        || messageText === '#出缺勤') {
                         console.log(`🔑 檢測到關鍵字「${messageText}」來自 ${userId}`);
                         
                         try {
@@ -3614,7 +4267,18 @@ app.post('/webhook', async (req, res) => {
                             
                             if (response.data && response.data.success && response.data.data.students) {
                                 const students = response.data.data.students;
-                                const matchingStudents = students.filter(student => student.userId === userId);
+                                
+                                // 過濾 userId 匹配的學生，並且只保留 remaining > 0 的學生（當期課程）
+                                const matchingStudents = students.filter(student => {
+                                    const isUserMatch = student.userId === userId;
+                                    const isActiveStudent = !student.hasOwnProperty('remaining') || (student.remaining && student.remaining > 0);
+                                    
+                                    if (isUserMatch && !isActiveStudent) {
+                                        console.log(`⏭️ 跳過舊期學生: ${student.name} (remaining: ${student.remaining})`);
+                                    }
+                                    
+                                    return isUserMatch && isActiveStudent;
+                                });
                                 
                                 console.log('🔍 查詢到的學生數據:', JSON.stringify(matchingStudents, null, 2));
                                 console.log(`📊 找到 ${matchingStudents.length} 個學生的資料`);
@@ -3623,33 +4287,43 @@ app.post('/webhook', async (req, res) => {
                                     // 根據關鍵字決定模式和顯示類型
                                     let mode = 'compact';
                                     let displayType = 'remaining'; // 'remaining' 或 'attendance'
-                                    
-                                    if (messageText === '#剩餘堂數完整') {
-                                        mode = 'full';
-                                        displayType = 'remaining';
-                                    } else if (messageText === '#完整出缺勤') {
-                                        mode = 'full';
-                                        displayType = 'attendance';
+
+                                    if (messageText === '#出缺勤') {
+                                        if (matchingStudents.length === 1) {
+                                            const studentData = matchingStudents[0];
+                                            const flexMessage = createFullAttendanceFlexMessage(studentData);
+                                            await sendLineFlexMessage(flexMessage, userId);
+                                            console.log(`✅ 出缺勤完整記錄已發送給: ${userId} (學生: ${studentData.name})`);
+                                        } else {
+                                            const multiFlexMessage = createFullAttendanceCarousel(matchingStudents);
+                                            await sendLineFlexMessage(multiFlexMessage, userId);
+                                            console.log(`✅ 多學生出缺勤完整記錄已發送給: ${userId} (共 ${matchingStudents.length} 個學生)`);
+                                        }
+                                        await sendLineMessage(`📚 已顯示 ${matchingStudents.length} 位學生的完整出缺勤紀錄`, userId);
                                     } else {
-                                        mode = 'compact';
-                                        displayType = 'remaining';
+                                        if (messageText === '#剩餘堂數完整') {
+                                            mode = 'full';
+                                            displayType = 'remaining';
+                                        } else if (messageText === '#完整出缺勤') {
+                                            mode = 'full';
+                                            displayType = 'attendance';
+                                        } else {
+                                            mode = 'compact';
+                                            displayType = 'remaining';
+                                        }
+                                        
+                                        if (matchingStudents.length === 1) {
+                                            const studentData = matchingStudents[0];
+                                            const flexMessage = createAttendanceFlexMessage(studentData, mode, displayType);
+                                            await sendLineFlexMessage(flexMessage, userId);
+                                            console.log(`✅ 出缺勤記錄已發送給: ${userId} (學生: ${studentData.name}, 模式: ${mode}, 顯示類型: ${displayType})`);
+                                        } else {
+                                            const multiStudentFlexMessage = createMultiStudentFlexMessage(matchingStudents, mode, displayType);
+                                            await sendLineFlexMessage(multiStudentFlexMessage, userId);
+                                            console.log(`✅ 多學生出缺勤記錄已發送給: ${userId} (共 ${matchingStudents.length} 個學生, 模式: ${mode}, 顯示類型: ${displayType})`);
+                                        }
+                                        await sendLineMessage(`📚 已顯示 ${matchingStudents.length} 位學生的出缺勤紀錄`, userId);
                                     }
-                                    
-                                    if (matchingStudents.length === 1) {
-                                        // 單一學生：發送單一 Flex Message
-                                        const studentData = matchingStudents[0];
-                                        const flexMessage = createAttendanceFlexMessage(studentData, mode, displayType);
-                                        await sendLineFlexMessage(flexMessage, userId);
-                                        console.log(`✅ 出缺勤記錄已發送給: ${userId} (學生: ${studentData.name}, 模式: ${mode}, 顯示類型: ${displayType})`);
-                                    } else {
-                                        // 多個學生：發送多頁選單 Flex Message
-                                        const multiStudentFlexMessage = createMultiStudentFlexMessage(matchingStudents, mode, displayType);
-                                        await sendLineFlexMessage(multiStudentFlexMessage, userId);
-                                        console.log(`✅ 多學生出缺勤記錄已發送給: ${userId} (共 ${matchingStudents.length} 個學生, 模式: ${mode}, 顯示類型: ${displayType})`);
-                                    }
-                                    
-                                    // 不管是單一學生還是多個學生，都發送總結訊息
-                                    await sendLineMessage(`📚 已顯示 ${matchingStudents.length} 個學生的出缺勤記錄`, userId);
                                 } else {
                                     await sendLineMessage('❌ 找不到您的出缺勤記錄\n\n可能原因：\n1. 您尚未綁定學生身份\n2. 系統中沒有您的課程資料\n\n如有疑問，請聯繫客服人員。', userId);
                                 }
