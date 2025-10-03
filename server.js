@@ -394,6 +394,29 @@ function extractCoursePlanMedia(coursePlanField) {
 }
 
 /**
+ * 標準化時間格式
+ * 將各種時間格式統一轉換（0930-1030 -> 9:30-10:30）
+ */
+function normalizeTimeFormat(period) {
+    if (!period) return period;
+    
+    // 匹配時間格式：0930-1030 或 09:30-10:30 等
+    const timePattern = /(\d{1,2}):?(\d{2})\s*[-~到至]\s*(\d{1,2}):?(\d{2})/;
+    const match = period.match(timePattern);
+    
+    if (match) {
+        const [, h1, m1, h2, m2] = match;
+        // 轉換為帶冒號的格式，並去除前導零
+        const normalizedTime = `${parseInt(h1)}:${m1}-${parseInt(h2)}:${m2}`;
+        const result = period.replace(timePattern, normalizedTime);
+        console.log(`🔄 時間格式轉換: ${period} → ${result}`);
+        return result;
+    }
+    
+    return period;
+}
+
+/**
  * 調用外部 API 查詢課程規劃連結
  * @param {string} course - 課程類型（如：ESM, SPIKE, SPM, BOOST, EV3）
  * @param {string} period - 時段資訊（必須包含星期，如：六 0930-1030 到府）
@@ -401,14 +424,19 @@ function extractCoursePlanMedia(coursePlanField) {
  */
 async function fetchCoursePlanUrl(course, period) {
     try {
+        // 標準化時間格式
+        const normalizedPeriod = normalizeTimeFormat(period);
+        
         const apiUrl = 'https://course-viewer.funlearnbar.synology.me/api/find-course';
         const params = new URLSearchParams({
             course: course,
-            period: period,
+            period: normalizedPeriod,
             format: 'json'
         });
         
         console.log(`📡 調用課程規劃 API: ${apiUrl}?${params.toString()}`);
+        console.log(`   原始時段: ${period}`);
+        console.log(`   標準化時段: ${normalizedPeriod}`);
         
         const response = await axios.get(`${apiUrl}?${params.toString()}`, {
             timeout: 10000
