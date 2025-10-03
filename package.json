@@ -1,23 +1,30 @@
 {
-  "name": "flb-student-attendance",
-  "version": "2025.8.24",
-  "description": "FLB學生簽到系統 - 講師簽到頁面",
+  "name": "flb-attendance-system",
+  "version": "1.0.0",
+  "description": "FLB講師簽到系統",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
     "axios": "^1.6.0",
     "cors": "^2.8.5",
     "body-parser": "^1.20.2",
-    "better-sqlite3": "^9.2.2"
+    "dotenv": "^16.3.1"
   },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
+  "engines": {
+    "node": ">=18.0.0"
   },
-  "keywords": ["attendance", "qr-code", "flb", "student"],
-  "author": "FLB",
+  "keywords": [
+    "flb",
+    "attendance",
+    "line",
+    "liff",
+    "google-sheets"
+  ],
+  "author": "FLB Team",
   "license": "MIT"
-} 
+}
