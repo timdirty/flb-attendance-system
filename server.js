@@ -4240,8 +4240,8 @@ app.post('/webhook', async (req, res) => {
                 
                 if (userId) {
                     // 檢查關鍵字
-                    if (messageText === '#本期課程規劃') {
-                        console.log(`🔑 檢測到關鍵字「#本期課程規劃」來自 ${userId}`);
+                    if (messageText === '#本期課程規劃' || messageText === '#完整課程規劃') {
+                        console.log(`🔑 檢測到關鍵字「${messageText}」來自 ${userId}`);
 
                         try {
                             await showLoadingAnimation(userId, 5);
