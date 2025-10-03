@@ -615,10 +615,8 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
                         action: {
                             type: 'uri',
                             label: '📘 開啟課程規劃',
-                            uri: fullUrl,
-                            altUri: {
-                                desktop: fullUrl  // 在 LINE 內建瀏覽器開啟
-                            }
+                            uri: fullUrl
+                            // 不設定 altUri，LINE 預設會在內建瀏覽器開啟
                         }
                     }
                 ]
@@ -4328,7 +4326,8 @@ app.post('/webhook', async (req, res) => {
                         console.log(`🔑 檢測到關鍵字「${messageText}」來自 ${userId}`);
 
                         try {
-                            await showLoadingAnimation(userId, 5);
+                            // 啟動 Loading Animation（60秒，會在發送訊息前停止）
+                            await showLoadingAnimation(userId, 60);
 
                             const requestHeaders = {
                                 'Content-Type': 'application/json'
