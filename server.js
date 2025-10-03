@@ -573,10 +573,31 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
         if (apiResult.url) {
             fullUrl = `${courseViewerUrl}${apiResult.url}`;
         } 
-        // 處理多個結果（選擇第一個）
+        // 處理多個結果（智能選擇最匹配的）
         else if (apiResult.courses && apiResult.courses.length > 0) {
-            fullUrl = `${courseViewerUrl}${apiResult.courses[0].url}`;
-            console.log(`📚 找到 ${apiResult.courses.length} 個課程，使用第一個: ${apiResult.courses[0].displayName}`);
+            let selectedCourse = null;
+            
+            // 檢查學生時段是否有位置標記
+            const hasLocationInPeriod = period && (period.includes('到府') || period.includes('外'));
+            
+            if (hasLocationInPeriod) {
+                // 有位置標記：優先選擇完全匹配的
+                selectedCourse = apiResult.courses.find(c => {
+                    if (period.includes('到府')) return c.displayName.includes('到府');
+                    if (period.includes('外')) return c.displayName.includes('外');
+                    return false;
+                }) || apiResult.courses[0];
+            } else {
+                // 沒有位置標記：優先選擇沒有「到府」或「外」標記的課程
+                selectedCourse = apiResult.courses.find(c => 
+                    !c.displayName.includes('到府') && !c.displayName.includes('外')
+                ) || apiResult.courses[0];
+            }
+            
+            fullUrl = `${courseViewerUrl}${selectedCourse.url}`;
+            console.log(`📚 找到 ${apiResult.courses.length} 個課程`);
+            console.log(`   學生時段: ${period}`);
+            console.log(`   選擇課程: ${selectedCourse.displayName}`);
         }
         
         console.log(`🔗 課程規劃 URL:`, fullUrl); // 調試日誌
