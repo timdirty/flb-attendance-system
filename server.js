@@ -567,7 +567,17 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
     // 如果 API 查詢成功，添加按鈕
     if (apiResult && apiResult.success) {
         const courseViewerUrl = 'https://course-viewer.funlearnbar.synology.me';
-        const fullUrl = apiResult.url ? `${courseViewerUrl}${apiResult.url}` : null;
+        let fullUrl = null;
+        
+        // 處理單一結果
+        if (apiResult.url) {
+            fullUrl = `${courseViewerUrl}${apiResult.url}`;
+        } 
+        // 處理多個結果（選擇第一個）
+        else if (apiResult.courses && apiResult.courses.length > 0) {
+            fullUrl = `${courseViewerUrl}${apiResult.courses[0].url}`;
+            console.log(`📚 找到 ${apiResult.courses.length} 個課程，使用第一個: ${apiResult.courses[0].displayName}`);
+        }
         
         console.log(`🔗 課程規劃 URL:`, fullUrl); // 調試日誌
         
@@ -594,7 +604,7 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
             };
         } else {
             // 如果 URL 為空，顯示錯誤按鈕
-            console.warn(`⚠️ API 成功但 URL 為空，apiResult:`, apiResult);
+            console.warn(`⚠️ API 成功但 URL 為空，apiResult:`, JSON.stringify(apiResult));
             bubble.footer = {
                 type: 'box',
                 layout: 'vertical',
