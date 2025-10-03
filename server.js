@@ -564,7 +564,7 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
         }
     };
 
-    // 如果 API 查詢成功，添加按鈕
+    // 處理 API 查詢結果
     if (apiResult && apiResult.success) {
         const courseViewerUrl = 'https://course-viewer.funlearnbar.synology.me';
         let fullUrl = null;
@@ -600,9 +600,12 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
             console.log(`   選擇課程: ${selectedCourse.displayName}`);
         }
         
-        console.log(`🔗 課程規劃 URL:`, fullUrl); // 調試日誌
+        console.log(`🔗 課程規劃 URL:`, fullUrl);
         
         if (fullUrl) {
+            // 添加參數確保在 LINE 內建瀏覽器開啟
+            const lineInternalUrl = fullUrl + (fullUrl.includes('?') ? '&' : '?') + 'openExternalBrowser=0';
+            
             bubble.footer = {
                 type: 'box',
                 layout: 'vertical',
@@ -615,15 +618,13 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
                         action: {
                             type: 'uri',
                             label: '📘 開啟課程規劃',
-                            uri: fullUrl
-                            // 不設定 altUri，LINE 預設會在內建瀏覽器開啟
+                            uri: lineInternalUrl
                         }
                     }
                 ]
             };
         } else {
-            // 如果 URL 為空，顯示錯誤按鈕
-            console.warn(`⚠️ API 成功但 URL 為空，apiResult:`, JSON.stringify(apiResult));
+            console.warn(`⚠️ API 成功但 URL 為空`);
             bubble.footer = {
                 type: 'box',
                 layout: 'vertical',
@@ -635,13 +636,74 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
                         color: '#999999',
                         action: {
                             type: 'message',
-                            label: '⚠️ URL 缺失',
-                            text: '課程規劃連結有誤，請聯繫客服'
+                            label: '⚠️ 資料異常',
+                            text: '課程規劃資料異常，請聯繫客服'
                         }
                     }
                 ]
             };
         }
+    } else {
+        // API 查詢失敗，顯示詳細錯誤訊息
+        const errorInfo = apiResult?.error || apiResult?.message || '未知錯誤';
+        const searched = apiResult?.searched || {};
+        
+        console.error(`❌ API 查詢失敗:`, JSON.stringify(apiResult));
+        
+        // 在 Bubble 中顯示更友好的錯誤訊息
+        bodyContents.push({
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                {
+                    type: 'text',
+                    text: '❌ 找不到課程規劃',
+                    size: 'sm',
+                    color: colors.error,
+                    weight: 'bold'
+                },
+                {
+                    type: 'text',
+                    text: `查詢：${searched.course_type || course} ${searched.period || period}`,
+                    size: 'xs',
+                    color: colors.textSecondary,
+                    margin: 'sm',
+                    wrap: true
+                },
+                {
+                    type: 'text',
+                    text: '可能原因：課程尚未建立或課程名稱不符',
+                    size: 'xs',
+                    color: colors.textSecondary,
+                    margin: 'xs',
+                    wrap: true
+                }
+            ],
+            backgroundColor: '#f8d7da',
+            paddingAll: '12px',
+            margin: 'lg',
+            cornerRadius: '6px',
+            borderColor: '#f5c6cb',
+            borderWidth: '1px'
+        });
+        
+        bubble.footer = {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+                {
+                    type: 'button',
+                    style: 'secondary',
+                    color: '#6c757d',
+                    action: {
+                        type: 'message',
+                        label: '📞 聯繫客服',
+                        text: '請協助處理課程規劃問題'
+                    }
+                }
+            ]
+        };
     }
 
     return bubble;
