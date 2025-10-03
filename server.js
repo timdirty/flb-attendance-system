@@ -541,6 +541,8 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
         const courseViewerUrl = 'https://course-viewer.funlearnbar.synology.me';
         const fullUrl = apiResult.url ? `${courseViewerUrl}${apiResult.url}` : null;
         
+        console.log(`🔗 課程規劃 URL:`, fullUrl); // 調試日誌
+        
         if (fullUrl) {
             bubble.footer = {
                 type: 'box',
@@ -554,7 +556,30 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
                         action: {
                             type: 'uri',
                             label: '📘 開啟課程規劃',
-                            uri: fullUrl
+                            uri: fullUrl,
+                            altUri: {
+                                desktop: fullUrl  // 在 LINE 內建瀏覽器開啟
+                            }
+                        }
+                    }
+                ]
+            };
+        } else {
+            // 如果 URL 為空，顯示錯誤按鈕
+            console.warn(`⚠️ API 成功但 URL 為空，apiResult:`, apiResult);
+            bubble.footer = {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'sm',
+                contents: [
+                    {
+                        type: 'button',
+                        style: 'secondary',
+                        color: '#999999',
+                        action: {
+                            type: 'message',
+                            label: '⚠️ URL 缺失',
+                            text: '課程規劃連結有誤，請聯繫客服'
                         }
                     }
                 ]
