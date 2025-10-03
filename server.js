@@ -393,16 +393,49 @@ function extractCoursePlanMedia(coursePlanField) {
     };
 }
 
-function createCoursePlanBubble(student, index = null, total = null) {
-    const { name = '未知學生', course = '未設定課程', period = '未設定時段', coursePlan } = student || {};
-    const media = extractCoursePlanMedia(coursePlan);
+/**
+ * 調用外部 API 查詢課程規劃連結
+ * @param {string} course - 課程類型（如：ESM, SPIKE, SPM, BOOST, EV3）
+ * @param {string} period - 時段資訊（必須包含星期，如：六 0930-1030 到府）
+ * @returns {Promise<object>} API 回應結果
+ */
+async function fetchCoursePlanUrl(course, period) {
+    try {
+        const apiUrl = 'https://course-viewer.funlearnbar.synology.me/api/find-course';
+        const params = new URLSearchParams({
+            course: course,
+            period: period,
+            format: 'json'
+        });
+        
+        console.log(`📡 調用課程規劃 API: ${apiUrl}?${params.toString()}`);
+        
+        const response = await axios.get(`${apiUrl}?${params.toString()}`, {
+            timeout: 10000
+        });
+        
+        console.log(`✅ API 回應:`, JSON.stringify(response.data, null, 2));
+        return response.data;
+    } catch (error) {
+        console.error('❌ 調用課程規劃 API 失敗:', error.message);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 創建課程規劃 Bubble（使用新的外部 API）
+ */
+function createCoursePlanBubble(student, apiResult = null, index = null, total = null) {
+    const { name = '未知學生', course = '未設定課程', period = '未設定時段' } = student || {};
     const colors = {
         primary: '#0F0F0F',
         gold: '#B8860B',
         text: '#1C1C1C',
         textSecondary: '#5A5A5A',
         border: '#D3D3D3',
-        background: '#FFFFFF'
+        background: '#FFFFFF',
+        success: '#28a745',
+        error: '#dc3545'
     };
 
     const headerLines = [];
@@ -437,25 +470,57 @@ function createCoursePlanBubble(student, index = null, total = null) {
         }
     ];
 
-    if (!media.imageUrl) {
-        bodyContents.push({
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-                {
-                    type: 'text',
-                    text: '暫無課程規劃圖片',
-                    size: 'sm',
-                    color: colors.textSecondary
-                }
-            ],
-            backgroundColor: '#F8F9FA',
-            paddingAll: '12px',
-            margin: 'lg',
-            cornerRadius: '6px',
-            borderColor: colors.border,
-            borderWidth: '1px'
-        });
+    // 顯示 API 查詢狀態
+    if (apiResult) {
+        if (apiResult.success) {
+            bodyContents.push({
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    {
+                        type: 'text',
+                        text: '✅ 已找到課程規劃',
+                        size: 'sm',
+                        color: colors.success,
+                        weight: 'bold'
+                    }
+                ],
+                backgroundColor: '#d4edda',
+                paddingAll: '12px',
+                margin: 'lg',
+                cornerRadius: '6px',
+                borderColor: '#c3e6cb',
+                borderWidth: '1px'
+            });
+        } else {
+            bodyContents.push({
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    {
+                        type: 'text',
+                        text: '❌ 找不到課程規劃',
+                        size: 'sm',
+                        color: colors.error,
+                        weight: 'bold'
+                    },
+                    {
+                        type: 'text',
+                        text: apiResult.error || '請確認課程時段設定',
+                        size: 'xs',
+                        color: colors.textSecondary,
+                        margin: 'sm',
+                        wrap: true
+                    }
+                ],
+                backgroundColor: '#f8d7da',
+                paddingAll: '12px',
+                margin: 'lg',
+                cornerRadius: '6px',
+                borderColor: '#f5c6cb',
+                borderWidth: '1px'
+            });
+        }
     }
 
     const bubble = {
@@ -471,55 +536,64 @@ function createCoursePlanBubble(student, index = null, total = null) {
         }
     };
 
-    if (media.imageUrl) {
-        bubble.hero = {
-            type: 'image',
-            url: media.imageUrl,
-            size: 'full',
-            aspectRatio: '20:13',
-            aspectMode: 'cover'
-        };
-    }
-
-    if (media.linkUrl) {
-        bubble.footer = {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [
-                {
-                    type: 'button',
-                    style: 'primary',
-                    color: colors.gold,
-                    action: {
-                        type: 'uri',
-                        label: '開啟完整課程規劃',
-                        uri: media.linkUrl
+    // 如果 API 查詢成功，添加按鈕
+    if (apiResult && apiResult.success) {
+        const courseViewerUrl = 'https://course-viewer.funlearnbar.synology.me';
+        const fullUrl = apiResult.url ? `${courseViewerUrl}${apiResult.url}` : null;
+        
+        if (fullUrl) {
+            bubble.footer = {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'sm',
+                contents: [
+                    {
+                        type: 'button',
+                        style: 'primary',
+                        color: colors.gold,
+                        action: {
+                            type: 'uri',
+                            label: '📘 開啟課程規劃',
+                            uri: fullUrl
+                        }
                     }
-                }
-            ]
-        };
+                ]
+            };
+        }
     }
 
     return bubble;
 }
 
-function createCoursePlanFlexMessage(student) {
+/**
+ * 創建課程規劃 Flex Message（單一學生，使用新 API）
+ */
+async function createCoursePlanFlexMessage(student) {
+    const apiResult = await fetchCoursePlanUrl(student.course, student.period);
+    
     return {
         type: 'flex',
         altText: `${student?.name || '學生'} 的本期課程規劃`,
-        contents: createCoursePlanBubble(student)
+        contents: createCoursePlanBubble(student, apiResult)
     };
 }
 
-function createCoursePlanFlexCarousel(students) {
+/**
+ * 創建課程規劃 Flex Carousel（多位學生，使用新 API）
+ */
+async function createCoursePlanFlexCarousel(students) {
+    // 並行調用所有學生的 API
+    const apiResults = await Promise.all(
+        students.map(student => fetchCoursePlanUrl(student.course, student.period))
+    );
+    
     return {
         type: 'flex',
         altText: `本期課程規劃 (${students.length} 位學生)`,
         contents: {
             type: 'carousel',
             contents: students.map((student, index) =>
-                createCoursePlanBubble(student, index + 1, students.length)
+                createCoursePlanBubble(student, apiResults[index], index + 1, students.length)
             )
         }
     };
@@ -4220,30 +4294,35 @@ app.post('/webhook', async (req, res) => {
                                 return;
                             }
 
-                            const studentsWithPlan = matchingStudents.filter(student =>
-                                student && student.coursePlan && String(student.coursePlan).trim() !== ''
+                            // 過濾出有課程和時段資訊的學生（使用新的外部 API）
+                            const studentsWithCourseInfo = matchingStudents.filter(student =>
+                                student && student.course && student.period && 
+                                String(student.course).trim() !== '' && 
+                                String(student.period).trim() !== ''
                             );
 
-                            if (studentsWithPlan.length === 0) {
-                                await sendLineMessage('❌ 目前尚未為您設定課程規劃內容，請稍後再試或聯繫客服。', userId);
-                                console.log(`⚠️ 無課程規劃內容: ${userId}`);
+                            if (studentsWithCourseInfo.length === 0) {
+                                await sendLineMessage('❌ 目前尚未為您設定課程資訊（課程類型和時段），請聯繫客服。', userId);
+                                console.log(`⚠️ 無課程資訊: ${userId}`);
                                 return;
                             }
 
-                            if (studentsWithPlan.length === 1) {
-                                const flexMessage = createCoursePlanFlexMessage(studentsWithPlan[0]);
+                            console.log(`📚 準備查詢 ${studentsWithCourseInfo.length} 位學生的課程規劃`);
+
+                            if (studentsWithCourseInfo.length === 1) {
+                                const flexMessage = await createCoursePlanFlexMessage(studentsWithCourseInfo[0]);
                                 await sendLineFlexMessage(flexMessage, userId);
                             } else {
-                                const carouselMessage = createCoursePlanFlexCarousel(studentsWithPlan);
+                                const carouselMessage = await createCoursePlanFlexCarousel(studentsWithCourseInfo);
                                 await sendLineFlexMessage(carouselMessage, userId);
                             }
 
-                            await sendLineMessage(`📘 已顯示 ${studentsWithPlan.length} 位學生的本期課程規劃`, userId);
-                            console.log(`✅ 課程規劃已發送給: ${userId} (共 ${studentsWithPlan.length} 位學生)`);
+                            await sendLineMessage(`📘 已顯示 ${studentsWithCourseInfo.length} 位學生的本期課程規劃`, userId);
+                            console.log(`✅ 課程規劃已發送給: ${userId} (共 ${studentsWithCourseInfo.length} 位學生)`);
 
                         } catch (error) {
                             console.error('❌ 查詢課程規劃失敗:', error);
-                            const errorMessage = '❌ 查詢課程規劃失敗，請稍後再試\n\n可能原因：\n1. 網路連線問題\n2. 系統暫時無法使用\n\n如有疑問，請聯繫客服人員。';
+                            const errorMessage = '❌ 查詢課程規劃失敗，請稍後再試\n\n可能原因：\n1. 網路連線問題\n2. 系統暫時無法使用\n3. 課程規劃 API 無回應\n\n如有疑問，請聯繫客服人員。';
                             await sendLineMessage(errorMessage, userId);
                         }
 
