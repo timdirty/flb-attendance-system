@@ -521,40 +521,23 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
                 borderWidth: '1px'
             });
         } else {
+            // 簡潔的找不到訊息
             bodyContents.push({
                 type: 'box',
                 layout: 'vertical',
                 contents: [
                     {
                         type: 'text',
-                        text: '📚',
-                        size: '3xl',
-                        align: 'center',
-                        margin: 'none'
-                    },
-                    {
-                        type: 'text',
-                        text: '暫無課程規劃',
-                        size: 'lg',
-                        color: '#666666',
-                        weight: 'bold',
-                        align: 'center',
-                        margin: 'md'
-                    },
-                    {
-                        type: 'text',
-                        text: '這堂課的規劃可能還在準備中',
+                        text: '📋 暫無課程規劃',
                         size: 'sm',
                         color: '#999999',
-                        align: 'center',
-                        margin: 'sm',
                         wrap: true
                     }
                 ],
-                backgroundColor: '#f8f9fa',
-                paddingAll: '20px',
+                backgroundColor: '#f5f5f5',
+                paddingAll: '12px',
                 margin: 'lg',
-                cornerRadius: '12px'
+                cornerRadius: '8px'
             });
         }
     }
@@ -651,83 +634,33 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
             };
         }
     } else {
-        // API 查詢失敗，顯示友善的錯誤訊息
+        // API 查詢失敗，顯示簡潔錯誤訊息
         const searched = apiResult?.searched || {};
         const courseName = searched.course_type || course;
         const timePeriod = searched.period || period;
         
         console.error(`❌ API 查詢失敗:`, JSON.stringify(apiResult));
         
-        // 使用更溫暖、友善的錯誤訊息
+        // 簡潔的錯誤訊息（和成功訊息對稱）
         bodyContents.push({
             type: 'box',
             layout: 'vertical',
             contents: [
                 {
                     type: 'text',
-                    text: '🔍',
-                    size: '4xl',
-                    align: 'center',
-                    margin: 'none'
-                },
-                {
-                    type: 'text',
-                    text: '找不到課程規劃',
-                    size: 'xl',
-                    color: '#555555',
-                    weight: 'bold',
-                    align: 'center',
-                    margin: 'lg'
-                },
-                {
-                    type: 'box',
-                    layout: 'vertical',
-                    contents: [
-                        {
-                            type: 'text',
-                            text: `課程：${courseName}`,
-                            size: 'sm',
-                            color: '#666666',
-                            align: 'center'
-                        },
-                        {
-                            type: 'text',
-                            text: `時段：${timePeriod}`,
-                            size: 'sm',
-                            color: '#666666',
-                            align: 'center',
-                            margin: 'xs'
-                        }
-                    ],
-                    backgroundColor: '#ffffff',
-                    paddingAll: '12px',
-                    cornerRadius: '8px',
-                    margin: 'lg'
-                },
-                {
-                    type: 'text',
-                    text: '可能的原因：',
-                    size: 'xs',
+                    text: '📋 暫無課程規劃',
+                    size: 'sm',
                     color: '#999999',
-                    align: 'center',
-                    margin: 'lg'
-                },
-                {
-                    type: 'text',
-                    text: '• 課程規劃還在準備中\n• 課程名稱或時段有變動\n• 系統資料尚未更新',
-                    size: 'xs',
-                    color: '#999999',
-                    align: 'center',
-                    wrap: true,
-                    margin: 'sm'
+                    wrap: true
                 }
             ],
-            backgroundColor: '#f8f9fa',
-            paddingAll: '24px',
+            backgroundColor: '#f5f5f5',
+            paddingAll: '12px',
             margin: 'lg',
-            cornerRadius: '16px'
+            cornerRadius: '8px'
         });
         
+        // 簡潔的按鈕
         bubble.footer = {
             type: 'box',
             layout: 'vertical',
@@ -735,17 +668,15 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
             contents: [
                 {
                     type: 'button',
-                    style: 'primary',
-                    color: '#5B9BD5',
+                    style: 'secondary',
+                    color: '#999999',
                     action: {
                         type: 'message',
                         label: '💬 詢問課程規劃',
                         text: `想了解 ${courseName} ${timePeriod} 的課程規劃`
                     }
                 }
-            ],
-            backgroundColor: '#ffffff',
-            paddingAll: '16px'
+            ]
         };
     }
 
