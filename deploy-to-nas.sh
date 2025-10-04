@@ -84,7 +84,7 @@ docker ps | grep flb-line-bot
 echo ""
 echo "🔍 測試健康檢查端點..."
 sleep 2
-curl -s http://localhost:3000/health | jq . || echo "請確認服務是否正常啟動"
+curl -s http://localhost:3010/health | jq . || echo "請確認服務是否正常啟動"
 
 # 顯示日誌
 echo ""
@@ -102,8 +102,8 @@ echo "  停止容器：docker stop flb-line-bot"
 echo "  查看狀態：docker ps | grep flb-line-bot"
 echo ""
 echo "🌐 服務位址："
-echo "  本機：http://localhost:3000"
-echo "  健康檢查：http://localhost:3000/health"
+echo "  本機：http://localhost:3010"
+echo "  健康檢查：http://localhost:3010/health"
 echo ""
 echo "🔧 下一步："
 echo "  1. 設定 NAS 反向代理"
