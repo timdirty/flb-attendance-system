@@ -527,26 +527,34 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
                 contents: [
                     {
                         type: 'text',
-                        text: '❌ 找不到課程規劃',
-                        size: 'sm',
-                        color: colors.error,
-                        weight: 'bold'
+                        text: '📚',
+                        size: '3xl',
+                        align: 'center',
+                        margin: 'none'
                     },
                     {
                         type: 'text',
-                        text: apiResult.error || '請確認課程時段設定',
-                        size: 'xs',
-                        color: colors.textSecondary,
+                        text: '暫無課程規劃',
+                        size: 'lg',
+                        color: '#666666',
+                        weight: 'bold',
+                        align: 'center',
+                        margin: 'md'
+                    },
+                    {
+                        type: 'text',
+                        text: '這堂課的規劃可能還在準備中',
+                        size: 'sm',
+                        color: '#999999',
+                        align: 'center',
                         margin: 'sm',
                         wrap: true
                     }
                 ],
-                backgroundColor: '#f8d7da',
-                paddingAll: '12px',
+                backgroundColor: '#f8f9fa',
+                paddingAll: '20px',
                 margin: 'lg',
-                cornerRadius: '6px',
-                borderColor: '#f5c6cb',
-                borderWidth: '1px'
+                cornerRadius: '12px'
             });
         }
     }
@@ -643,47 +651,81 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
             };
         }
     } else {
-        // API 查詢失敗，顯示詳細錯誤訊息
-        const errorInfo = apiResult?.error || apiResult?.message || '未知錯誤';
+        // API 查詢失敗，顯示友善的錯誤訊息
         const searched = apiResult?.searched || {};
+        const courseName = searched.course_type || course;
+        const timePeriod = searched.period || period;
         
         console.error(`❌ API 查詢失敗:`, JSON.stringify(apiResult));
         
-        // 在 Bubble 中顯示更友好的錯誤訊息
+        // 使用更溫暖、友善的錯誤訊息
         bodyContents.push({
             type: 'box',
             layout: 'vertical',
             contents: [
                 {
                     type: 'text',
-                    text: '❌ 找不到課程規劃',
-                    size: 'sm',
-                    color: colors.error,
-                    weight: 'bold'
+                    text: '🔍',
+                    size: '4xl',
+                    align: 'center',
+                    margin: 'none'
                 },
                 {
                     type: 'text',
-                    text: `查詢：${searched.course_type || course} ${searched.period || period}`,
-                    size: 'xs',
-                    color: colors.textSecondary,
-                    margin: 'sm',
-                    wrap: true
+                    text: '找不到課程規劃',
+                    size: 'xl',
+                    color: '#555555',
+                    weight: 'bold',
+                    align: 'center',
+                    margin: 'lg'
+                },
+                {
+                    type: 'box',
+                    layout: 'vertical',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: `課程：${courseName}`,
+                            size: 'sm',
+                            color: '#666666',
+                            align: 'center'
+                        },
+                        {
+                            type: 'text',
+                            text: `時段：${timePeriod}`,
+                            size: 'sm',
+                            color: '#666666',
+                            align: 'center',
+                            margin: 'xs'
+                        }
+                    ],
+                    backgroundColor: '#ffffff',
+                    paddingAll: '12px',
+                    cornerRadius: '8px',
+                    margin: 'lg'
                 },
                 {
                     type: 'text',
-                    text: '可能原因：課程尚未建立或課程名稱不符',
+                    text: '可能的原因：',
                     size: 'xs',
-                    color: colors.textSecondary,
-                    margin: 'xs',
-                    wrap: true
+                    color: '#999999',
+                    align: 'center',
+                    margin: 'lg'
+                },
+                {
+                    type: 'text',
+                    text: '• 課程規劃還在準備中\n• 課程名稱或時段有變動\n• 系統資料尚未更新',
+                    size: 'xs',
+                    color: '#999999',
+                    align: 'center',
+                    wrap: true,
+                    margin: 'sm'
                 }
             ],
-            backgroundColor: '#f8d7da',
-            paddingAll: '12px',
+            backgroundColor: '#f8f9fa',
+            paddingAll: '24px',
             margin: 'lg',
-            cornerRadius: '6px',
-            borderColor: '#f5c6cb',
-            borderWidth: '1px'
+            cornerRadius: '16px'
         });
         
         bubble.footer = {
@@ -693,15 +735,17 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
             contents: [
                 {
                     type: 'button',
-                    style: 'secondary',
-                    color: '#6c757d',
+                    style: 'primary',
+                    color: '#5B9BD5',
                     action: {
                         type: 'message',
-                        label: '📞 聯繫客服',
-                        text: '請協助處理課程規劃問題'
+                        label: '💬 詢問課程規劃',
+                        text: `想了解 ${courseName} ${timePeriod} 的課程規劃`
                     }
                 }
-            ]
+            ],
+            backgroundColor: '#ffffff',
+            paddingAll: '16px'
         };
     }
 
