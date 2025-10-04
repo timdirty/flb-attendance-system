@@ -603,9 +603,8 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
         console.log(`🔗 課程規劃 URL:`, fullUrl);
         
         if (fullUrl) {
-            // 添加參數確保在 LINE 內建瀏覽器開啟
-            const lineInternalUrl = fullUrl + (fullUrl.includes('?') ? '&' : '?') + 'openExternalBrowser=0';
-            
+            // 使用純 URL，LINE 會根據平台自動決定在內建瀏覽器開啟
+            // 注意：桌面版 LINE 可能仍會在外部瀏覽器開啟
             bubble.footer = {
                 type: 'box',
                 layout: 'vertical',
@@ -618,7 +617,7 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
                         action: {
                             type: 'uri',
                             label: '📘 開啟課程規劃',
-                            uri: lineInternalUrl
+                            uri: fullUrl
                         }
                     }
                 ]
