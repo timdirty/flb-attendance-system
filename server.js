@@ -498,48 +498,27 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
         }
     ];
 
-    // 顯示 API 查詢狀態
-    if (apiResult) {
-        if (apiResult.success) {
-            bodyContents.push({
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                    {
-                        type: 'text',
-                        text: '✅ 已找到課程規劃',
-                        size: 'sm',
-                        color: colors.success,
-                        weight: 'bold'
-                    }
-                ],
-                backgroundColor: '#d4edda',
-                paddingAll: '12px',
-                margin: 'lg',
-                cornerRadius: '6px',
-                borderColor: '#c3e6cb',
-                borderWidth: '1px'
-            });
-        } else {
-            // 簡潔的找不到訊息
-            bodyContents.push({
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                    {
-                        type: 'text',
-                        text: '📋 暫無課程規劃',
-                        size: 'sm',
-                        color: '#999999',
-                        wrap: true
-                    }
-                ],
-                backgroundColor: '#f5f5f5',
-                paddingAll: '12px',
-                margin: 'lg',
-                cornerRadius: '8px'
-            });
-        }
+    // 顯示 API 查詢狀態（只顯示成功狀態，失敗狀態留給後面處理）
+    if (apiResult && apiResult.success) {
+        bodyContents.push({
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                {
+                    type: 'text',
+                    text: '✅ 已找到課程規劃',
+                    size: 'sm',
+                    color: colors.success,
+                    weight: 'bold'
+                }
+            ],
+            backgroundColor: '#d4edda',
+            paddingAll: '12px',
+            margin: 'lg',
+            cornerRadius: '6px',
+            borderColor: '#c3e6cb',
+            borderWidth: '1px'
+        });
     }
 
     const bubble = {
