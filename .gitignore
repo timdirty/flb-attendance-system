@@ -1,7 +1,44 @@
+# 依賴項
 node_modules/
+package-lock.json
+
+# 環境變數
 .env
-.DS_Store
+.env.local
+.env.production
+
+# 日誌
+logs/
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+
+# 作業系統
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 臨時檔案
+tmp/
+temp/
+*.tmp
+
+# 測試和開發
+test-*.js
+*-test.js
+coverage/
+
+# 備份檔案
+*.bak
+*.backup
+*-old.*
+*-backup.*
+
+# Railway
+.railway/
+

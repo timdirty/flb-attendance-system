@@ -1823,40 +1823,54 @@ function updateDisplayForDirectRedirect() {
 
 // 顯示成功提示
 function showToast(message, type = 'success') {
+    console.log('🔔 顯示Toast通知:', { message, type });
+    
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toast-message');
     const toastIcon = toast.querySelector('i');
+    
+    if (!toast || !toastMessage || !toastIcon) {
+        console.error('❌ Toast元素未找到:', { toast, toastMessage, toastIcon });
+        return;
+    }
     
     // 處理多行文字，將 \n 轉換為 <br>
     const formattedMessage = message.replace(/\n/g, '<br>');
     toastMessage.innerHTML = formattedMessage;
     
     // 根據類型設定圖示
-    toastIcon.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-info-circle';
-    toast.className = `toast ${type} show`;
+    if (type === 'success') {
+        toastIcon.className = 'fas fa-check-circle';
+    } else if (type === 'error') {
+        toastIcon.className = 'fas fa-exclamation-circle';
+    } else if (type === 'warning') {
+        toastIcon.className = 'fas fa-exclamation-triangle';
+    } else {
+        toastIcon.className = 'fas fa-info-circle';
+    }
+    
+    // 先移除所有類別，再添加新的類別
+    toast.className = 'toast';
+    toast.classList.add(type, 'show');
+    
+    console.log('🔔 Toast類別已設置:', toast.className);
     
     // 根據訊息長度調整顯示時間
     const messageLength = message.length;
     const displayTime = Math.max(3000, Math.min(8000, messageLength * 100)); // 最少3秒，最多8秒
     
+    console.log('🔔 Toast將在', displayTime, 'ms後隱藏');
+    
     setTimeout(() => {
         toast.classList.remove('show');
+        console.log('🔔 Toast已隱藏');
     }, displayTime);
 }
 
 // 顯示錯誤提示
 function showError(message) {
-    const toast = document.getElementById('toast');
-    const toastMessage = document.getElementById('toast-message');
-    const toastIcon = toast.querySelector('i');
-    
-    toastMessage.textContent = message;
-    toastIcon.className = 'fas fa-exclamation-circle';
-    toast.className = 'toast error show';
-    
-    setTimeout(() => {
-        toast.classList.remove('show');
-    }, 4000);
+    console.log('🔔 顯示錯誤Toast:', message);
+    showToast(message, 'error');
 }
 
 // 字數統計

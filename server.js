@@ -3,7 +3,7 @@ const axios = require('axios');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
-const config = require('./config');
+const config = require('./src/config');
 // const DatabaseManager = require('./database'); // 已改用 Google Sheets 資料庫
 
 // 引入講師ID對應表模組
@@ -16,7 +16,7 @@ const {
     isTeacherExists,
     isLineIdExists,
     getTeacherCount
-} = require('./teacher_mapping');
+} = require('./src/teacher_mapping');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -86,11 +86,11 @@ const GOOGLE_SHEETS_API = 'https://script.google.com/macros/s/AKfycbycZtdm2SGy07
 const GOOGLE_SHEETS_COOKIE = 'NID=525=IPIqwCVm1Z3C00Y2MFXoevvCftm-rj9UdMlgYFhlRAHY0MKSCbEO7I8EBlGrz-nwjYxoXSFUrDHBqGrYNUotcoSE3v2npcVn-j3QZsc6SAKkZcMLR6y1MkF5dZlXnbBIqWgw9cJLT3SvAvmpXUZa6RADuBXFDZpvSM85zYAoym0yXcBn3C4ayGgOookqVJaH';
 
 // 資料庫實例 - 使用Google Sheets資料庫
-const GoogleSheetsDatabaseWithLocal = require('./googleSheetsDatabaseWithLocal');
+const GoogleSheetsDatabaseWithLocal = require('./src/googleSheetsDatabaseWithLocal');
 const db = new GoogleSheetsDatabaseWithLocal();
 
 // 設定 API 路由
-const setupSettingsRoutes = require('./settings-api');
+const setupSettingsRoutes = require('./src/settings-api');
 
 // 新的資料庫會自動處理初始化同步
 
