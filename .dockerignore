@@ -1,21 +1,45 @@
+# 依賴項
 node_modules
 npm-debug.log
+yarn-error.log
+
+# Git
 .git
 .gitignore
-README.md
+
+# 環境變數
 .env
-.nyc_output
-coverage
-.nyc_output
-.coverage
-.coverage/
-.coverage.*
-.cache
-.parcel-cache
-.DS_Store
-*.log
-logs
-nas-deployment
-deploy*.sh
+.env.local
+.env.production
+
+# 文檔
 *.md
-test*.js
+docs/
+CLEANUP_REPORT.md
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# 系統檔案
+.DS_Store
+Thumbs.db
+
+# 日誌
+logs/
+*.log
+
+# 測試檔案
+test/
+coverage/
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# 備份檔案
+*.bak
+*.backup

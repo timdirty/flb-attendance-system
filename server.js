@@ -5040,6 +5040,53 @@ app.get('/api/teacher-bindings/:userId', async (req, res) => {
     }
 });
 
+// ==================== 健康檢查端點 ====================
+app.get('/health', (req, res) => {
+    res.status(200).json({ 
+        status: 'ok',
+        service: 'FLB LINE Bot',
+        timestamp: new Date().toISOString(),
+        uptime: Math.floor(process.uptime()),
+        memory: process.memoryUsage(),
+        version: '1.0.0'
+    });
+});
+
+// 根路徑（歡迎訊息）
+app.get('/', (req, res) => {
+    res.send(`
+        <html>
+            <head>
+                <title>FLB LINE Bot</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        max-width: 600px;
+                        margin: 50px auto;
+                        padding: 20px;
+                        text-align: center;
+                    }
+                    h1 { color: #00B900; }
+                    .status { 
+                        background: #d4edda; 
+                        padding: 15px; 
+                        border-radius: 8px;
+                        margin: 20px 0;
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>🎓 FLB 樂程坊簽到系統</h1>
+                <div class="status">
+                    <p>✅ 系統運行中</p>
+                    <p>運行時間：${Math.floor(process.uptime())} 秒</p>
+                </div>
+                <p>這是一個 LINE Bot 服務，請從 LINE 使用。</p>
+            </body>
+        </html>
+    `);
+});
+
 // 啟動伺服器
 async function startServer() {
     try {

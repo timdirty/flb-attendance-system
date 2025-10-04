@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  flb-line-bot:
+    build: .
+    image: flb-line-bot:latest
+    container_name: flb-line-bot
+    restart: unless-stopped
+    
+    ports:
+      - "3000:3000"
+    
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - TZ=Asia/Taipei
+      
+      # LINE Bot 設定（從 .env 讀取）
+      - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
+      - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET}
+      - LINE_USER_ID=${LINE_USER_ID}
+      
+      # Google Sheets 設定
+      - GOOGLE_SHEETS_API=${GOOGLE_SHEETS_API}
+      - GOOGLE_SHEETS_COOKIE=${GOOGLE_SHEETS_COOKIE}
+    
+    volumes:
+      # 資料持久化（使用絕對路徑或相對路徑）
+      - ./data:/app/data
+      # 日誌
+      - ./logs:/app/logs
+    
+    networks:
+      - flb-network
+    
+    # 資源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          memory: 256M
+    
+    # 健康檢查
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      start_period: 40s
+      retries: 3
+
+networks:
+  flb-network:
+    driver: bridge
+
