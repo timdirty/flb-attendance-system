@@ -24,9 +24,42 @@ FLB 處理簽到      AIbot 處理對話
 
 ---
 
-## ⚡ 快速設定（3 步驟）
+## ⚡ 快速設定（4 步驟）
 
-### 步驟 1：重新部署 FLB 主系統
+### 步驟 0：生成 API Key（重要！）
+
+```bash
+# 生成安全的 API Key
+openssl rand -hex 32
+
+# 或使用 Node.js
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# 複製生成的 Key，稍後會用到
+```
+
+⚠️ **這個 API Key 要在兩邊設定：**
+- FLB 主系統（轉發時使用）
+- AIbot 系統（驗證時使用）
+
+### 步驟 1：在 AIbot 設定 API Key
+
+在 AIbot 的 `.env` 中設定（應該已經設定好）：
+
+```bash
+# Webhook 轉發接收設定
+WEBHOOK_FORWARD_API_KEY=your-secret-api-key-here
+WEBHOOK_FORWARD_LOG=true
+```
+
+然後重啟 AIbot：
+
+```bash
+cd /path/to/AIbot
+sudo docker-compose restart
+```
+
+### 步驟 2：重新部署 FLB 主系統
 
 ```bash
 # SSH 到 NAS
@@ -39,10 +72,14 @@ cd "/volume1/homes/ctctim14/樂程坊計畫/課程資料/Cursor/FLB簽到系統�
 ./deploy-on-nas.sh
 ```
 
-### 步驟 2：設定轉發到 AIbot
+### 步驟 3：設定轉發到 AIbot
 
 ```bash
-# 執行設定腳本
+# 使用設定腳本（推薦）
+./setup-aibot-forward.sh YOUR_API_KEY
+
+# 或使用環境變數
+export AIBOT_API_KEY=YOUR_API_KEY
 ./setup-aibot-forward.sh
 ```
 
@@ -53,12 +90,17 @@ curl -X POST http://localhost:3010/api/webhook-forward/targets \
   -H "Content-Type: application/json" \
   -d '{
     "name": "AIbot",
-    "url": "https://AIbot.funlearnbar.synology.me/webhook",
-    "enabled": true
+    "url": "https://AIbot.funlearnbar.synology.me/api/webhook/receive",
+    "enabled": true,
+    "timeout": 10000,
+    "headers": {
+      "Authorization": "Bearer YOUR_API_KEY",
+      "X-Forwarded-From": "FLB-LINE-Bot"
+    }
   }'
 ```
 
-### 步驟 3：測試
+### 步驟 4：測試
 
 在 LINE 發送訊息，兩個系統都會收到：
 - ✅ FLB 簽到系統
@@ -68,7 +110,7 @@ curl -X POST http://localhost:3010/api/webhook-forward/targets \
 
 ## 📋 確認 AIbot 已準備接收
 
-AIbot 專案需要有 `/webhook` 端點：
+AIbot 專案需要有 `/api/webhook/receive` 端點：
 
 ```javascript
 // AIbot 的 server.js 需要有這個端點
