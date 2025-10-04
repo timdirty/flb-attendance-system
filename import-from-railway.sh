@@ -94,3 +94,6 @@ echo "  執行: ./deploy-to-nas.sh"
 echo "  或執行: docker-compose up -d"
 echo ""
 
+
+
+

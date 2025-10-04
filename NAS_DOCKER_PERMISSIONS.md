@@ -192,3 +192,6 @@ docker logs flb-line-bot
 
 這樣以後就不需要每次都加 sudo 了！
 
+
+
+

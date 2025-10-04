@@ -92,6 +92,15 @@ const db = new GoogleSheetsDatabaseWithLocal();
 // 設定 API 路由
 const setupSettingsRoutes = require('./src/settings-api');
 
+// Webhook 轉發器
+const WebhookForwarder = require('./src/webhook-forwarder');
+const webhookForwarder = new WebhookForwarder({
+    targets: process.env.WEBHOOK_FORWARD_TARGETS ? 
+        JSON.parse(process.env.WEBHOOK_FORWARD_TARGETS) : [],
+    timeout: 5000,
+    logEnabled: process.env.WEBHOOK_FORWARD_LOG !== 'false'
+});
+
 // 新的資料庫會自動處理初始化同步
 
 
@@ -4323,7 +4332,13 @@ app.post('/api/query-report', async (req, res) => {
 app.post('/webhook', async (req, res) => {
     console.log('收到 LINE Webhook 請求:', req.body);
     
+    // 立即回應 LINE 伺服器
     res.status(200).send('OK');
+    
+    // 非同步轉發 webhook（不阻塞主流程）
+    webhookForwarder.forward(req.body).catch(error => {
+        console.error('Webhook 轉發失敗:', error);
+    });
     
     const events = req.body.events;
     if (events && events.length > 0) {
@@ -5036,6 +5051,96 @@ app.get('/api/teacher-bindings/:userId', async (req, res) => {
         res.status(500).json({ 
             success: false, 
             error: '查詢綁定記錄失敗' 
+        });
+    }
+});
+
+// ==================== Webhook 轉發管理 API ====================
+
+// 查看轉發狀態
+app.get('/api/webhook-forward/status', (req, res) => {
+    try {
+        const status = webhookForwarder.getStatus();
+        res.json({
+            success: true,
+            ...status
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// 新增轉發目標
+app.post('/api/webhook-forward/targets', (req, res) => {
+    try {
+        const target = req.body;
+        webhookForwarder.addTarget(target);
+        res.json({
+            success: true,
+            message: '轉發目標已新增',
+            status: webhookForwarder.getStatus()
+        });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// 啟用/停用目標
+app.patch('/api/webhook-forward/targets/:nameOrUrl', (req, res) => {
+    try {
+        const { nameOrUrl } = req.params;
+        const { enabled } = req.body;
+        
+        const success = webhookForwarder.toggleTarget(decodeURIComponent(nameOrUrl), enabled);
+        
+        if (success) {
+            res.json({
+                success: true,
+                message: `目標已${enabled ? '啟用' : '停用'}`,
+                status: webhookForwarder.getStatus()
+            });
+        } else {
+            res.status(404).json({
+                success: false,
+                error: '找不到指定的目標'
+            });
+        }
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// 移除轉發目標
+app.delete('/api/webhook-forward/targets/:nameOrUrl', (req, res) => {
+    try {
+        const { nameOrUrl } = req.params;
+        const success = webhookForwarder.removeTarget(decodeURIComponent(nameOrUrl));
+        
+        if (success) {
+            res.json({
+                success: true,
+                message: '轉發目標已移除',
+                status: webhookForwarder.getStatus()
+            });
+        } else {
+            res.status(404).json({
+                success: false,
+                error: '找不到指定的目標'
+            });
+        }
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            error: error.message
         });
     }
 });

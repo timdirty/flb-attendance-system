@@ -341,3 +341,6 @@ ssh ctctim14@YOUR_NAS_IP "cd '/volume1/homes/ctctim14/樂程坊計畫/課程資�
 
 **享受便捷的開發和部署體驗！** 🚀
 
+
+
+
