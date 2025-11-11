@@ -30,7 +30,12 @@
 3. **驗證**：執行相應測試（本機測試、API 測試、LINE 實際測試），並在回報中列出執行結果。
 4. **紀錄**：更新文件（本檔、`docs/` 或對應 README）、必要時備份與記錄回滾方案。
 5. **文件整理**：每次任務完成後，整理專案文件，將 .md 檔案分門別類到 `docs/` 對應目錄。
-6. **版控回報**：每次進度更新務必附上測試結果與 `git status`/`git commit` 訊息。
+6. **版控提交**：每次任務完成後，必須執行 Git 版本控制流程：
+   ```bash
+   git add -A
+   git commit -m "📝 描述變更內容"
+   git push origin main
+   ```
 
 ### 1.3 註解與日誌
 
@@ -47,15 +52,47 @@
 
 ## 2. 專案根目錄與環境
 
-- **專案根目錄**：`/volume1/homes/ctctim14/樂程坊計畫/課程資料/Cursor/FLB簽到系統（line）`（NAS 部署路徑）。
-- **本機開發路徑**：透過 Synology Drive 同步到本機。
+- **GitHub 專案**：`timdirty/FLB-BOT-sys`（主要版本控制倉庫）
+- **專案根目錄**：`/volume1/homes/ctctim14/樂程坊計畫/課程資料/Cursor/FLB簽到系統（line）`（NAS 部署路徑）
+- **本機開發路徑**：透過 Synology Drive 同步到本機
 - **入口網址**：
   - 本機：`http://localhost:3000`
   - NAS：`http://localhost:3010`（Docker 容器內）
 - **主要入口檔**：
   - 後端：`server.js`（Express 主伺服器，含 API、靜態服務、Webhook 處理）
   - 前端：`public/index.html`（系統首頁）、`public/admin.html`（管理介面）
-- **環境變數（.env）重點**：`NODE_ENV`、`PORT`、`TZ`、LINE Bot 認證、Google Sheets API、Webhook 轉發設定。
+- **環境變數（.env）重點**：`NODE_ENV`、`PORT`、`TZ`、LINE Bot 認證、Google Sheets API、Webhook 轉發設定
+
+### 2.1 Git 版本控制規範
+
+**每次任務完成後必須執行以下流程**：
+
+```bash
+# 1. 檢查變更狀態
+git status
+
+# 2. 添加所有變更
+git add -A
+
+# 3. 提交變更（使用清楚的 commit 訊息）
+git commit -m "📝 [類型] 簡短描述
+
+✅ 完成項目：
+- 項目 1
+- 項目 2
+
+🤖 Generated with Claude Code
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+# 4. 推送到 GitHub
+git push origin main
+```
+
+**Commit 訊息規範**：
+- 使用 emoji 標記類型：📚 文檔、✨ 新功能、🐛 修復、♻️ 重構、🎨 樣式、⚡ 性能、🔧 配置
+- 第一行簡短描述（50 字內）
+- 空一行後列出詳細變更項目
+- 結尾加上 Claude Code 標記
 
 ---
 
