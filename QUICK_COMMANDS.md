@@ -379,6 +379,63 @@ source ~/.bashrc
 
 ---
 
+## 👥 群組管理 API
+
+### 查看所有群組
+
+```bash
+# 本機測試
+curl http://localhost:3000/api/groups | jq
+
+# NAS 上
+curl http://localhost:3010/api/groups | jq
+```
+
+### 查看群組統計
+
+```bash
+# 本機測試
+curl http://localhost:3000/api/group-stats | jq
+
+# NAS 上
+curl http://localhost:3010/api/group-stats | jq
+```
+
+### 查看單一群組
+
+```bash
+# 替換 GROUP_ID 為實際的群組 ID
+curl http://localhost:3010/api/groups/GROUP_ID | jq
+```
+
+### 搜尋群組
+
+```bash
+# 搜尋包含「測試」的群組
+curl http://localhost:3010/api/groups/search/測試 | jq
+```
+
+### 更新群組名稱
+
+```bash
+# 替換 GROUP_ID 和群組名稱
+curl -X PATCH http://localhost:3010/api/groups/GROUP_ID \
+  -H "Content-Type: application/json" \
+  -d '{"groupName": "新的群組名稱"}' | jq
+```
+
+### 查看群組日誌
+
+```bash
+# 只看群組相關日誌
+sudo docker logs -f flb-line-bot | grep "群組"
+
+# 只看群組記錄成功的日誌
+sudo docker logs -f flb-line-bot | grep "群組活動已記錄"
+```
+
+---
+
 ## 📚 文檔快速連結
 
 | 文檔 | 說明 |
@@ -388,6 +445,7 @@ source ~/.bashrc
 | [WEBHOOK_FORWARD_GUIDE.md](./WEBHOOK_FORWARD_GUIDE.md) | Webhook 轉發完整文檔 |
 | [DOCKER_COMMANDS.md](./DOCKER_COMMANDS.md) | Docker 指令大全 |
 | [SYNOLOGY_DRIVE_DEPLOY.md](./SYNOLOGY_DRIVE_DEPLOY.md) | Synology Drive 部署 |
+| [GROUP_TRACKING.md](./docs/GROUP_TRACKING.md) | 群組資訊記錄功能 |
 
 ---
 

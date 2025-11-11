@@ -1,0 +1,24 @@
+[
+  {
+    "name": "AIbot",
+    "url": "https://AIbot.funlearnbar.synology.me/api/webhook/receive",
+    "method": "POST",
+    "enabled": false,
+    "headers": {},
+    "timeout": 5000
+  },
+  {
+    "name": "FLB課程提醒系統",
+    "url": "https://calendar.funlearnbar.synology.me/webhook/line",
+    "method": "POST",
+    "enabled": true,
+    "headers": {},
+    "timeout": 5000
+  }
+]
+
+
+
+
+
+

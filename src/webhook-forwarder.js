@@ -10,11 +10,13 @@
  */
 
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 class WebhookForwarder {
     constructor(config = {}) {
-        // 轉發目標列表
-        this.targets = config.targets || [];
+        // 持久化檔案路徑
+        this.persistFile = config.persistFile || path.join(__dirname, '../data/webhook-targets.json');
         
         // 全域設定
         this.timeout = config.timeout || 5000; // 5秒超時
@@ -24,7 +26,60 @@ class WebhookForwarder {
         // 過濾設定
         this.filters = config.filters || {};
         
+        // 載入持久化的目標
+        this.targets = this.loadTargets() || config.targets || [];
+        
         console.log(`🔄 Webhook 轉發器已初始化，共 ${this.targets.length} 個目標`);
+    }
+    
+    /**
+     * 從檔案載入目標
+     */
+    loadTargets() {
+        try {
+            if (fs.existsSync(this.persistFile)) {
+                const data = fs.readFileSync(this.persistFile, 'utf8');
+                const loaded = JSON.parse(data);
+                if (this.logEnabled) {
+                    console.log(`📂 從檔案載入 ${loaded.length} 個轉發目標`);
+                }
+                return loaded;
+            }
+        } catch (error) {
+            console.error('❌ 載入轉發目標失敗:', error.message);
+        }
+        return null;
+    }
+    
+    /**
+     * 儲存目標到檔案
+     */
+    saveTargets() {
+        try {
+            // 確保目錄存在
+            const dir = path.dirname(this.persistFile);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            
+            // 儲存目標（排除 transform 函數，因為無法序列化）
+            const targetsToSave = this.targets.map(t => ({
+                name: t.name,
+                url: t.url,
+                method: t.method,
+                enabled: t.enabled,
+                headers: t.headers,
+                timeout: t.timeout
+            }));
+            
+            fs.writeFileSync(this.persistFile, JSON.stringify(targetsToSave, null, 2), 'utf8');
+            
+            if (this.logEnabled) {
+                console.log(`💾 已儲存 ${targetsToSave.length} 個轉發目標到檔案`);
+            }
+        } catch (error) {
+            console.error('❌ 儲存轉發目標失敗:', error.message);
+        }
     }
     
     /**
@@ -287,6 +342,9 @@ class WebhookForwarder {
         if (this.logEnabled) {
             console.log(`➕ 已新增轉發目標：${target.name} (${target.url})`);
         }
+        
+        // 儲存到檔案
+        this.saveTargets();
     }
     
     /**
@@ -303,6 +361,9 @@ class WebhookForwarder {
             if (this.logEnabled) {
                 console.log(`➖ 已移除轉發目標：${removed.name}`);
             }
+            
+            // 儲存到檔案
+            this.saveTargets();
             return true;
         }
         
@@ -324,6 +385,9 @@ class WebhookForwarder {
             if (this.logEnabled) {
                 console.log(`${enabled ? '✅' : '⏸️'} ${target.name} 已${enabled ? '啟用' : '停用'}`);
             }
+            
+            // 儲存到檔案
+            this.saveTargets();
             return true;
         }
         

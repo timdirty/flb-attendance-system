@@ -12,7 +12,7 @@ LINE 官方伺服器
    發送 webhook 到
       ↓
 FLB 簽到系統（主系統）
-https://flb.funlearnbar.synology.me/webhook
+https://flbbot.funlearnbar.synology.me/webhook
       ↓
    自動轉發到
       ↓

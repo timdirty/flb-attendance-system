@@ -33,14 +33,14 @@ services:
     networks:
       - flb-network
     
-    # 資源限制
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          memory: 256M
+    # 資源限制（Synology NAS 不支援 CPUs 限制）
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '1.0'
+    #       memory: 512M
+    #     reservations:
+    #       memory: 256M
     
     # 健康檢查
     healthcheck:

@@ -3,6 +3,7 @@ const axios = require('axios');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
+const fs = require('fs');
 const config = require('./src/config');
 // const DatabaseManager = require('./database'); // 已改用 Google Sheets 資料庫
 
@@ -103,6 +104,1291 @@ const webhookForwarder = new WebhookForwarder({
 
 // 新的資料庫會自動處理初始化同步
 
+// ==================== 學生請假功能 ====================
+
+// 暫存等待理由的請假申請
+const pendingLeaves = new Map();
+
+/**
+ * 解析 postback data
+ */
+function parsePostbackData(dataString) {
+    try {
+        return JSON.parse(dataString);
+    } catch (e) {
+        console.error('❌ 無法解析 postback data:', dataString);
+        return {};
+    }
+}
+
+/**
+ * 發送請假理由選項
+ */
+async function sendLeaveReasonOptions(userId, postbackData, replyToken = null) {
+    const message = {
+        type: 'text',
+        text: `🏥 ${postbackData.studentName} - ${postbackData.courseName}\n${postbackData.courseDate}\n\n請選擇請假理由：`,
+        quickReply: {
+            items: [
+                {
+                    type: 'action',
+                    action: {
+                        type: 'postback',
+                        label: '🤒 生病',
+                        data: JSON.stringify({
+                            action: 'leave_reason',
+                            reason: '生病',
+                            studentName: postbackData.studentName,
+                            courseName: postbackData.courseName,
+                            courseDate: postbackData.courseDate,
+                            courseTime: postbackData.courseTime,
+                            location: postbackData.location,
+                            weekday: postbackData.weekday
+                        }),
+                        displayText: '🤒 生病'
+                    }
+                },
+                {
+                    type: 'action',
+                    action: {
+                        type: 'postback',
+                        label: '👨‍👩‍👧 家庭因素',
+                        data: JSON.stringify({
+                            action: 'leave_reason',
+                            reason: '家庭因素',
+                            studentName: postbackData.studentName,
+                            courseName: postbackData.courseName,
+                            courseDate: postbackData.courseDate,
+                            courseTime: postbackData.courseTime,
+                            location: postbackData.location,
+                            weekday: postbackData.weekday
+                        }),
+                        displayText: '👨‍👩‍👧 家庭因素'
+                    }
+                },
+                {
+                    type: 'action',
+                    action: {
+                        type: 'postback',
+                        label: '⚠️ 臨時有事',
+                        data: JSON.stringify({
+                            action: 'leave_reason',
+                            reason: '臨時有事',
+                            studentName: postbackData.studentName,
+                            courseName: postbackData.courseName,
+                            courseDate: postbackData.courseDate,
+                            courseTime: postbackData.courseTime,
+                            location: postbackData.location,
+                            weekday: postbackData.weekday
+                        }),
+                        displayText: '⚠️ 臨時有事'
+                    }
+                },
+                {
+                    type: 'action',
+                    action: {
+                        type: 'postback',
+                        label: '📝 其他',
+                        data: JSON.stringify({
+                            action: 'leave_reason',
+                            reason: '其他',
+                            studentName: postbackData.studentName,
+                            courseName: postbackData.courseName,
+                            courseDate: postbackData.courseDate,
+                            courseTime: postbackData.courseTime,
+                            location: postbackData.location,
+                            weekday: postbackData.weekday
+                        }),
+                        displayText: '📝 其他'
+                    }
+                }
+            ]
+        }
+    };
+    
+    try {
+        // 如果有 replyToken，使用 reply；否則使用 push
+        if (replyToken) {
+            await axios.post('https://api.line.me/v2/bot/message/reply', {
+                replyToken: replyToken,
+                messages: [message]
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000
+            });
+            console.log('✅ 已發送請假理由選項 (reply)');
+        } else {
+            await axios.post(LINE_MESSAGING_API, {
+                to: userId,
+                messages: [message]
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000
+            });
+            console.log('✅ 已發送請假理由選項 (push)');
+        }
+    } catch (error) {
+        console.error('❌ 發送請假理由選項失敗:', error.response?.data || error.message);
+        throw error;
+    }
+}
+
+/**
+ * 建立出席確認 Flex Message（精簡版）
+ */
+function createAttendanceConfirmationFlexMessage(data) {
+    const { studentName, courseName, courseDate, courseTime, location, weekday, responseType, leaveReason } = data;
+    
+    // 根據回應類型設定顏色和文字
+    const config = {
+        attend: {
+            icon: '✅',
+            statusText: '會出席',
+            color: '#10b981',
+            emoji: '😊'
+        },
+        pending: {
+            icon: '⏳',
+            statusText: '待確認',
+            color: '#f59e0b',
+            emoji: '🤔'
+        },
+        leave: {
+            icon: '🏥',
+            statusText: '請假',
+            color: '#ef4444',
+            emoji: '😷'
+        }
+    };
+    
+    const { icon, statusText, color, emoji } = config[responseType] || config.attend;
+    
+    // 建立課程資訊列表（只顯示有值的欄位）
+    const courseInfoItems = [];
+    
+    // 課程名稱（如果有）
+    if (courseName) {
+        courseInfoItems.push({
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+                {
+                    type: 'text',
+                    text: '📚',
+                    size: 'sm',
+                    flex: 0,
+                    margin: 'sm'
+                },
+                {
+                    type: 'text',
+                    text: courseName,
+                    size: 'sm',
+                    color: '#333333',
+                    weight: 'bold',
+                    wrap: true,
+                    margin: 'sm'
+                }
+            ]
+        });
+    }
+    
+    // 日期時間（必顯示）
+    const dateTimeText = weekday ? 
+        `${courseDate} ${weekday}${courseTime ? ` ${courseTime}` : ''}` : 
+        `${courseDate}${courseTime ? ` ${courseTime}` : ''}`;
+    
+    courseInfoItems.push({
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+            {
+                type: 'text',
+                text: '📅',
+                size: 'sm',
+                flex: 0,
+                margin: 'sm'
+            },
+            {
+                type: 'text',
+                text: dateTimeText,
+                size: 'sm',
+                color: '#333333',
+                wrap: true,
+                margin: 'sm'
+            }
+        ]
+    });
+    
+    // 地點（如果有）
+    if (location) {
+        courseInfoItems.push({
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+                {
+                    type: 'text',
+                    text: '📍',
+                    size: 'sm',
+                    flex: 0,
+                    margin: 'sm'
+                },
+                {
+                    type: 'text',
+                    text: location,
+                    size: 'sm',
+                    color: '#333333',
+                    wrap: true,
+                    margin: 'sm'
+                }
+            ]
+        });
+    }
+    
+    const contents = [
+        // 標題區塊（含 Logo）
+        {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+                {
+                    type: 'box',
+                    layout: 'vertical',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: `${icon} 已記錄`,
+                            weight: 'bold',
+                            size: 'md',
+                            color: '#FFFFFF'
+                        }
+                    ],
+                    flex: 1
+                },
+                {
+                    type: 'box',
+                    layout: 'vertical',
+                    contents: [
+                        {
+                            type: 'image',
+                            url: 'https://calendar.funlearnbar.synology.me/logo.jpg',
+                            size: 'xxs',
+                            aspectMode: 'cover',
+                            aspectRatio: '1:1'
+                        }
+                    ],
+                    width: '40px',
+                    height: '40px',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                }
+            ],
+            backgroundColor: color,
+            paddingAll: '12px',
+            spacing: 'sm'
+        },
+        // 狀態與學生
+        {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+                {
+                    type: 'text',
+                    text: emoji,
+                    size: 'xl',
+                    flex: 0
+                },
+                {
+                    type: 'box',
+                    layout: 'vertical',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: statusText,
+                            weight: 'bold',
+                            size: 'md',
+                            color: color
+                        },
+                        {
+                            type: 'text',
+                            text: studentName,
+                            size: 'xs',
+                            color: '#666666',
+                            margin: 'xs'
+                        }
+                    ],
+                    margin: 'sm'
+                }
+            ],
+            paddingAll: '12px',
+            backgroundColor: '#F8F9FA'
+        },
+        // 課程資訊
+        {
+            type: 'box',
+            layout: 'vertical',
+            contents: courseInfoItems,
+            paddingAll: '12px',
+            spacing: 'xs'
+        }
+    ];
+    
+    // 如果是請假，添加理由區塊
+    if (responseType === 'leave' && leaveReason) {
+        contents.push({
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                {
+                    type: 'text',
+                    text: '📝 ' + leaveReason,
+                    size: 'xs',
+                    color: '#666666',
+                    wrap: true
+                }
+            ],
+            paddingAll: '12px',
+            backgroundColor: '#FEF2F2'
+        });
+    }
+    
+    // 底部感謝語
+    contents.push({
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+            {
+                type: 'text',
+                text: responseType === 'leave' ? 
+                    '感謝配合！' : 
+                    '期待孩子的出席 🎉',
+                size: 'xxs',
+                color: '#999999',
+                align: 'center'
+            }
+        ],
+        paddingAll: '8px'
+    });
+    
+    return {
+        type: 'bubble',
+        size: 'micro',  // ✅ 精簡尺寸（比 nano 稍大）
+        body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: contents,
+            paddingAll: '0px',
+            spacing: 'none'
+        }
+    };
+}
+
+/**
+ * 儲存請假記錄到 FLB 系統
+ */
+async function saveLeaveToFLB(leaveData) {
+    try {
+        const FLB_API_BASE = 'https://calendar.funlearnbar.synology.me';
+        
+        const response = await axios.post(
+            `${FLB_API_BASE}/api/student-responses`,
+            {
+                studentName: leaveData.studentName,
+                courseName: leaveData.courseName,
+                courseDate: leaveData.courseDate,
+                courseTime: leaveData.courseTime,
+                location: leaveData.location,
+                weekday: leaveData.weekday,
+                responseType: 'leave',
+                leaveReason: leaveData.leaveReason,
+                userId: leaveData.userId,
+                timestamp: leaveData.timestamp
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000
+            }
+        );
+        
+        console.log('✅ 請假記錄已儲存到 FLB 系統');
+        return response.data;
+    } catch (error) {
+        console.error('❌ 儲存請假記錄失敗:', error.message);
+        // 如果 API 不存在，僅記錄警告但不中斷流程
+        console.warn('⚠️ 請假記錄 API 可能尚未實作，但請假流程已完成');
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 儲存一般出席回應到 FLB 系統
+ */
+async function saveResponseToFLB(responseData) {
+    try {
+        const FLB_API_BASE = 'https://calendar.funlearnbar.synology.me';
+        
+        const response = await axios.post(
+            `${FLB_API_BASE}/api/student-responses`,
+            responseData,
+            {
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000
+            }
+        );
+        
+        console.log('✅ 學生回應已儲存到 FLB 系統');
+        return response.data;
+    } catch (error) {
+        console.error('❌ 儲存學生回應失敗:', error.message);
+        console.warn('⚠️ 學生回應 API 可能尚未實作，但回應流程已完成');
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 發送確認訊息給學生
+ */
+async function sendLeaveConfirmation(userId, leaveInfo, reason, replyToken = null) {
+    // ✅ 建立 Flex Message
+    const flexMessage = createAttendanceConfirmationFlexMessage({
+        studentName: leaveInfo.studentName,
+        courseName: leaveInfo.courseName || '',
+        courseDate: leaveInfo.courseDate,
+        courseTime: leaveInfo.courseTime || '',
+        location: leaveInfo.location || '',
+        weekday: leaveInfo.weekday || '',
+        responseType: 'leave',
+        leaveReason: reason
+    });
+    
+    try {
+        if (replyToken) {
+            await axios.post('https://api.line.me/v2/bot/message/reply', {
+                replyToken: replyToken,
+                messages: [{
+                    type: 'flex',
+                    altText: `✅ 已記錄您的請假申請 - ${leaveInfo.studentName}`,
+                    contents: flexMessage
+                }]
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000
+            });
+            console.log('✅ 已發送請假確認 Flex Message (reply)');
+        } else {
+            await axios.post(LINE_MESSAGING_API, {
+                to: userId,
+                messages: [{
+                    type: 'flex',
+                    altText: `✅ 已記錄您的請假申請 - ${leaveInfo.studentName}`,
+                    contents: flexMessage
+                }]
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000
+            });
+            console.log('✅ 已發送請假確認 Flex Message (push)');
+        }
+    } catch (error) {
+        console.error('❌ 發送確認訊息失敗:', error.response?.data || error.message);
+    }
+}
+
+/**
+ * 通知管理員
+ */
+async function notifyAdminAboutLeave(leaveInfo, reason) {
+    const ADMIN_GROUP_ID = process.env.ADMIN_GROUP_ID;
+    
+    if (!ADMIN_GROUP_ID) {
+        console.warn('⚠️ 未設定管理員群組 ID (ADMIN_GROUP_ID)，跳過通知');
+        return;
+    }
+    
+    const messageText = `🏥 學生請假通知\n\n👤 學生：${leaveInfo.studentName}\n📖 課程：${leaveInfo.courseName}\n📅 日期：${leaveInfo.courseDate} ${leaveInfo.weekday || ''}\n⏰ 時間：${leaveInfo.courseTime || ''}\n📍 地點：${leaveInfo.location || ''}\n🏥 理由：${reason}\n⏱️ 回覆時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`;
+    
+    try {
+        await axios.post(LINE_MESSAGING_API, {
+            to: ADMIN_GROUP_ID,
+            messages: [{
+                type: 'text',
+                text: messageText
+            }]
+        }, {
+            headers: {
+                'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: 10000
+        });
+        console.log('✅ 已通知管理員');
+    } catch (error) {
+        console.error('❌ 通知管理員失敗:', error.response?.data || error.message);
+    }
+}
+
+/**
+ * 處理 postback 事件（請假功能）
+ */
+async function handlePostback(event) {
+    const rawPostbackData = parsePostbackData(event.postback.data);
+    const userId = event.source.userId;
+    const replyToken = event.replyToken;
+    
+    // ✅ 標準化 postbackData 欄位（支援新舊四種格式）
+    // 格式 1: 完整欄位 (studentName, courseDate, courseTime, courseName, location, weekday)
+    // 格式 2: 簡化欄位 (n, d, t) - 舊版（2025-10-27）
+    // 格式 3: 簡化欄位 (n, d, t, c) - 新版（2025-10-27 更新，添加 courseName）
+    const postbackData = {
+        ...rawPostbackData,
+        studentName: rawPostbackData.studentName || rawPostbackData.n || '',
+        courseDate: rawPostbackData.courseDate || rawPostbackData.d || '',
+        courseTime: rawPostbackData.courseTime || rawPostbackData.t || '',
+        courseName: rawPostbackData.courseName || rawPostbackData.c || '',  // ✅ 添加 c 縮寫支援
+        location: rawPostbackData.location || '',
+        weekday: rawPostbackData.weekday || ''
+    };
+    
+    console.log('📥 收到 postback 事件 (已標準化):', JSON.stringify(postbackData, null, 2));
+    
+    // ------------------------------------
+    // 1️⃣ 學生點擊「🏥 請假」
+    // ------------------------------------
+    if (postbackData.action === 'attendance_reply' && postbackData.response === 'leave') {
+        console.log('🏥 收到請假申請:', postbackData.studentName);
+        
+        // 暫存請假申請
+        const leaveKey = `${userId}_${postbackData.courseDate}`;
+        pendingLeaves.set(leaveKey, {
+            userId,
+            studentName: postbackData.studentName,
+            courseName: postbackData.courseName,
+            courseDate: postbackData.courseDate,
+            courseTime: postbackData.courseTime,
+            location: postbackData.location,
+            weekday: postbackData.weekday,
+            timestamp: new Date().toISOString()
+        });
+        
+        // 發送請假理由選項
+        await sendLeaveReasonOptions(userId, postbackData, replyToken);
+        
+        // 清理過期的暫存（1小時後）
+        setTimeout(() => {
+            if (pendingLeaves.has(leaveKey)) {
+                pendingLeaves.delete(leaveKey);
+                console.log(`🧹 清理過期的請假申請: ${leaveKey}`);
+            }
+        }, 3600000);
+    }
+    
+    // ------------------------------------
+    // 2️⃣ 學生選擇請假理由
+    // ------------------------------------
+    else if (postbackData.action === 'leave_reason') {
+        console.log('📝 收到請假理由:', postbackData.reason);
+        
+        // 嘗試兩種 key 格式：
+        // 1. 單一學生請假：userId_courseDate
+        // 2. 多學生選擇請假：userId_courseDate_studentName
+        const leaveKey1 = `${userId}_${postbackData.courseDate}`;
+        const leaveKey2 = `${userId}_${postbackData.courseDate}_${postbackData.studentName}`;
+        
+        let leaveInfo = pendingLeaves.get(leaveKey1);
+        let leaveKey = leaveKey1;
+        
+        // 如果第一種格式找不到，嘗試第二種格式
+        if (!leaveInfo && postbackData.studentName) {
+            leaveInfo = pendingLeaves.get(leaveKey2);
+            leaveKey = leaveKey2;
+        }
+        
+        if (leaveInfo) {
+            console.log(`✅ 找到請假申請 (key: ${leaveKey}):`, leaveInfo.studentName);
+            
+            // 記錄到 FLB 系統
+            await saveLeaveToFLB({
+                ...leaveInfo,
+                leaveReason: postbackData.reason
+            });
+            
+            // 發送確認訊息給學生
+            await sendLeaveConfirmation(userId, leaveInfo, postbackData.reason, replyToken);
+            
+            // 通知管理員
+            await notifyAdminAboutLeave(leaveInfo, postbackData.reason);
+            
+            // 清理暫存
+            pendingLeaves.delete(leaveKey);
+            console.log(`🧹 已清理請假暫存: ${leaveKey}`);
+        } else {
+            // 找不到對應的請假申請
+            console.warn('⚠️ 找不到對應的請假申請。嘗試的 keys:', {
+                key1: leaveKey1,
+                key2: leaveKey2,
+                availableKeys: Array.from(pendingLeaves.keys())
+            });
+            try {
+                await axios.post('https://api.line.me/v2/bot/message/reply', {
+                    replyToken: replyToken,
+                    messages: [{
+                        type: 'text',
+                        text: '抱歉，找不到對應的請假申請，可能已過期或已處理。請重新操作。'
+                    }]
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 10000
+                });
+            } catch (error) {
+                console.error('❌ 發送錯誤訊息失敗:', error.message);
+            }
+        }
+    }
+    
+    // ------------------------------------
+    // 3️⃣ 其他出席回應（會出席、待確認）
+    // ------------------------------------
+    else if (postbackData.action === 'attendance_reply') {
+        console.log(`📋 收到出席回應: ${postbackData.response}`, postbackData.studentName);
+        
+        // 直接記錄到 FLB 系統
+        await saveResponseToFLB({
+            userId,
+            studentName: postbackData.studentName,
+            courseName: postbackData.courseName || '',
+            courseDate: postbackData.courseDate,
+            courseTime: postbackData.courseTime || '',
+            location: postbackData.location || '',
+            weekday: postbackData.weekday || '',
+            responseType: postbackData.response, // 'attend' or 'pending'
+            timestamp: new Date().toISOString()
+        });
+        
+        // ✅ 發送 Flex Message 確認訊息
+        const flexMessage = createAttendanceConfirmationFlexMessage({
+            studentName: postbackData.studentName,
+            courseName: postbackData.courseName || '',
+            courseDate: postbackData.courseDate,
+            courseTime: postbackData.courseTime || '',
+            location: postbackData.location || '',
+            weekday: postbackData.weekday || '',
+            responseType: postbackData.response
+        });
+        
+        const responseText = postbackData.response === 'attend' ? '會出席' : '待確認';
+        
+        try {
+            await axios.post('https://api.line.me/v2/bot/message/reply', {
+                replyToken: replyToken,
+                messages: [{
+                    type: 'flex',
+                    altText: `✅ 已記錄您的回覆：${responseText} - ${postbackData.studentName}`,
+                    contents: flexMessage
+                }]
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000
+            });
+            console.log(`✅ 已發送 Flex 確認訊息: ${responseText}`);
+        } catch (error) {
+            console.error('❌ 發送確認訊息失敗:', error.message);
+        }
+    }
+    
+    // ------------------------------------
+    // 4️⃣ 多學生出席回應
+    // ------------------------------------
+    else if (postbackData.action === 'multi_student_attendance_reply') {
+        console.log(`👨‍👩‍👧‍👦 收到多學生出席回應: ${postbackData.response}`);
+        console.log('📦 完整的 postbackData:', JSON.stringify(postbackData, null, 2));
+        
+        let { response, count, studentCount, students, names, date } = postbackData;
+        
+        // ✅ 處理 fallback 格式：只有 names 和 date（極簡格式，用於避免超過 300 字元限制）
+        if (!students && names && names.length > 0) {
+            console.log('⚠️ 收到極簡格式（只有學生姓名陣列），重建 students 陣列');
+            students = names.map(name => ({
+                n: name,           // 保持簡化格式
+                d: date || '',
+                t: '',
+                c: ''              // courseName 空值，稍後由行事曆系統補充
+            }));
+        }
+        
+        // 使用 count 或 studentCount，優先使用 count
+        const actualCount = count || studentCount || students?.length || names?.length || 0;
+        
+        if (!students || students.length === 0) {
+            console.error('❌ 多學生回應缺少 students 資料');
+            console.error('📦 收到的 postbackData:', JSON.stringify(postbackData, null, 2));
+            
+            // 發送錯誤提示給用戶
+            try {
+                await axios.post('https://api.line.me/v2/bot/message/reply', {
+                    replyToken: replyToken,
+                    messages: [{
+                        type: 'text',
+                        text: '❌ 系統錯誤：無法取得學生課程資料\n\n請分別為每位孩子回覆出席狀態，或聯繫客服協助。'
+                    }]
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 10000
+                });
+            } catch (error) {
+                console.error('❌ 發送錯誤訊息失敗:', error.message);
+            }
+            return;
+        }
+        
+        // ✅ 相容性處理：支援四種格式
+        // 格式 1: 完整格式（studentName, courseName, courseDate, courseTime）
+        // 格式 2: 縮寫格式（name, course, date, time）
+        // 格式 3: 極簡格式（n, d, t）- 舊版（2025-10-27）
+        // 格式 4: 極簡格式（n, d, t, c）- 新版（2025-10-27 更新，添加 courseName）
+        students = students.map(student => ({
+            studentName: student.studentName || student.name || student.n || '',
+            courseName: student.courseName || student.course || student.c || '',  // ✅ 添加 c 縮寫支援
+            courseDate: student.courseDate || student.date || student.d || '',
+            courseTime: student.courseTime || student.time || student.t || '',
+            location: student.location || '',
+            weekday: student.weekday || ''
+        }));
+        console.log('✅ 已標準化 students 資料:', JSON.stringify(students, null, 2));
+        
+        // ------------------------------------
+        // A) 全部會出席
+        // ------------------------------------
+        if (response === 'attend_all') {
+            console.log(`✅ 處理全部出席: ${actualCount} 位孩子`);
+            
+            // 批次更新所有孩子的出席狀態
+            const updatePromises = students.map(student => 
+                saveResponseToFLB({
+                    userId,
+                    studentName: student.studentName,
+                    courseName: student.courseName,
+                    courseDate: student.courseDate,
+                    courseTime: student.courseTime || '',
+                    location: student.location || '',
+                    weekday: student.weekday || '',
+                    responseType: 'attend',
+                    timestamp: new Date().toISOString()
+                })
+            );
+            
+            try {
+                await Promise.all(updatePromises);
+                console.log(`✅ 已更新 ${actualCount} 位孩子的出席狀態`);
+                
+                // ✅ 使用 Flex Message (單個或 Carousel)
+                if (students.length === 1) {
+                    // 單個學生
+                    const flexMessage = createAttendanceConfirmationFlexMessage({
+                        studentName: students[0].studentName,
+                        courseName: students[0].courseName || '',
+                        courseDate: students[0].courseDate,
+                        courseTime: students[0].courseTime || '',
+                        location: students[0].location || '',
+                        weekday: students[0].weekday || '',
+                        responseType: 'attend'
+                    });
+                    
+                    await axios.post('https://api.line.me/v2/bot/message/reply', {
+                        replyToken: replyToken,
+                        messages: [{
+                            type: 'flex',
+                            altText: `✅ 已確認 ${students[0].studentName} 會出席`,
+                            contents: flexMessage
+                        }]
+                    }, {
+                        headers: {
+                            'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 10000
+                    });
+                } else {
+                    // 多個學生：使用 Carousel
+                    const bubbles = students.map(student => 
+                        createAttendanceConfirmationFlexMessage({
+                            studentName: student.studentName,
+                            courseName: student.courseName || '',
+                            courseDate: student.courseDate,
+                            courseTime: student.courseTime || '',
+                            location: student.location || '',
+                            weekday: student.weekday || '',
+                            responseType: 'attend'
+                        })
+                    );
+                    
+                    await axios.post('https://api.line.me/v2/bot/message/reply', {
+                        replyToken: replyToken,
+                        messages: [{
+                            type: 'flex',
+                            altText: `✅ 已確認 ${actualCount} 位孩子全部會出席`,
+                            contents: {
+                                type: 'carousel',
+                                contents: bubbles.slice(0, 10)  // LINE 限制最多 10 個 bubble
+                            }
+                        }]
+                    }, {
+                        headers: {
+                            'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 10000
+                    });
+                }
+                
+            } catch (error) {
+                console.error('❌ 批次更新出席狀態失敗:', error.message);
+            }
+        }
+        
+        // ------------------------------------
+        // B) 部分需要請假
+        // ------------------------------------
+        else if (response === 'leave_some') {
+            console.log(`🏥 需要請假: 準備詢問具體是哪位孩子`);
+            
+            // 暫存多學生請假資訊
+            const leaveKey = `multi_${userId}_${students[0].courseDate}`;
+            pendingLeaves.set(leaveKey, {
+                userId,
+                students: students,
+                courseDate: students[0].courseDate,
+                timestamp: new Date().toISOString()
+            });
+            
+            // 發送選擇孩子的訊息（Quick Reply）
+            // ✅ 先添加「全部都請假」選項
+            const quickReplyItems = [
+                {
+                    type: 'action',
+                    action: {
+                        type: 'postback',
+                        label: '🏥 全部都請假',
+                        data: JSON.stringify({
+                            action: 'leave_all_students',
+                            courseDate: students[0].courseDate,  // 只傳遞日期，從 pendingLeaves 獲取完整資料
+                            count: actualCount
+                        }),
+                        displayText: '🏥 全部都請假'
+                    }
+                },
+                // 然後添加個別學生選項
+                ...students.map(student => {
+                    // 確保 label 不超過 20 字元
+                    const courseName = student.courseName || '';
+                    const shortCourseName = courseName.length > 10 ? courseName.substring(0, 10) + '...' : courseName;
+                    const label = `${student.studentName} - ${shortCourseName}`;
+                    
+                    const postbackData = {
+                        action: 'select_leave_student',
+                        studentName: student.studentName,
+                        courseName: student.courseName,
+                        courseDate: student.courseDate,
+                        courseTime: student.courseTime || '',
+                        location: student.location || '',
+                        weekday: student.weekday || ''
+                    };
+                    
+                    const dataString = JSON.stringify(postbackData);
+                    console.log(`📏 Quick Reply data 長度: ${dataString.length} 字元`);
+                    
+                    if (dataString.length > 300) {
+                        console.warn(`⚠️ postback data 超過 300 字元 (${dataString.length})，進行簡化`);
+                        // 簡化版本
+                        return {
+                            type: 'action',
+                            action: {
+                                type: 'postback',
+                                label: label.substring(0, 20),
+                                data: JSON.stringify({
+                                    action: 'select_leave_student',
+                                    studentName: student.studentName,
+                                    courseName: student.courseName,
+                                    courseDate: student.courseDate,
+                                    courseTime: student.courseTime || ''
+                                }),
+                                displayText: `${student.studentName} 需要請假`
+                            }
+                        };
+                    }
+                    
+                    return {
+                        type: 'action',
+                        action: {
+                            type: 'postback',
+                            label: label.substring(0, 20),
+                            data: dataString,
+                            displayText: `${student.studentName} 需要請假`
+                        }
+                    };
+                })
+            ];
+            
+            const message = {
+                type: 'text',
+                text: `🏥 請選擇需要請假的孩子：`,
+                quickReply: {
+                    items: quickReplyItems
+                }
+            };
+            
+            console.log('📤 準備發送 Quick Reply:', JSON.stringify(message, null, 2));
+            
+            try {
+                await axios.post('https://api.line.me/v2/bot/message/reply', {
+                    replyToken: replyToken,
+                    messages: [message]
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 10000
+                });
+                console.log('✅ 已發送選擇請假孩子的訊息');
+                
+                // 清理過期的暫存（1小時後）
+                setTimeout(() => {
+                    if (pendingLeaves.has(leaveKey)) {
+                        pendingLeaves.delete(leaveKey);
+                        console.log(`🧹 清理過期的多學生請假申請: ${leaveKey}`);
+                    }
+                }, 3600000);
+                
+            } catch (error) {
+                console.error('❌ 發送選擇請假孩子訊息失敗:', error.message);
+                if (error.response) {
+                    console.error('📦 錯誤回應狀態:', error.response.status);
+                    console.error('📦 錯誤回應資料:', JSON.stringify(error.response.data, null, 2));
+                }
+                
+                // 發送錯誤提示給用戶
+                try {
+                    await axios.post('https://api.line.me/v2/bot/message/push', {
+                        to: userId,
+                        messages: [{
+                            type: 'text',
+                            text: '❌ 系統處理請假申請時發生錯誤\n\n請稍後再試，或分別為每位孩子回覆出席狀態。'
+                        }]
+                    }, {
+                        headers: {
+                            'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 10000
+                    });
+                } catch (pushError) {
+                    console.error('❌ 發送錯誤提示也失敗:', pushError.message);
+                }
+            }
+        }
+        
+        // ------------------------------------
+        // C) 稍後確認
+        // ------------------------------------
+        else if (response === 'pending') {
+            console.log(`⏳ 稍後確認: ${actualCount} 位孩子`);
+            
+            // 批次更新所有孩子的狀態為待確認
+            const updatePromises = students.map(student => 
+                saveResponseToFLB({
+                    userId,
+                    studentName: student.studentName,
+                    courseName: student.courseName,
+                    courseDate: student.courseDate,
+                    courseTime: student.courseTime || '',
+                    location: student.location || '',
+                    weekday: student.weekday || '',
+                    responseType: 'pending',
+                    timestamp: new Date().toISOString()
+                })
+            );
+            
+            try {
+                await Promise.all(updatePromises);
+                console.log(`✅ 已更新 ${actualCount} 位孩子為待確認狀態`);
+                
+                // 發送確認訊息
+                const studentList = students.map(s => `  • ${s.studentName} - ${s.courseName}`).join('\n');
+                await axios.post('https://api.line.me/v2/bot/message/reply', {
+                    replyToken: replyToken,
+                    messages: [{
+                        type: 'text',
+                        text: `⏳ 已記錄，請稍後確認 ${actualCount} 位孩子的出缺席\n\n${studentList}\n\n📅 日期：${students[0].courseDate}\n\n請在上課前回覆確認狀態 😊`
+                    }]
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 10000
+                });
+                
+            } catch (error) {
+                console.error('❌ 批次更新待確認狀態失敗:', error.message);
+            }
+        }
+    }
+    
+    // ------------------------------------
+    // 5️⃣ 選擇請假的學生（從多學生中選擇）
+    // ------------------------------------
+    else if (postbackData.action === 'select_leave_student') {
+        console.log('🏥 家長選擇了請假的孩子:', postbackData.studentName);
+        
+        // 發送請假理由選項
+        await sendLeaveReasonOptions(userId, postbackData, replyToken);
+        
+        // 暫存單一學生的請假申請
+        const leaveKey = `${userId}_${postbackData.courseDate}_${postbackData.studentName}`;
+        pendingLeaves.set(leaveKey, {
+            userId,
+            studentName: postbackData.studentName,
+            courseName: postbackData.courseName,
+            courseDate: postbackData.courseDate,
+            courseTime: postbackData.courseTime,
+            location: postbackData.location,
+            weekday: postbackData.weekday,
+            timestamp: new Date().toISOString()
+        });
+        
+        // 清理過期的暫存（1小時後）
+        setTimeout(() => {
+            if (pendingLeaves.has(leaveKey)) {
+                pendingLeaves.delete(leaveKey);
+                console.log(`🧹 清理過期的請假申請: ${leaveKey}`);
+            }
+        }, 3600000);
+    }
+    
+    // ------------------------------------
+    // 6️⃣ 全部都請假（多學生統一請假）
+    // ------------------------------------
+    else if (postbackData.action === 'leave_all_students') {
+        console.log('🏥 家長選擇全部都請假，學生數量:', postbackData.count);
+        
+        // 從 pendingLeaves 中獲取學生資料
+        const leaveKey = `multi_${userId}_${postbackData.courseDate}`;
+        const pendingInfo = pendingLeaves.get(leaveKey);
+        
+        if (!pendingInfo || !pendingInfo.students) {
+            console.error('❌ 找不到暫存的學生資料');
+            try {
+                await axios.post('https://api.line.me/v2/bot/message/reply', {
+                    replyToken: replyToken,
+                    messages: [{
+                        type: 'text',
+                        text: '❌ 系統錯誤：找不到課程資料\n\n請重新操作或聯繫客服。'
+                    }]
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 10000
+                });
+            } catch (error) {
+                console.error('❌ 發送錯誤訊息失敗:', error.message);
+            }
+            return;
+        }
+        
+        const normalizedStudents = pendingInfo.students;
+        
+        // 暫存所有學生的請假資訊
+        const allLeaveKey = `multi_all_${userId}_${normalizedStudents[0].courseDate}`;
+        pendingLeaves.set(allLeaveKey, {
+            userId,
+            students: normalizedStudents,
+            courseDate: normalizedStudents[0].courseDate,
+            isMultiLeave: true,  // 標記為多學生請假
+            timestamp: new Date().toISOString()
+        });
+        
+        // 發送請假理由選項（統一原因）
+        const studentList = normalizedStudents.map(s => `• ${s.studentName} - ${s.courseName}`).join('\n');
+        
+        const message = {
+            type: 'text',
+            text: `🏥 全部都請假\n\n${studentList}\n\n請選擇統一的請假理由：`,
+            quickReply: {
+                items: [
+                    {
+                        type: 'action',
+                        action: {
+                            type: 'postback',
+                            label: '🤒 生病',
+                            data: JSON.stringify({
+                                action: 'leave_all_reason',
+                                reason: '生病',
+                                courseDate: normalizedStudents[0].courseDate
+                            }),
+                            displayText: '🤒 生病'
+                        }
+                    },
+                    {
+                        type: 'action',
+                        action: {
+                            type: 'postback',
+                            label: '👨‍👩‍👧 家庭因素',
+                            data: JSON.stringify({
+                                action: 'leave_all_reason',
+                                reason: '家庭因素',
+                                courseDate: normalizedStudents[0].courseDate
+                            }),
+                            displayText: '👨‍👩‍👧 家庭因素'
+                        }
+                    },
+                    {
+                        type: 'action',
+                        action: {
+                            type: 'postback',
+                            label: '⚠️ 臨時有事',
+                            data: JSON.stringify({
+                                action: 'leave_all_reason',
+                                reason: '臨時有事',
+                                courseDate: normalizedStudents[0].courseDate
+                            }),
+                            displayText: '⚠️ 臨時有事'
+                        }
+                    },
+                    {
+                        type: 'action',
+                        action: {
+                            type: 'postback',
+                            label: '📝 其他',
+                            data: JSON.stringify({
+                                action: 'leave_all_reason',
+                                reason: '其他',
+                                courseDate: normalizedStudents[0].courseDate
+                            }),
+                            displayText: '📝 其他'
+                        }
+                    }
+                ]
+            }
+        };
+        
+        try {
+            await axios.post('https://api.line.me/v2/bot/message/reply', {
+                replyToken: replyToken,
+                messages: [message]
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000
+            });
+            console.log('✅ 已發送統一請假理由選項');
+            
+            // 清理過期的暫存（1小時後）
+            setTimeout(() => {
+                if (pendingLeaves.has(allLeaveKey)) {
+                    pendingLeaves.delete(allLeaveKey);
+                    console.log(`🧹 清理過期的多學生統一請假申請: ${allLeaveKey}`);
+                }
+            }, 3600000);
+            
+        } catch (error) {
+            console.error('❌ 發送統一請假理由選項失敗:', error.message);
+        }
+    }
+    
+    // ------------------------------------
+    // 7️⃣ 處理全部都請假的原因
+    // ------------------------------------
+    else if (postbackData.action === 'leave_all_reason') {
+        console.log('📝 收到全部請假的統一理由:', postbackData.reason);
+        
+        const leaveKey = `multi_all_${userId}_${postbackData.courseDate}`;
+        const leaveInfo = pendingLeaves.get(leaveKey);
+        
+        if (leaveInfo && leaveInfo.students) {
+            console.log(`✅ 找到多學生請假申請，共 ${leaveInfo.students.length} 位學生`);
+            
+            // 為每位學生調用 FLB API（與單個學生請假方式相同）
+            const savePromises = leaveInfo.students.map(student => 
+                saveLeaveToFLB({
+                    userId: leaveInfo.userId,
+                    studentName: student.studentName,
+                    courseName: student.courseName,
+                    courseDate: student.courseDate,
+                    courseTime: student.courseTime,
+                    location: student.location,
+                    weekday: student.weekday,
+                    leaveReason: postbackData.reason,
+                    timestamp: new Date().toISOString()
+                })
+            );
+            
+            try {
+                await Promise.all(savePromises);
+                console.log(`✅ 已為 ${leaveInfo.students.length} 位學生儲存請假記錄`);
+                
+                // 發送確認訊息
+                const studentList = leaveInfo.students.map(s => `  • ${s.studentName} - ${s.courseName}`).join('\n');
+                await axios.post('https://api.line.me/v2/bot/message/reply', {
+                    replyToken: replyToken,
+                    messages: [{
+                        type: 'text',
+                        text: `✅ 已記錄全部請假申請\n\n${studentList}\n\n📅 日期：${postbackData.courseDate}\n🏥 理由：${postbackData.reason}\n\n已通知系統記錄，感謝配合！`
+                    }]
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 10000
+                });
+                
+                // 通知管理員
+                if (process.env.ADMIN_GROUP_ID) {
+                    for (const student of leaveInfo.students) {
+                        await notifyAdminAboutLeave(student, postbackData.reason);
+                    }
+                }
+                
+                // 清除暫存
+                pendingLeaves.delete(leaveKey);
+                console.log(`🧹 已清理多學生請假暫存: ${leaveKey}`);
+                
+            } catch (error) {
+                console.error('❌ 批次儲存請假記錄失敗:', error.message);
+            }
+        } else {
+            console.warn('⚠️ 找不到對應的多學生請假申請');
+        }
+    }
+}
 
 // ==================== 多 Bot 支援函數 ====================
 
@@ -169,7 +1455,7 @@ function selectBot(strategy = 'round_robin') {
 /**
  * 使用指定 Bot 發送訊息
  */
-async function sendLineMessageWithBot(message, targetUserId, botId = null) {
+async function sendLineMessageWithBot(message, targetUserId, botId = null, notifyAdmin = true) {
     try {
         // 準備Bot列表
         const bots = [];
@@ -211,8 +1497,8 @@ async function sendLineMessageWithBot(message, targetUserId, botId = null) {
         // 準備發送目標列表
         const targetUsers = [];
         
-        // 總是發送給管理員（如果設定了LINE_USER_ID）
-        if (LINE_USER_ID && LINE_USER_ID !== 'YOUR_USER_ID_HERE') {
+        // 根據 notifyAdmin 參數決定是否發送給管理員
+        if (notifyAdmin && LINE_USER_ID && LINE_USER_ID !== 'YOUR_USER_ID_HERE') {
             targetUsers.push(LINE_USER_ID);
         }
         
@@ -1952,9 +3238,9 @@ async function showLoadingAnimation(userId, loadingSeconds = 5) {
 }
 
 // LINE Messaging API 通知函數（向後相容，使用多 Bot 支援）
-async function sendLineMessage(message, targetUserId = null) {
+async function sendLineMessage(message, targetUserId = null, notifyAdmin = true) {
     // 使用新的多 Bot 支援函數
-    return await sendLineMessageWithBot(message, targetUserId);
+    return await sendLineMessageWithBot(message, targetUserId, null, notifyAdmin);
 }
 
 // LINE Flex Message 發送函數（向後相容，使用多 Bot 支援）
@@ -2169,7 +3455,7 @@ async function uploadUserToGoogleSheets(userId, displayName) {
                 'Content-Type': 'application/json',
                 'Cookie': GOOGLE_SHEETS_COOKIE
             },
-            timeout: 10000
+            timeout: 30000  // 增加到 30 秒以避免 Google Sheets API 超時
         });
 
         console.log(`✅ 使用者資訊上傳到Google Sheets成功: ${displayName} (${userId})`);
@@ -2760,32 +4046,438 @@ app.get('/api/user-stats', async (req, res) => {
     }
 });
 
+// ==================== 群組管理 API ====================
+
+// API路由：獲取所有群組
+app.get('/api/groups', async (req, res) => {
+    try {
+        const groups = await db.getAllGroups();
+        res.json({ 
+            success: true, 
+            groups: groups,
+            total: groups.length
+        });
+    } catch (error) {
+        console.error('獲取群組列表錯誤:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '獲取群組列表失敗' 
+        });
+    }
+});
+
+// API路由：獲取單一群組
+app.get('/api/groups/:groupId', async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const group = await db.getGroup(groupId);
+        
+        if (group) {
+            res.json({ 
+                success: true, 
+                group: group
+            });
+        } else {
+            res.status(404).json({ 
+                success: false, 
+                error: '找不到該群組' 
+            });
+        }
+    } catch (error) {
+        console.error('獲取群組資訊錯誤:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '獲取群組資訊失敗' 
+        });
+    }
+});
+
+// API路由：搜尋群組
+app.get('/api/groups/search/:query', async (req, res) => {
+    try {
+        const { query } = req.params;
+        const groups = await db.searchGroups(query);
+        res.json({ 
+            success: true, 
+            groups: groups,
+            total: groups.length
+        });
+    } catch (error) {
+        console.error('搜尋群組錯誤:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '搜尋群組失敗' 
+        });
+    }
+});
+
+// API路由：更新群組名稱
+app.patch('/api/groups/:groupId', async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const { groupName } = req.body;
+        
+        if (!groupName) {
+            return res.status(400).json({
+                success: false,
+                error: '請提供群組名稱'
+            });
+        }
+        
+        const success = await db.updateGroupName(groupId, groupName);
+        
+        if (success) {
+            res.json({ 
+                success: true, 
+                message: '群組名稱已更新'
+            });
+        } else {
+            res.status(404).json({ 
+                success: false, 
+                error: '找不到該群組' 
+            });
+        }
+    } catch (error) {
+        console.error('更新群組名稱錯誤:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '更新群組名稱失敗' 
+        });
+    }
+});
+
+// API路由：獲取群組統計
+app.get('/api/group-stats', async (req, res) => {
+    try {
+        const groupCount = await db.getGroupCount();
+        const groups = await db.getAllGroups();
+        
+        // 統計活躍群組（最近7天有活動）
+        const now = new Date();
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const activeGroups = groups.filter(g => {
+            const lastActivity = new Date(g.lastActivityAt);
+            return lastActivity > sevenDaysAgo;
+        });
+        
+        res.json({ 
+            success: true, 
+            stats: {
+                totalGroups: groupCount,
+                activeGroups: activeGroups.length,
+                inactiveGroups: groupCount - activeGroups.length,
+                groupTypes: {
+                    group: groups.filter(g => g.type === 'group').length,
+                    room: groups.filter(g => g.type === 'room').length
+                }
+            }
+        });
+    } catch (error) {
+        console.error('獲取群組統計錯誤:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: '獲取群組統計失敗' 
+        });
+    }
+});
+
+// ==================== 學生回應 API ====================
+
+/**
+ * 載入學生回應資料
+ */
+function loadStudentResponses() {
+    const responsesPath = path.join(__dirname, 'data', 'student-responses.json');
+    try {
+        if (fs.existsSync(responsesPath)) {
+            const data = fs.readFileSync(responsesPath, 'utf8');
+            return JSON.parse(data);
+        }
+    } catch (error) {
+        console.error('❌ 載入學生回應失敗:', error.message);
+    }
+    return { responses: [] };
+}
+
+/**
+ * 儲存學生回應資料
+ */
+function saveStudentResponses(data) {
+    const responsesPath = path.join(__dirname, 'data', 'student-responses.json');
+    try {
+        // 確保目錄存在
+        const dir = path.dirname(responsesPath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        
+        fs.writeFileSync(responsesPath, JSON.stringify(data, null, 2), 'utf8');
+        return true;
+    } catch (error) {
+        console.error('❌ 儲存學生回應失敗:', error.message);
+        return false;
+    }
+}
+
+// API路由：新增/更新學生回應
+app.post('/api/student-responses', async (req, res) => {
+    try {
+        const { 
+            studentName, 
+            courseName, 
+            courseDate, 
+            courseTime,
+            location,
+            weekday,
+            responseType, 
+            leaveReason, 
+            userId,
+            timestamp 
+        } = req.body;
+        
+        // 驗證必填欄位
+        if (!studentName || !courseName || !courseDate || !responseType) {
+            return res.status(400).json({
+                success: false,
+                message: '缺少必填欄位',
+                required: ['studentName', 'courseName', 'courseDate', 'responseType']
+            });
+        }
+        
+        // 驗證回應類型
+        const validTypes = ['attend', 'leave', 'pending'];
+        if (!validTypes.includes(responseType)) {
+            return res.status(400).json({
+                success: false,
+                message: '無效的回應類型。有效值: attend, leave, pending'
+            });
+        }
+        
+        // 如果是請假，必須提供理由
+        if (responseType === 'leave' && !leaveReason) {
+            return res.status(400).json({
+                success: false,
+                message: '請假回應必須提供理由'
+            });
+        }
+        
+        // 載入現有資料
+        const data = loadStudentResponses();
+        
+        // 檢查是否已存在相同的回應（相同學生 + 課程 + 日期）
+        const existingIndex = data.responses.findIndex(r => 
+            r.studentName === studentName && 
+            r.courseName === courseName && 
+            r.courseDate === courseDate
+        );
+        
+        // 建立回應物件
+        const response = {
+            id: existingIndex >= 0 ? data.responses[existingIndex].id : `response_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            studentName,
+            courseName,
+            courseDate,
+            courseTime: courseTime || '',
+            location: location || '',
+            weekday: weekday || '',
+            responseType,
+            leaveReason: responseType === 'leave' ? leaveReason : '',
+            timestamp: timestamp || new Date().toISOString(),
+            userId: userId || ''
+        };
+        
+        // 更新或新增
+        if (existingIndex >= 0) {
+            data.responses[existingIndex] = response;
+            console.log(`📝 更新學生回應: ${studentName} - ${courseName} (${courseDate}) - ${responseType}`);
+        } else {
+            data.responses.push(response);
+            console.log(`➕ 新增學生回應: ${studentName} - ${courseName} (${courseDate}) - ${responseType}`);
+        }
+        
+        // 儲存到檔案
+        const saved = saveStudentResponses(data);
+        
+        if (!saved) {
+            return res.status(500).json({
+                success: false,
+                message: '儲存學生回應失敗'
+            });
+        }
+        
+        res.json({
+            success: true,
+            message: existingIndex >= 0 ? '學生回應已更新' : '學生回應已記錄',
+            data: response
+        });
+        
+    } catch (error) {
+        console.error('❌ 處理學生回應失敗:', error);
+        res.status(500).json({
+            success: false,
+            message: '儲存學生回應失敗',
+            error: error.message
+        });
+    }
+});
+
+// API路由：查詢所有學生回應
+app.get('/api/student-responses', async (req, res) => {
+    try {
+        const data = loadStudentResponses();
+        
+        // 可選的查詢參數
+        const { studentName, courseDate, responseType } = req.query;
+        
+        let filteredResponses = data.responses;
+        
+        // 根據查詢參數過濾
+        if (studentName) {
+            filteredResponses = filteredResponses.filter(r => 
+                r.studentName.includes(studentName)
+            );
+        }
+        
+        if (courseDate) {
+            filteredResponses = filteredResponses.filter(r => 
+                r.courseDate === courseDate
+            );
+        }
+        
+        if (responseType) {
+            filteredResponses = filteredResponses.filter(r => 
+                r.responseType === responseType
+            );
+        }
+        
+        // 按時間戳排序（最新的在前）
+        filteredResponses.sort((a, b) => 
+            new Date(b.timestamp) - new Date(a.timestamp)
+        );
+        
+        res.json({
+            success: true,
+            data: filteredResponses,
+            total: filteredResponses.length
+        });
+        
+    } catch (error) {
+        console.error('❌ 查詢學生回應失敗:', error);
+        res.status(500).json({
+            success: false,
+            message: '查詢學生回應失敗',
+            error: error.message
+        });
+    }
+});
+
+// API路由：刪除學生回應
+app.delete('/api/student-responses/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const data = loadStudentResponses();
+        
+        const index = data.responses.findIndex(r => r.id === id);
+        
+        if (index === -1) {
+            return res.status(404).json({
+                success: false,
+                message: '找不到該學生回應'
+            });
+        }
+        
+        const deleted = data.responses.splice(index, 1)[0];
+        const saved = saveStudentResponses(data);
+        
+        if (!saved) {
+            return res.status(500).json({
+                success: false,
+                message: '刪除學生回應失敗'
+            });
+        }
+        
+        console.log(`🗑️ 刪除學生回應: ${deleted.studentName} - ${deleted.courseName}`);
+        
+        res.json({
+            success: true,
+            message: '學生回應已刪除',
+            data: deleted
+        });
+        
+    } catch (error) {
+        console.error('❌ 刪除學生回應失敗:', error);
+        res.status(500).json({
+            success: false,
+            message: '刪除學生回應失敗',
+            error: error.message
+        });
+    }
+});
+
 // API路由：獲取講師列表
 app.get('/api/teachers', async (req, res) => {
     try {
-        console.log('正在呼叫 FLB API:', FLB_API_URL);
+        const GOOGLE_SHEETS_API_URL = "https://sheets.googleapis.com/v4/spreadsheets/1A2dPb0iyvaqVGTOKqGcsq7aC6UHNttVcJ82r-G0xevk/values/'報表連結'!A:Z?key=AIzaSyDfYBGUCp1ixevg06acZCvWimwdqLKxh9Y";
         
-        const response = await axios.post(FLB_API_URL, {
-            action: 'getTeacherList'
-        }, {
+        console.log('正在呼叫 Google Sheets API:', GOOGLE_SHEETS_API_URL);
+        
+        const response = await axios.get(GOOGLE_SHEETS_API_URL, {
             timeout: 30000,
             headers: {
                 'Content-Type': 'application/json'
             }
         });
         
-        console.log('FLB API 回應狀態:', response.status);
-        console.log('FLB API 回應資料:', response.data);
+        console.log('Google Sheets API 回應狀態:', response.status);
+        console.log('Google Sheets API 回應資料:', response.data);
         
         if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
-            console.error('FLB API 回傳 HTML 錯誤頁面');
+            console.error('Google Sheets API 回傳 HTML 錯誤頁面');
             return res.status(500).json({ 
                 success: false,
-                error: 'FLB API 發生錯誤，請檢查 API 連結是否正確' 
+                error: 'Google Sheets API 發生錯誤，請檢查 API 連結是否正確' 
             });
         }
         
-        res.json(response.data);
+        // 解析 Google Sheets API 返回的數據格式
+        const values = response.data.values || [];
+        
+        if (values.length === 0) {
+            return res.json({ 
+                success: true, 
+                teachers: [] 
+            });
+        }
+        
+        // 第一行是標題: ["老師", "連結", "Web API", "讀報表 API", "user id"]
+        const headers = values[0];
+        const teacherNameIndex = 0;  // 老師
+        const linkIndex = 1;         // 連結
+        const webApiIndex = 2;       // Web API
+        const reportApiIndex = 3;    // 讀報表 API
+        const userIdIndex = 4;       // user id
+        
+        // 轉換為前端需要的格式
+        const teachers = [];
+        for (let i = 1; i < values.length; i++) {
+            const row = values[i];
+            if (row[teacherNameIndex]) {
+                teachers.push({
+                    name: row[teacherNameIndex] || '',
+                    link: row[linkIndex] || '',
+                    webApi: row[webApiIndex] || '',
+                    reportApi: row[reportApiIndex] || '',
+                    userId: row[userIdIndex] || ''
+                });
+            }
+        }
+        
+        console.log(`成功解析 ${teachers.length} 位講師`);
+        
+        res.json({ 
+            success: true, 
+            teachers: teachers 
+        });
         
     } catch (error) {
         console.error('獲取講師列表錯誤:', error);
@@ -2793,22 +4485,22 @@ app.get('/api/teachers', async (req, res) => {
         if (error.code === 'ECONNREFUSED') {
             res.status(500).json({ 
                 success: false,
-                error: '無法連接到 FLB API，請檢查網路連線' 
+                error: '無法連接到 Google Sheets API，請檢查網路連線' 
             });
         } else if (error.code === 'ENOTFOUND') {
             res.status(500).json({ 
                 success: false,
-                error: 'FLB API 網址無法解析，請檢查 API 連結' 
+                error: 'Google Sheets API 網址無法解析，請檢查 API 連結' 
             });
         } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
             res.status(500).json({ 
                 success: false,
-                error: 'FLB API 連線超時，請稍後再試或檢查網路連線' 
+                error: 'Google Sheets API 連線超時，請稍後再試或檢查網路連線' 
             });
         } else if (error.response) {
             res.status(error.response.status).json({ 
                 success: false,
-                error: `FLB API 錯誤: ${error.response.status} - ${error.response.statusText}`,
+                error: `Google Sheets API 錯誤: ${error.response.status} - ${error.response.statusText}`,
                 details: error.response.data
             });
         } else {
@@ -4335,20 +6027,103 @@ app.post('/webhook', async (req, res) => {
     // 立即回應 LINE 伺服器
     res.status(200).send('OK');
     
-    // 非同步轉發 webhook（不阻塞主流程）
-    webhookForwarder.forward(req.body).catch(error => {
-        console.error('Webhook 轉發失敗:', error);
-    });
+    // 檢查是否包含 postback 事件
+    const events = req.body.events || [];
+    const hasPostback = events.some(event => event.type === 'postback');
     
-    const events = req.body.events;
-    if (events && events.length > 0) {
+    // 只轉發非 postback 事件（避免重複處理）
+    if (!hasPostback) {
+        // 非同步轉發 webhook（不阻塞主流程）
+        webhookForwarder.forward(req.body).catch(error => {
+            console.error('Webhook 轉發失敗:', error);
+        });
+    } else {
+        console.log('⚠️ 包含 postback 事件，跳過轉發（避免重複處理）');
+    }
+    
+    if (events.length > 0) {
         for (const event of events) {
+            // ====================================
+            // 處理 postback 事件（請假功能）
+            // ====================================
+            if (event.type === 'postback') {
+                console.log('📥 收到 postback 事件');
+                await handlePostback(event);
+                
+                // ⚠️ 不轉發 postback 到其他系統
+                // 直接在這裡處理完成
+                continue;
+            }
+            
+            // ====================================
+            // 處理訊息事件
+            // ====================================
             if (event.type === 'message' && event.message.type === 'text') {
                 const messageText = event.message.text;
                 const userId = event.source?.userId;
+                const sourceType = event.source?.type; // 'user', 'group', 'room'
+                const groupId = event.source?.groupId;
+                const roomId = event.source?.roomId;
                 
                 console.log('收到訊息:', messageText);
                 console.log('用戶 ID:', userId || '未知');
+                console.log('來源類型:', sourceType || '未知');
+                
+                // 記錄群組資訊
+                if ((groupId || roomId) && userId) {
+                    try {
+                        const targetGroupId = groupId || roomId;
+                        const targetType = groupId ? 'group' : 'room';
+                        
+                        // 嘗試從LINE API獲取群組資訊
+                        let groupName = '未知群組';
+                        try {
+                            const groupSummaryUrl = targetType === 'group' 
+                                ? `https://api.line.me/v2/bot/group/${targetGroupId}/summary`
+                                : `https://api.line.me/v2/bot/room/${targetGroupId}/summary`;
+                            
+                            const groupSummaryResponse = await axios.get(groupSummaryUrl, {
+                                headers: {
+                                    'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+                                },
+                                timeout: 10000
+                            });
+                            
+                            groupName = groupSummaryResponse.data.groupName || '未知群組';
+                            console.log(`📱 獲取群組資訊: ${groupName} (${targetGroupId})`);
+                        } catch (groupError) {
+                            console.log(`⚠️ 無法獲取群組詳細資訊，使用預設名稱`);
+                        }
+                        
+                        // 記錄群組資訊
+                        await db.registerGroup({
+                            groupId: targetGroupId,
+                            groupName: groupName,
+                            type: targetType
+                        });
+                        
+                        // 獲取使用者資訊並記錄群組活動
+                        try {
+                            const profileResponse = await axios.get(`https://api.line.me/v2/bot/profile/${userId}`, {
+                                headers: {
+                                    'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+                                },
+                                timeout: 10000
+                            });
+                            
+                            const displayName = profileResponse.data.displayName;
+                            await db.recordGroupUserActivity(targetGroupId, userId, displayName);
+                            
+                            console.log(`✅ 群組活動已記錄: ${displayName} 在 ${groupName}`);
+                        } catch (profileError) {
+                            console.log(`⚠️ 無法獲取使用者資訊: ${userId}`);
+                            await db.recordGroupUserActivity(targetGroupId, userId, '未知使用者');
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ 記錄群組資訊失敗:', error);
+                    }
+                }
                 
                 if (userId) {
                     // 檢查關鍵字
@@ -4402,7 +6177,7 @@ app.post('/webhook', async (req, res) => {
                             });
 
                             if (matchingStudents.length === 0) {
-                                await sendLineMessage('❌ 找不到您的課程規劃資料，請確認是否完成綁定或稍後再試。', userId);
+                                await sendLineMessage('❌ 找不到您的課程規劃資料，請確認是否完成綁定或稍後再試。', userId, false);
                                 console.log(`⚠️ 未找到課程規劃資料: ${userId}`);
                                 return;
                             }
@@ -4415,7 +6190,7 @@ app.post('/webhook', async (req, res) => {
                             );
 
                             if (studentsWithCourseInfo.length === 0) {
-                                await sendLineMessage('❌ 目前尚未為您設定課程資訊（課程類型和時段），請聯繫客服。', userId);
+                                await sendLineMessage('❌ 目前尚未為您設定課程資訊（課程類型和時段），請聯繫客服。', userId, false);
                                 console.log(`⚠️ 無課程資訊: ${userId}`);
                                 return;
                             }
@@ -4430,13 +6205,13 @@ app.post('/webhook', async (req, res) => {
                                 await sendLineFlexMessage(carouselMessage, userId);
                             }
 
-                            await sendLineMessage(`📘 已顯示 ${studentsWithCourseInfo.length} 位學生的本期課程規劃`, userId);
+                            await sendLineMessage(`📘 已顯示 ${studentsWithCourseInfo.length} 位學生的本期課程規劃`, userId, false);
                             console.log(`✅ 課程規劃已發送給: ${userId} (共 ${studentsWithCourseInfo.length} 位學生)`);
 
                         } catch (error) {
                             console.error('❌ 查詢課程規劃失敗:', error);
                             const errorMessage = '❌ 查詢課程規劃失敗，請稍後再試\n\n可能原因：\n1. 網路連線問題\n2. 系統暫時無法使用\n3. 課程規劃 API 無回應\n\n如有疑問，請聯繫客服人員。';
-                            await sendLineMessage(errorMessage, userId);
+                            await sendLineMessage(errorMessage, userId, false);
                         }
 
                         return; // 處理完關鍵字後直接返回
@@ -4491,7 +6266,7 @@ app.post('/webhook', async (req, res) => {
                                             await sendLineFlexMessage(multiFlexMessage, userId);
                                             console.log(`✅ 多學生出缺勤完整記錄已發送給: ${userId} (共 ${matchingStudents.length} 個學生)`);
                                         }
-                                        await sendLineMessage(`📚 已顯示 ${matchingStudents.length} 位學生的完整出缺勤紀錄`, userId);
+                                        await sendLineMessage(`📚 已顯示 ${matchingStudents.length} 位學生的完整出缺勤紀錄`, userId, false);
                                     } else {
                                         if (messageText === '#剩餘堂數完整') {
                                             mode = 'full';
@@ -4514,10 +6289,10 @@ app.post('/webhook', async (req, res) => {
                                             await sendLineFlexMessage(multiStudentFlexMessage, userId);
                                             console.log(`✅ 多學生出缺勤記錄已發送給: ${userId} (共 ${matchingStudents.length} 個學生, 模式: ${mode}, 顯示類型: ${displayType})`);
                                         }
-                                        await sendLineMessage(`📚 已顯示 ${matchingStudents.length} 位學生的出缺勤紀錄`, userId);
+                                        await sendLineMessage(`📚 已顯示 ${matchingStudents.length} 位學生的出缺勤紀錄`, userId, false);
                                     }
                                 } else {
-                                    await sendLineMessage('❌ 找不到您的出缺勤記錄\n\n可能原因：\n1. 您尚未綁定學生身份\n2. 系統中沒有您的課程資料\n\n如有疑問，請聯繫客服人員。', userId);
+                                    await sendLineMessage('❌ 找不到您的出缺勤記錄\n\n可能原因：\n1. 您尚未綁定學生身份\n2. 系統中沒有您的課程資料\n\n如有疑問，請聯繫客服人員。', userId, false);
                                 }
                             } else {
                                 console.log('❌ API 回應格式錯誤:', JSON.stringify(response.data, null, 2));
@@ -4527,7 +6302,7 @@ app.post('/webhook', async (req, res) => {
                         } catch (error) {
                             console.error('❌ 查詢出缺勤失敗:', error);
                             const errorMessage = '❌ 查詢出缺勤記錄失敗，請稍後再試\n\n可能原因：\n1. 網路連線問題\n2. 系統暫時無法使用\n\n如有疑問，請聯繫客服人員。';
-                            await sendLineMessage(errorMessage, userId);
+                            await sendLineMessage(errorMessage, userId, false);
                         }
                         
                         return; // 處理完關鍵字後直接返回
@@ -4543,18 +6318,18 @@ app.post('/webhook', async (req, res) => {
                             if (bindResult.success) {
                                 // 發送成功回覆
                                 const successMessage = '切換為內部人員模式,FunLearnBar歡迎您！';
-                                await sendLineMessage(successMessage, userId);
+                                await sendLineMessage(successMessage, userId, false);
                                 console.log(`✅ 內部人員模式綁定成功: ${userId}`);
                             } else {
                                 // 發送失敗回覆
                                 const failMessage = '❌ 內部人員模式綁定失敗，請稍後再試';
-                                await sendLineMessage(failMessage, userId);
+                                await sendLineMessage(failMessage, userId, false);
                                 console.log(`❌ 內部人員模式綁定失敗: ${userId}`);
                             }
                         } catch (error) {
                             console.error('❌ 處理內部人員綁定失敗:', error);
                             const errorMessage = '❌ 系統錯誤，請稍後再試';
-                            await sendLineMessage(errorMessage, userId);
+                            await sendLineMessage(errorMessage, userId, false);
                         }
                         
                         return; // 處理完關鍵字後直接返回
@@ -4570,18 +6345,18 @@ app.post('/webhook', async (req, res) => {
                             if (unbindResult.success) {
                                 // 發送成功回覆
                                 const successMessage = '✅ Rich Menu 已成功解除綁定！';
-                                await sendLineMessage(successMessage, userId);
+                                await sendLineMessage(successMessage, userId, false);
                                 console.log(`✅ Rich Menu 解綁成功: ${userId}`);
                             } else {
                                 // 發送失敗回覆
                                 const failMessage = '❌ Rich Menu 解綁失敗，請稍後再試';
-                                await sendLineMessage(failMessage, userId);
+                                await sendLineMessage(failMessage, userId, false);
                                 console.log(`❌ Rich Menu 解綁失敗: ${userId}`);
                             }
                         } catch (error) {
                             console.error('❌ 處理解綁失敗:', error);
                             const errorMessage = '❌ 系統錯誤，請稍後再試';
-                            await sendLineMessage(errorMessage, userId);
+                            await sendLineMessage(errorMessage, userId, false);
                         }
                         
                         return; // 處理完關鍵字後直接返回
@@ -4596,12 +6371,12 @@ app.post('/webhook', async (req, res) => {
                             
                             // 發送測試模式開始通知
                             const testMessage = '🧪 測試模式已啟動！\n\n⏰ 將在5分鐘後自動重新綁定內部人員模式\n\n📝 測試記錄：\n• 使用者ID：' + userId + '\n• 開始時間：' + new Date().toLocaleString('zh-TW');
-                            await sendLineMessage(testMessage, userId);
+                            await sendLineMessage(testMessage, userId, false);
                             console.log(`✅ 測試模式已啟動: ${userId}`);
                         } catch (error) {
                             console.error('❌ 處理測試模式失敗:', error);
                             const errorMessage = '❌ 測試模式啟動失敗，請稍後再試';
-                            await sendLineMessage(errorMessage, userId);
+                            await sendLineMessage(errorMessage, userId, false);
                         }
                         
                         return; // 處理完關鍵字後直接返回
@@ -4618,7 +6393,7 @@ app.post('/webhook', async (req, res) => {
                             headers: {
                                 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
                             },
-                            timeout: 10000
+                            timeout: 30000  // 增加到 30 秒以避免超時
                         });
                         
                         const displayName = profileResponse.data.displayName;

@@ -4,11 +4,16 @@ const path = require('path');
 
 class GoogleSheetsDatabaseWithLocal {
     constructor() {
-        // Google Sheets API URLs
-        this.USERS_UPSERT_URL = 'https://script.google.com/macros/s/AKfycbwOuS6rJtAHgLJFh5R-QrLix28kU-hcp3Z0aTIfWPjTp-LU1CYlYZzVKgbwTYGmbE6b/exec';
-        this.BINDINGS_UPSERT_URL = 'https://script.google.com/macros/s/AKfycbx_IZWx-vrOvfzCa4msYbP1kopcaLt7dwcnIPzSR2bWJGsxh0GZuPyahMm3U_mHX_d0Fw/exec';
-        this.USERS_READ_URL = 'https://script.google.com/macros/s/AKfycbyDKCdRNc7oulsTOfvb9v2xW242stGb1Ckl4TmsrZHfp8JJQU7ZP6dUmi8ty_M1WSxboQ/exec';
-        this.BINDINGS_READ_URL = 'https://script.google.com/macros/s/AKfycbyDKCdRNc7oulsTOfvb9v2xW242stGb1Ckl4TmsrZHfp8JJQU7ZP6dUmi8ty_M1WSxboQ/exec';
+        // Google Sheets API URLs - 統一使用最新的 doPost.gs 部署 URL
+        // 所有 API 使用同一個 URL，透過 action 參數區分功能
+        const UNIFIED_API_URL = 'https://script.google.com/macros/s/AKfycbzm0GD-T09Botbs52e8PyeVuA5slJh6Z0AQ7I0uUiGZiE6aWhTO2D0d3XHFrdLNv90uCw/exec';
+        
+        this.USERS_UPSERT_URL = UNIFIED_API_URL;
+        this.BINDINGS_UPSERT_URL = UNIFIED_API_URL;
+        this.GROUPS_UPSERT_URL = UNIFIED_API_URL;
+        this.USERS_READ_URL = UNIFIED_API_URL;
+        this.BINDINGS_READ_URL = UNIFIED_API_URL;
+        this.GROUPS_READ_URL = UNIFIED_API_URL;
         
         this.COOKIE = 'NID=525=IPIqwCVm1Z3C00Y2MFXoevvCftm-rj9UdMlgYFhlRAHY0MKSCbEO7I8EBlGrz-nwjYxoXSFUrDHBqGrYNUotcoSE3v2npcVn-j3QZsc6SAKZcMLR6y1MkF5dZlXnbBIqWgw9cJLT3SvAvmpXUZa6RADuBXFDZpvSM85zYAoym0yXcBn3C4ayGgOookqVJaH';
         
@@ -16,11 +21,13 @@ class GoogleSheetsDatabaseWithLocal {
         this.localDataPath = path.join(__dirname, 'data');
         this.usersFile = path.join(this.localDataPath, 'users.json');
         this.bindingsFile = path.join(this.localDataPath, 'bindings.json');
+        this.groupsFile = path.join(this.localDataPath, 'groups.json');
         this.syncFlagFile = path.join(this.localDataPath, 'sync_flag.json');
         
         // 本地快取
         this.localUsers = new Map();
         this.localBindings = new Map();
+        this.localGroups = new Map();
         this.nextBindingId = 1;
         this.isInitialized = false;
     }
@@ -109,6 +116,13 @@ class GoogleSheetsDatabaseWithLocal {
                 }), 0);
                 this.nextBindingId = maxId + 1;
             }
+
+            // 載入群組資料
+            if (fs.existsSync(this.groupsFile)) {
+                const groupsData = JSON.parse(fs.readFileSync(this.groupsFile, 'utf8'));
+                this.localGroups = new Map(groupsData.map(group => [group.groupId, group]));
+                console.log(`📁 載入 ${this.localGroups.size} 個本地群組資料`);
+            }
         } catch (error) {
             console.error('載入本地資料失敗:', error);
         }
@@ -124,6 +138,10 @@ class GoogleSheetsDatabaseWithLocal {
             // 保存綁定資料
             const bindingsArray = Array.from(this.localBindings.values());
             fs.writeFileSync(this.bindingsFile, JSON.stringify(bindingsArray, null, 2));
+
+            // 保存群組資料
+            const groupsArray = Array.from(this.localGroups.values());
+            fs.writeFileSync(this.groupsFile, JSON.stringify(groupsArray, null, 2));
 
             console.log('💾 本地資料已保存');
         } catch (error) {
@@ -186,13 +204,24 @@ class GoogleSheetsDatabaseWithLocal {
                 console.log(`📥 從Google Sheets獲取到 ${this.localBindings.size} 個綁定記錄`);
             }
 
+            // 同步群組資料
+            const groupsResult = await this.getAllGroupsFromGoogleSheets();
+            if (groupsResult && groupsResult.length > 0) {
+                this.localGroups.clear();
+                groupsResult.forEach(group => {
+                    this.localGroups.set(group.groupId, group);
+                });
+                console.log(`📥 從Google Sheets獲取到 ${this.localGroups.size} 個群組`);
+            }
+
             // 保存到本地
             await this.saveLocalData();
 
             return {
                 success: true,
                 users: Array.from(this.localUsers.values()),
-                bindings: Array.from(this.localBindings.values())
+                bindings: Array.from(this.localBindings.values()),
+                groups: Array.from(this.localGroups.values())
             };
         } catch (error) {
             console.error('❌ 同步Google Sheets失敗:', error.message);
@@ -243,10 +272,10 @@ class GoogleSheetsDatabaseWithLocal {
                 action: "upsertUsers",
                 sheetName: "使用者資料表 (users)",
                 list: users.map(user => ({
-                    uid: user.userId,
-                    display_name: user.displayName || '',
-                    username: user.userName || '',
-                    pictureURL: user.pictureUrl || '',
+                    userId: user.userId,              // ✅ 修正：uid → userId
+                    displayName: user.displayName || '',  // ✅ 修正：display_name → displayName
+                    userName: user.userName || '',    // ✅ 修正：username → userName
+                    pictureUrl: user.pictureUrl || '', // ✅ 修正：pictureURL → pictureUrl
                     email: user.email || '',
                     registeredAt: user.registeredAt || new Date().toISOString(),
                     lastLogin: user.lastLogin || new Date().toISOString(),
@@ -285,6 +314,50 @@ class GoogleSheetsDatabaseWithLocal {
         } catch (error) {
             console.error('上傳綁定到Google Sheets失敗:', error);
             throw error;
+        }
+    }
+
+    // 上傳群組到Google Sheets
+    async upsertGroupsToGoogleSheets(groups) {
+        try {
+            const payload = {
+                action: "upsertGroups",
+                sheetName: "群組資料表 (groups)",
+                list: groups.map(group => ({
+                    groupId: group.groupId,
+                    groupName: group.groupName || '未知群組',
+                    type: group.type || 'group',
+                    firstSeenAt: group.firstSeenAt || new Date().toISOString(),
+                    lastActivityAt: group.lastActivityAt || new Date().toISOString(),
+                    memberCount: group.memberCount || 0,
+                    description: group.description || ''
+                }))
+            };
+
+            const result = await this.makeRequest(this.GROUPS_UPSERT_URL, payload);
+            console.log(`📤 上傳 ${groups.length} 個群組到Google Sheets`);
+            return result;
+        } catch (error) {
+            console.error('上傳群組到Google Sheets失敗:', error);
+            throw error;
+        }
+    }
+
+    // 從Google Sheets獲取所有群組
+    async getAllGroupsFromGoogleSheets() {
+        try {
+            const url = `${this.GROUPS_READ_URL}?action=listGroups&limit=500&offset=0`;
+            const result = await this.makeRequest(url, null, 'GET');
+            
+            if (result && result.success) {
+                return result.data || [];
+            } else {
+                console.error('獲取群組資料失敗:', result?.error);
+                return [];
+            }
+        } catch (error) {
+            console.error('從Google Sheets獲取群組失敗:', error);
+            return [];
         }
     }
 
@@ -581,6 +654,156 @@ class GoogleSheetsDatabaseWithLocal {
             return true;
         } catch (error) {
             console.error('更新使用者顯示名稱失敗:', error);
+            return false;
+        }
+    }
+
+    // ==================== 群組管理功能 ====================
+
+    // 註冊或更新群組資訊（雙向同步）
+    async registerGroup(groupData) {
+        try {
+            const group = {
+                groupId: groupData.groupId,
+                groupName: groupData.groupName || '未知群組',
+                type: groupData.type || 'group', // 'group' or 'room'
+                firstSeenAt: groupData.firstSeenAt || new Date().toISOString(),
+                lastActivityAt: new Date().toISOString(),
+                memberCount: groupData.memberCount || 0,
+                description: groupData.description || ''
+            };
+
+            // 如果群組已存在，保留 firstSeenAt
+            const existingGroup = this.localGroups.get(group.groupId);
+            if (existingGroup) {
+                group.firstSeenAt = existingGroup.firstSeenAt;
+                group.memberCount = groupData.memberCount || existingGroup.memberCount;
+            }
+
+            // 更新本地快取
+            this.localGroups.set(group.groupId, group);
+            
+            // 上傳到Google Sheets
+            await this.upsertGroupsToGoogleSheets([group]);
+            
+            // 保存本地資料
+            await this.saveLocalData();
+            
+            console.log(`群組已註冊/更新並同步到Google Sheets: ${group.groupName} (${group.groupId})`);
+            return group;
+        } catch (error) {
+            console.error('註冊群組失敗:', error);
+            throw error;
+        }
+    }
+
+    // 獲取單一群組
+    async getGroup(groupId) {
+        try {
+            return this.localGroups.get(groupId) || null;
+        } catch (error) {
+            console.error('獲取群組失敗:', error);
+            return null;
+        }
+    }
+
+    // 獲取所有群組
+    async getAllGroups() {
+        return Array.from(this.localGroups.values());
+    }
+
+    // 更新群組活動時間（雙向同步）
+    async updateGroupActivity(groupId) {
+        try {
+            const group = this.localGroups.get(groupId);
+            if (group) {
+                group.lastActivityAt = new Date().toISOString();
+                this.localGroups.set(groupId, group);
+                
+                // 上傳到Google Sheets
+                await this.upsertGroupsToGoogleSheets([group]);
+                
+                await this.saveLocalData();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('更新群組活動時間失敗:', error);
+            return false;
+        }
+    }
+
+    // 更新群組名稱（雙向同步）
+    async updateGroupName(groupId, newGroupName) {
+        try {
+            const group = this.localGroups.get(groupId);
+            if (group) {
+                group.groupName = newGroupName;
+                group.lastActivityAt = new Date().toISOString();
+                this.localGroups.set(groupId, group);
+                
+                // 上傳到Google Sheets
+                await this.upsertGroupsToGoogleSheets([group]);
+                
+                await this.saveLocalData();
+                console.log(`群組名稱已更新並同步到Google Sheets: ${groupId} -> ${newGroupName}`);
+                return true;
+            }
+            console.log(`未找到群組: ${groupId}`);
+            return false;
+        } catch (error) {
+            console.error('更新群組名稱失敗:', error);
+            return false;
+        }
+    }
+
+    // 獲取群組總數
+    async getGroupCount() {
+        return this.localGroups.size;
+    }
+
+    // 搜尋群組
+    async searchGroups(query) {
+        const searchTerm = query.toLowerCase();
+        return Array.from(this.localGroups.values()).filter(group =>
+            group.groupId.toLowerCase().includes(searchTerm) ||
+            (group.groupName && group.groupName.toLowerCase().includes(searchTerm))
+        );
+    }
+
+    // 記錄群組中的使用者活動
+    async recordGroupUserActivity(groupId, userId, displayName) {
+        try {
+            // 確保群組存在
+            let group = this.localGroups.get(groupId);
+            if (!group) {
+                group = await this.registerGroup({
+                    groupId: groupId,
+                    groupName: '未知群組',
+                    type: 'group'
+                });
+            }
+
+            // 更新群組活動時間
+            await this.updateGroupActivity(groupId);
+
+            // 記錄使用者也在此群組活動
+            const user = this.localUsers.get(userId);
+            if (user) {
+                if (!user.groups) {
+                    user.groups = [];
+                }
+                if (!user.groups.includes(groupId)) {
+                    user.groups.push(groupId);
+                    this.localUsers.set(userId, user);
+                    await this.saveLocalData();
+                }
+            }
+
+            console.log(`記錄群組活動: ${displayName} (${userId}) 在群組 ${groupId}`);
+            return true;
+        } catch (error) {
+            console.error('記錄群組使用者活動失敗:', error);
             return false;
         }
     }
