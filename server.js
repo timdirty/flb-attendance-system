@@ -46,6 +46,15 @@ try {
   console.log('⚠️ 無法掛載關鍵字管理 API：', e.message);
 }
 
+// ====== 新增：掛載內建功能管理 API 路由 ======
+try {
+  const featuresApi = require('./src/features-api');
+  app.use('/api/features', featuresApi);
+  console.log('✅ 內建功能管理 API 已掛載於 /api/features');
+} catch (e) {
+  console.log('⚠️ 無法掛載內建功能管理 API：', e.message);
+}
+
 // 重定向舊的 API 端點到新的端點（向後兼容）
 app.all('/api/attendance/course-students', (req, res) => {
     console.log('🔄 重定向舊 API 端點 /api/attendance/course-students 到 /api/course-students');
@@ -6898,6 +6907,30 @@ app.get('/api/webhook-forward/status', (req, res) => {
             success: false,
             error: error.message
         });
+    }
+});
+
+// 取得/設定全域過濾器
+app.get('/api/webhook-forward/filters', (req, res) => {
+    try {
+        res.json({ success: true, filters: webhookForwarder.filters || {} });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+app.patch('/api/webhook-forward/filters', (req, res) => {
+    try {
+        const { eventTypes, messageTypes, keywords } = req.body || {};
+        webhookForwarder.filters = {
+            ...(webhookForwarder.filters || {}),
+            eventTypes: Array.isArray(eventTypes) ? eventTypes : webhookForwarder.filters?.eventTypes,
+            messageTypes: Array.isArray(messageTypes) ? messageTypes : webhookForwarder.filters?.messageTypes,
+            keywords: Array.isArray(keywords) ? keywords : webhookForwarder.filters?.keywords,
+        };
+        res.json({ success: true, filters: webhookForwarder.filters });
+    } catch (e) {
+        res.status(400).json({ success: false, error: e.message });
     }
 });
 

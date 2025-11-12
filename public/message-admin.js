@@ -276,6 +276,12 @@ async function loadForwarders(){
       div.querySelector('.del').onclick = async ()=>{ if(!confirm('確定移除？'))return; await fetch(`/api/webhook-forward/targets/${encodeURIComponent(t.name||t.url)}`, { method:'DELETE' }); loadForwarders(); };
       box.appendChild(div);
     });
+    // Filters
+    const fres = await fetch('/api/webhook-forward/filters');
+    const { filters } = await fres.json();
+    document.getElementById('fwEventTypes').value = (filters?.eventTypes||[]).join(',');
+    document.getElementById('fwMessageTypes').value = (filters?.messageTypes||[]).join(',');
+    document.getElementById('fwKeywords').value = (filters?.keywords||[]).join(',');
   }catch(e){ console.warn(e); }
 }
 
@@ -289,9 +295,64 @@ document.getElementById('btnAddForward').onclick = async ()=>{
   }catch(e){ alert(e.message); }
 };
 
+document.getElementById('btnSaveFilters').onclick = async ()=>{
+  try{
+    const eventTypes = document.getElementById('fwEventTypes').value.split(',').map(s=>s.trim()).filter(Boolean);
+    const messageTypes = document.getElementById('fwMessageTypes').value.split(',').map(s=>s.trim()).filter(Boolean);
+    const keywords = document.getElementById('fwKeywords').value.split(',').map(s=>s.trim()).filter(Boolean);
+    await fetch('/api/webhook-forward/filters', { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ eventTypes, messageTypes, keywords }) });
+    alert('已儲存過濾器');
+  }catch(e){ alert(e.message); }
+};
+
 // 初始載入
 loadKeywords();
 loadForwarders();
+
+// ===== 內建功能管理 =====
+let selectedFeatureId = null;
+async function loadFeatures(){
+  try{
+    const res = await fetch('/api/features', { headers: authHeaders() });
+    const { data } = await res.json();
+    const box = document.getElementById('featList'); box.innerHTML='';
+    data.forEach(f=>{
+      const div=document.createElement('div'); div.className='job';
+      const syns = (f.synonyms||[]).map(s=>`${s.pattern} <small>(${s.matchType})</small>`).join('、') || '<small>—</small>';
+      div.innerHTML = `<div>
+          <input type="radio" name="featSel" ${selectedFeatureId===f.id?'checked':''}/> <b>${f.name}</b>
+          <small>指令：${f.targetCommand}</small><div style="font-size:12px;color:#666">同義詞：${syns}</div>
+        </div>
+        <div>
+          <button class="sync">同步</button>
+        </div>`;
+      div.querySelector('input').onchange = ()=>{ selectedFeatureId=f.id; };
+      div.querySelector('.sync').onclick = async ()=>{ await fetch(`/api/features/${f.id}/sync`, { method:'POST', headers: authHeaders() }); alert('已同步到關鍵字規則'); };
+      box.appendChild(div);
+    });
+  }catch(e){ console.warn(e); }
+}
+
+document.getElementById('btnAddSyn').onclick = async ()=>{
+  try{
+    if (!selectedFeatureId) return alert('請先選擇功能');
+    const pattern = document.getElementById('synPattern').value.trim(); if (!pattern) return alert('請輸入 pattern');
+    const matchType = document.getElementById('synMatch').value;
+    await fetch(`/api/features/${selectedFeatureId}/synonyms`, { method:'POST', headers: authHeaders(), body: JSON.stringify({ pattern, matchType }) });
+    document.getElementById('synPattern').value='';
+    loadFeatures();
+  }catch(e){ alert(e.message); }
+};
+
+document.getElementById('btnSyncSyn').onclick = async ()=>{
+  try{
+    if (!selectedFeatureId) return alert('請先選擇功能');
+    await fetch(`/api/features/${selectedFeatureId}/sync`, { method:'POST', headers: authHeaders() });
+    alert('已同步至關鍵字規則');
+  }catch(e){ alert(e.message); }
+};
+
+loadFeatures();
 
 // Rich Menu 綁定/解除
 $('#btnBindRM').addEventListener('click', async () => {

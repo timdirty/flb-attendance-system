@@ -138,6 +138,32 @@
         <button id="btnAddForward">新增目標</button>
       </div>
       <div id="fwList" class="list"></div>
+
+      <h3>Webhook 過濾器</h3>
+      <div class="row">
+        <input id="fwEventTypes" placeholder="事件類型（逗號分隔，例如 message,postback）" />
+        <input id="fwMessageTypes" placeholder="訊息類型（逗號分隔，例如 text,image,sticker）" />
+      </div>
+      <div class="row">
+        <input id="fwKeywords" placeholder="關鍵字（逗號分隔，任一包含即轉發）" />
+        <button id="btnSaveFilters">儲存過濾器</button>
+      </div>
+    </section>
+
+    <section class="mc-section">
+      <h2><i class="fa-solid fa-sliders"></i> 內建功能管理</h2>
+      <div id="featList" class="list"></div>
+      <div class="row">
+        <input id="synPattern" placeholder="新增同義詞（pattern）" />
+        <select id="synMatch">
+          <option value="exact">exact</option>
+          <option value="contains">contains</option>
+          <option value="regex">regex</option>
+        </select>
+        <button id="btnAddSyn">加入到所選功能</button>
+        <button id="btnSyncSyn">同步到關鍵字規則</button>
+      </div>
+      <small>說明：同義詞會以 alias_to 方式指向該功能的系統指令（例如 #出缺勤）。</small>
     </section>
   </div>
 

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "attendance_query",
+    "name": "出缺勤查詢",
+    "targetCommand": "#出缺勤",
+    "enabled": true,
+    "synonyms": []
+  },
+  {
+    "id": "remaining_classes",
+    "name": "剩餘堂數",
+    "targetCommand": "#剩餘堂數",
+    "enabled": true,
+    "synonyms": []
+  },
+  {
+    "id": "course_plan",
+    "name": "課程規劃",
+    "targetCommand": "#本期課程規劃",
+    "enabled": true,
+    "synonyms": []
+  }
+]
