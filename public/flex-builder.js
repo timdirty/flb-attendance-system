@@ -66,6 +66,7 @@ function renderPreview(data) {
   phone.style.height = sizeSel==='sm' ? '480px' : sizeSel==='lg' ? '640px' : '560px';
   phone.style.width = sizeSel==='lg' ? '420px' : sizeSel==='sm' ? '340px' : '375px';
   box.classList.toggle('dark', $('#darkMode').checked);
+  renderTree();
 }
 
 // 預設 bubble
@@ -252,6 +253,15 @@ const PRESETS_LIBRARY = [
   { name:'上課提醒', json:{ type:'bubble', body:{ type:'box', layout:'vertical', contents:[{type:'text', text:'⏰ 上課提醒', weight:'bold', size:'lg'},{type:'text', text:'今天 {{date}} 19:00 準時上課', wrap:true}] } } },
   { name:'問卷邀請', json:{ type:'bubble', body:{ type:'box', layout:'vertical', contents:[{type:'text', text:'📝 問卷邀請', weight:'bold', size:'lg'},{type:'text', text:'您寶貴的意見是我們前進的動力', wrap:true},{type:'button', style:'primary', action:{type:'uri', label:'前往填寫', uri:'https://example.com'}}] } } },
   { name:'客服回饋', json:{ type:'bubble', body:{ type:'box', layout:'vertical', contents:[{type:'text', text:'💬 客服回覆', weight:'bold', size:'lg'},{type:'text', text:'您好 {{displayName}}，關於您的問題……', wrap:true}] } } },
+  { name:'三卡 Carousel', json:{ type:'carousel', contents:[1,2,3].map(i=>({ type:'bubble', body:{ type:'box', layout:'vertical', contents:[{type:'text', text:`卡片 ${i}`, weight:'bold', size:'lg'},{type:'text', text:`內容 ${i}`, wrap:true}] } })) } },
+  { name:'主視覺 + CTA', json:{ type:'bubble', body:{ type:'box', layout:'vertical', contents:[{type:'image', url:'https://placehold.co/600x300', size:'full'},{type:'text', text:'主題標題', weight:'bold', size:'lg'},{type:'button', style:'primary', action:{type:'uri', label:'立即前往', uri:'https://example.com'}}] } } },
+  { name:'課程異動公告', json:{ type:'bubble', body:{ type:'box', layout:'vertical', contents:[{type:'text', text:'📣 課程異動', weight:'bold', size:'lg'},{type:'text', text:'原時段：… 新時段：…', wrap:true}] } } },
+  { name:'緊急停課通知', json:{ type:'bubble', body:{ type:'box', layout:'vertical', contents:[{type:'text', text:'⛔ 停課通知', weight:'bold', size:'lg'},{type:'text', text:'因天候因素今日停課一日', wrap:true}] } } },
+  { name:'開學提醒', json:{ type:'bubble', body:{ type:'box', layout:'vertical', contents:[{type:'text', text:'🎒 開學提醒', weight:'bold', size:'lg'},{type:'text', text:'明日 {{date}} 開學，請準時到校', wrap:true}] } } },
+  { name:'優惠券推廣', json:{ type:'bubble', body:{ type:'box', layout:'vertical', contents:[{type:'text', text:'🎁 優惠券', weight:'bold', size:'lg'},{type:'text', text:'輸入代碼 FLB2025 享 9 折', wrap:true},{type:'button', style:'primary', action:{type:'uri', label:'領取', uri:'https://example.com'}}] } } },
+  { name:'客製化問候', json:{ type:'bubble', body:{ type:'box', layout:'vertical', contents:[{type:'text', text:'👋 嗨 {{displayName}}', weight:'bold', size:'lg'},{type:'text', text:'祝你有美好的一天！', wrap:true}] } } },
+  { name:'維護完成通知', json:{ type:'bubble', body:{ type:'box', layout:'vertical', contents:[{type:'text', text:'✅ 維護完成', weight:'bold', size:'lg'},{type:'text', text:'系統已恢復正常，感謝耐心等待。', wrap:true}] } } },
+  { name:'滿意度回饋', json:{ type:'bubble', body:{ type:'box', layout:'vertical', contents:[{type:'text', text:'⭐ 服務滿意度', weight:'bold', size:'lg'},{type:'text', text:'您的回饋對我們很重要', wrap:true},{type:'button', style:'primary', action:{type:'uri', label:'填寫回饋', uri:'https://example.com'}}] } } },
 ];
 
 async function loadLibrary(){
@@ -293,3 +303,63 @@ function validateFlex(obj){
   return errors;
 }
 $('#btnValidate').onclick = () => { const o=getFlex(); if (!o) return alert('JSON 無效'); const errs=validateFlex(o); if (errs.length) alert('驗證失敗:\n'+errs.join('\n')); else alert('✅ 通過離線驗證'); };
+
+// ===== 結構樹 + 拖曳重排 =====
+function pathLabel(path){ return path ? path.join('→') : 'root'; }
+function eachNode(obj, cb, path=['root']){
+  if (!obj) return; if (obj.type==='bubble'){ const p=path.concat(['body']); cb({node:obj.body, path:p, label:'body'}); if (obj.body?.contents) obj.body.contents.forEach((c,i)=>{ cb({node:c, path: p.concat(['contents', i]), label:`contents[${i}] ${c.type}`}); if (c.type==='box') eachNode({type:'bubble', body:c}, cb, p.concat(['contents', i])); }); }
+  if (obj.type==='carousel'){ (obj.contents||[]).forEach((b,i)=>{ cb({node:b, path:['contents', i], label:`bubble[${i}]`}); eachNode(b, cb, ['contents', i]); }); }
+}
+function renderTree(){
+  const obj=getFlex(); const panel=$('#treePanel'); panel.innerHTML=''; if (!obj) return;
+  const list=document.createElement('div');
+  eachNode(obj, ({node,path,label})=>{
+    if (label==='body') return; // 簡化: 不顯示 body 行
+    const d=document.createElement('div'); d.className='node indent-'+Math.min(3, Math.floor(path.length/2));
+    d.draggable=true; d.dataset.path=JSON.stringify(path);
+    d.innerHTML = `<span class="handle">⋮⋮</span><span class="label">${label}</span><small>${node.type||''}</small>`;
+    d.onclick=()=>{ selectedPath=path; showProps(); };
+    d.ondragstart=(e)=>{ e.dataTransfer.setData('text/plain', d.dataset.path); };
+    d.ondragover=(e)=>{ e.preventDefault(); d.classList.add('drag-over'); };
+    d.ondragleave=()=> d.classList.remove('drag-over');
+    d.ondrop=(e)=>{
+      e.preventDefault(); d.classList.remove('drag-over');
+      try{
+        const fromPath=JSON.parse(e.dataTransfer.getData('text/plain'));
+        const toPath=JSON.parse(d.dataset.path);
+        const obj=getFlex();
+        // 若同一父：重排；若目標是 box，則 append 到目標 box.contents
+        const fromParentPath=fromPath.slice(0,-2); const toParentPath=toPath.slice(0,-2);
+        if (JSON.stringify(fromParentPath)===JSON.stringify(toParentPath)){
+          const parent=getByPath(obj, fromParentPath); const fromIdx=fromPath[fromPath.length-1]; const toIdx=toPath[toPath.length-1];
+          arrayMove(parent.contents, fromIdx, toIdx); setFlex(obj);
+        } else {
+          const fromParent=getByPath(obj, fromParentPath); const fromIdx=fromPath[fromPath.length-1]; const item=fromParent.contents.splice(fromIdx,1)[0];
+          // 如果目標自身是 box：插入到其 contents 末尾；否則插入到目標 parent 的位置
+          const toNode=getByPath(obj, toPath);
+          if (toNode && toNode.type==='box'){
+            toNode.contents = toNode.contents || []; toNode.contents.push(item);
+          } else {
+            const toParent=getByPath(obj, toParentPath); const toIdx=toPath[toPath.length-1]; toParent.contents.splice(toIdx,0,item);
+          }
+          setFlex(obj);
+        }
+      }catch(err){ console.warn(err); }
+    };
+    list.appendChild(d);
+  });
+  panel.appendChild(list);
+}
+
+// 將內容送往訊息中心
+$('#btnSendToMC').onclick = async ()=>{
+  try{
+    const name = ($('#presetName').value||'臨時預設')+'-'+Date.now().toString(36);
+    const altText=$('#altText').value||'通知';
+    const contents=getFlex();
+    const scopes = ($('#presetScopes').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const tags = ($('#presetTags').value||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const { data } = await api('/flex-presets','POST',{ name, altText, contents, scopes, tags });
+    location.href = `/message-admin.html#preset=${encodeURIComponent(data.id)}`;
+  }catch(e){ alert(e.message); }
+};

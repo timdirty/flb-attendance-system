@@ -194,6 +194,27 @@ loadTemplates();
 loadJobs();
 setInterval(loadJobs, 5000);
 
+// 若從 Flex Builder 帶入 preset
+(async function initFromHash(){
+  try {
+    const hash = location.hash||'';
+    const m = hash.match(/preset=([^&]+)/);
+    if (!m) return;
+    const id = decodeURIComponent(m[1]);
+    const { data } = await api('/flex-presets');
+    const p = data.find(x => x.id===id);
+    if (!p) return;
+    $('#msgType').value='flex';
+    $('#textBox').style.display='none';
+    $('#flexBox').style.display='';
+    $('#flexJson').value = JSON.stringify(p.contents, null, 2);
+    $('#flexAlt').value = p.altText||'通知';
+    alert('已從 Flex 預設載入到 Composer');
+  } catch (e) {
+    console.warn('initFromHash error', e);
+  }
+})();
+
 // Rich Menu 綁定/解除
 $('#btnBindRM').addEventListener('click', async () => {
   try {
