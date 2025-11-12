@@ -15,6 +15,7 @@ const JOB_DETAIL_DIR = path.join(process.cwd(), 'jobs');
 const TEMPLATE_FILE = path.join(DATA_DIR, 'message-templates.json');
 const JOBS_FILE = path.join(DATA_DIR, 'message-jobs.json');
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
+const FLEX_PRESETS_FILE = path.join(DATA_DIR, 'flex-presets.json');
 
 const LINE_PUSH_API = 'https://api.line.me/v2/bot/message/push';
 const LINE_LOADING_API = 'https://api.line.me/v2/bot/chat/loading/start';
@@ -53,6 +54,7 @@ function ensureDirs() {
   if (!fs.existsSync(TEMPLATE_FILE)) fs.writeFileSync(TEMPLATE_FILE, '[]', 'utf8');
   if (!fs.existsSync(JOBS_FILE)) fs.writeFileSync(JOBS_FILE, '[]', 'utf8');
   if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  if (!fs.existsSync(FLEX_PRESETS_FILE)) fs.writeFileSync(FLEX_PRESETS_FILE, '[]', 'utf8');
 }
 
 function readJson(file) {
@@ -381,4 +383,41 @@ module.exports = {
     const resp = await axios.delete(url, { headers, timeout: 10000 });
     return { success: true, data: resp.data, bot: bot.id };
   },
+  // Flex Presets CRUD
+  listFlexPresets() { ensureDirs(); return readJson(FLEX_PRESETS_FILE); },
+  addFlexPreset({ name, altText, contents, scopes = [], tags = [], notes = '', operator = 'admin' }) {
+    ensureDirs();
+    const list = readJson(FLEX_PRESETS_FILE);
+    const id = `fx_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
+    const rec = { id, name, altText: altText||'通知', contents, scopes, tags, notes, updatedAt: new Date().toISOString(), updatedBy: operator };
+    list.push(rec);
+    writeJson(FLEX_PRESETS_FILE, list);
+    return rec;
+  },
+  updateFlexPreset(id, patch) {
+    ensureDirs();
+    const list = readJson(FLEX_PRESETS_FILE);
+    const idx = list.findIndex(x => x.id === id);
+    if (idx < 0) return null;
+    list[idx] = { ...list[idx], ...patch, updatedAt: new Date().toISOString() };
+    writeJson(FLEX_PRESETS_FILE, list);
+    return list[idx];
+  },
+  deleteFlexPreset(id) {
+    ensureDirs();
+    const list = readJson(FLEX_PRESETS_FILE);
+    const next = list.filter(x => x.id !== id);
+    if (next.length === list.length) return false;
+    writeJson(FLEX_PRESETS_FILE, next);
+    return true;
+  },
+  async sendFlexPresetNow(preset, recipientsSpec, options, operator) {
+    const job = createJob({ message: { type: 'flex', altText: preset.altText||'通知', contents: preset.contents }, recipientsSpec, options, operator });
+    await processJob(job);
+    return job;
+  },
+  // 暴露插值工具給預覽
+  buildVarsForUser,
+  applyTemplateString,
+  applyVariablesToObject,
 };

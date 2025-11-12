@@ -19,6 +19,11 @@ const {
   linkRichMenu,
   unlinkRichMenu,
   resolveRecipients,
+  listFlexPresets,
+  addFlexPreset,
+  updateFlexPreset,
+  deleteFlexPreset,
+  sendFlexPresetNow,
 } = require('./message-service');
 
 // 啟動排程器（常駐）
@@ -381,6 +386,54 @@ router.post('/narrowcast', async (req, res) => {
     const r = await axios.post('https://api.line.me/v2/bot/message/narrowcast', { messages: [message], filter: filter||{} }, { headers: { Authorization: `Bearer ${token}` } });
     res.json({ success: true, data: r.data });
   } catch (e) { res.json({ success: false, error: e.response?.data || e.message }); }
+});
+
+// --- Flex Presets ---
+router.get('/flex-presets', (req, res) => {
+  try {
+    const list = listFlexPresets();
+    const { q, scope } = req.query;
+    const out = list.filter(x => (
+      (!q || x.name.includes(q)) && (!scope || (Array.isArray(x.scopes) && x.scopes.includes(scope)))
+    ));
+    res.json({ success: true, data: out });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+router.post('/flex-presets', (req, res) => {
+  try {
+    const { name, altText, contents, scopes, tags, notes } = req.body || {};
+    if (!name || !contents) return res.json({ success: false, error: 'name / contents 必填' });
+    const rec = addFlexPreset({ name, altText, contents, scopes, tags, notes, operator: req.header('X-Operator') || 'admin' });
+    res.json({ success: true, data: rec });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+router.patch('/flex-presets/:id', (req, res) => {
+  try {
+    const rec = updateFlexPreset(req.params.id, req.body || {});
+    if (!rec) return res.json({ success: false, error: '找不到預設' });
+    res.json({ success: true, data: rec });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+router.delete('/flex-presets/:id', (req, res) => {
+  try {
+    const ok = deleteFlexPreset(req.params.id);
+    res.json({ success: ok });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+// 直接以 Flex Preset 發送（立即）
+router.post('/flex-presets/:id/send', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const preset = listFlexPresets().find(x => x.id === id);
+    if (!preset) return res.json({ success: false, error: '找不到預設' });
+    const { recipients, options } = req.body || {};
+    const job = await sendFlexPresetNow(preset, recipients, options, req.header('X-Operator') || 'admin');
+    res.json({ success: true, job });
+  } catch (e) { res.json({ success: false, error: e.message }); }
 });
 
 module.exports = router;

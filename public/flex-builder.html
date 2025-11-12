@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flex Builder</title>
+  <link rel="stylesheet" href="/flex-builder.css" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+  <div class="fb-container">
+    <header class="fb-header">
+      <h1>🧩 Flex Builder</h1>
+      <div class="fb-actions">
+        <input id="adminKey" placeholder="X-Admin-Key" />
+        <input id="operator" placeholder="操作者 (選填)" />
+        <input id="testUserId" placeholder="測試 userId (可選，用於試發)" />
+      </div>
+    </header>
+
+    <section class="fb-section">
+      <h2><i class="fa-solid fa-pen-ruler"></i> 設計區</h2>
+      <div class="grid">
+        <div class="left">
+          <div class="row">
+            <input id="presetName" placeholder="名稱" />
+            <input id="presetScopes" placeholder="範圍（逗號分隔）" />
+            <input id="presetTags" placeholder="標籤（逗號分隔）" />
+          </div>
+          <div class="row">
+            <input id="altText" placeholder="altText（收件匣摘要）" />
+            <button id="btnNewBubble">新 Bubble</button>
+            <button id="btnNewCarousel">新 Carousel</button>
+          </div>
+          <div class="toolbar">
+            <button data-add="text">文字</button>
+            <button data-add="image">圖片</button>
+            <button data-add="button">按鈕</button>
+            <button data-add="separator">分隔線</button>
+            <button data-add="spacer">空白</button>
+          </div>
+          <textarea id="flexJson" rows="20" placeholder="Flex JSON 內容（bubble/carousel）"></textarea>
+          <div class="row">
+            <button id="btnValidate">驗證 JSON</button>
+            <button id="btnPreview">預覽（插值）</button>
+            <button id="btnSendTest">試發到 userId</button>
+          </div>
+        </div>
+        <div class="right">
+          <div class="phone">
+            <div id="previewBox" class="preview">在此顯示簡易預覽</div>
+          </div>
+          <div class="row">
+            <button id="btnSavePreset" class="primary">儲存為 Flex 預設</button>
+          </div>
+          <h3>已儲存預設</h3>
+          <div class="list" id="presetList"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/flex-builder.js"></script>
+  <script>console.log('Flex Builder loaded')</script>
+</body>
+</html>
+
