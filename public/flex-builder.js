@@ -192,14 +192,23 @@ function showProps(){
     const lab=document.createElement('label'); lab.textContent=label; lab.style.minWidth='72px'; row.appendChild(lab);
     let input; if (type==='select'){ input=document.createElement('select'); (list||[]).forEach(v=>{const o=document.createElement('option'); o.value=v; o.textContent=v; if ((node[key]||'')===v) o.selected=true; input.appendChild(o);}); }
     else if (type==='checkbox'){ input=document.createElement('input'); input.type='checkbox'; input.checked=!!node[key]; }
+    else if (key==='color'){ input=document.createElement('input'); input.type='color'; input.value=node[key]||'#111111'; }
     else { input=document.createElement('input'); input.value=node[key]||''; }
     input.onchange=()=>{ const val=(type==='checkbox')?input.checked:(type==='select'?input.value:input.value); setFlex(setByPath(getFlex(), selectedPath, n=>({ ...n, [key]: val })) ); };
     row.appendChild(input); fields.appendChild(row);
   }
   // 通用
   addField('type','type','select',['text','image','button','separator','spacer','box']);
-  if (node.type==='text'){ addField('text','text'); addField('color','color'); addField('size','size'); addField('weight','weight'); addField('wrap','wrap','checkbox'); }
-  if (node.type==='image'){ addField('url','url'); addField('size','size'); addField('aspectRatio','aspectRatio'); }
+  if (node.type==='text'){
+    addField('text','text'); addField('color','color');
+    addField('size','size','select',['xs','sm','md','lg','xl']);
+    addField('weight','weight','select',['regular','bold']);
+    addField('align','align','select',['start','center','end']);
+    addField('gravity','gravity','select',['top','center','bottom']);
+    addField('margin','margin','select',['none','xs','sm','md','lg','xl']);
+    addField('wrap','wrap','checkbox');
+  }
+  if (node.type==='image'){ addField('url','url'); addField('size','size','select',['xs','sm','md','lg','full']); addField('aspectMode','aspectMode','select',['cover','fit']); addField('aspectRatio','aspectRatio'); }
   if (node.type==='spacer'){ addField('size','size'); }
   if (node.type==='separator'){ /* no-op */ }
   if (node.type==='button'){
@@ -213,9 +222,10 @@ function showProps(){
     if (node.action?.type==='uri') addField('uri','uri');
     if (node.action?.type==='postback') addField('data','data');
     if (node.action?.type==='message') addField('text','text');
-    addField('style','style');
+    addField('style','style','select',['link','primary','secondary']);
+    addField('margin','margin','select',['none','xs','sm','md','lg','xl']);
   }
-  if (node.type==='box'){ addField('layout','layout'); }
+  if (node.type==='box'){ addField('layout','layout','select',['vertical','horizontal','baseline']); addField('spacing','spacing','select',['none','xs','sm','md','lg','xl']); addField('margin','margin','select',['none','xs','sm','md','lg','xl']); }
 }
 
 function highlightSelection(){ /* 簡化：靠 hover 外框即可 */ }

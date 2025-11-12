@@ -5,6 +5,7 @@
 .row{display:flex;gap:8px;align-items:center;margin:8px 0}
 input,textarea{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa}
 .toolbar button{margin-right:6px}
+.toolbar{display:flex;gap:6px;flex-wrap:wrap}
 .phone{background:#111;border-radius:28px;padding:16px;height:520px;display:flex;align-items:center;justify-content:center}
 .preview{background:#f8fafc;width:100%;height:100%;border-radius:12px;overflow:auto;padding:10px;font-family:ui-sans-serif,system-ui}
 .preview.dark{background:#0b0f14;color:#e2e8f0}

@@ -40,6 +40,13 @@
             <button data-add="separator">分隔線</button>
             <button data-add="spacer">空白</button>
           </div>
+          <div class="row">
+            <input id="importFile" type="file" accept="application/json" style="display:none" />
+            <button id="btnImport">匯入 JSON</button>
+            <button id="btnExport">匯出 JSON</button>
+            <button id="btnCopy">複製 JSON</button>
+            <button id="btnPaste">貼上 JSON</button>
+          </div>
           <textarea id="flexJson" rows="18" placeholder="Flex JSON 內容（bubble/carousel）"></textarea>
           <div class="row" style="justify-content:space-between">
             <div>
@@ -80,6 +87,7 @@
           <h3>已儲存預設</h3>
           <div class="list" id="presetList"></div>
           <h3>常用範本庫</h3>
+          <div class="row"><input id="librarySearch" placeholder="搜尋範本名稱/關鍵字" /></div>
           <div class="list" id="libraryList"></div>
         </div>
       </div>
