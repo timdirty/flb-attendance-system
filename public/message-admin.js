@@ -149,3 +149,22 @@ loadTemplates();
 loadJobs();
 setInterval(loadJobs, 5000);
 
+// Rich Menu 綁定/解除
+$('#btnBindRM').addEventListener('click', async () => {
+  try {
+    const userId = $('#rmUserId').value.trim();
+    const richMenuId = $('#rmId').value.trim();
+    if (!userId || !richMenuId) return alert('請填入 userId 與 richMenuId');
+    await api('/richmenu/bind', 'POST', { userId, richMenuId });
+    alert('Rich Menu 綁定成功');
+  } catch (e) { alert('綁定失敗：' + e.message); }
+});
+
+$('#btnUnbindRM').addEventListener('click', async () => {
+  try {
+    const userId = $('#rmUserId').value.trim();
+    if (!userId) return alert('請填入 userId');
+    await api('/richmenu/unbind', 'POST', { userId });
+    alert('Rich Menu 解除綁定成功');
+  } catch (e) { alert('解除失敗：' + e.message); }
+});

@@ -17,6 +17,8 @@ const JOBS_FILE = path.join(DATA_DIR, 'message-jobs.json');
 
 const LINE_PUSH_API = 'https://api.line.me/v2/bot/message/push';
 const LINE_LOADING_API = 'https://api.line.me/v2/bot/chat/loading/start';
+const LINE_RICHMENU_USER_LINK = (userId, richMenuId) => `https://api.line.me/v2/bot/user/${userId}/richmenu/${richMenuId}`;
+const LINE_RICHMENU_USER_UNLINK = userId => `https://api.line.me/v2/bot/user/${userId}/richmenu`;
 
 // 讀環境設定
 const ADMIN_API_KEY = process.env.ADMIN_API_KEY || '';
@@ -284,6 +286,7 @@ async function sendLoading(userId, seconds = 5) {
 
 module.exports = {
   ADMIN_API_KEY,
+  resolveRecipients,
   listTemplates,
   addTemplate,
   updateTemplate,
@@ -294,4 +297,23 @@ module.exports = {
   processJob,
   startScheduler,
   sendLoading,
+  // Rich Menu
+  async linkRichMenu(userId, richMenuId, botId) {
+    const bots = selectBots(botId || 'primary_first');
+    if (bots.length === 0) throw new Error('沒有可用的 LINE Bot 憑證');
+    const bot = bots[0];
+    const headers = { 'Authorization': `Bearer ${bot.token}`, 'Content-Type': 'application/json' };
+    const url = LINE_RICHMENU_USER_LINK(userId, richMenuId.startsWith('richmenu-') ? richMenuId : `richmenu-${richMenuId}`);
+    const resp = await axios.post(url, {}, { headers, timeout: 10000 });
+    return { success: true, data: resp.data, bot: bot.id };
+  },
+  async unlinkRichMenu(userId, botId) {
+    const bots = selectBots(botId || 'primary_first');
+    if (bots.length === 0) throw new Error('沒有可用的 LINE Bot 憑證');
+    const bot = bots[0];
+    const headers = { 'Authorization': `Bearer ${bot.token}`, 'Content-Type': 'application/json' };
+    const url = LINE_RICHMENU_USER_UNLINK(userId);
+    const resp = await axios.delete(url, { headers, timeout: 10000 });
+    return { success: true, data: resp.data, bot: bot.id };
+  },
 };

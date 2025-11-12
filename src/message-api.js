@@ -16,6 +16,8 @@ const {
   processJob,
   startScheduler,
   sendLoading,
+  linkRichMenu,
+  unlinkRichMenu,
 } = require('./message-service');
 
 // 啟動排程器（常駐）
@@ -146,6 +148,112 @@ router.post('/tools/loading', async (req, res) => {
     if (!userId) return res.json({ success: false, error: 'userId 必填' });
     const result = await sendLoading(userId, Number(seconds || 5));
     res.json({ success: true, result });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+// --- Rich Menu 管理 ---
+router.post('/richmenu/bind', async (req, res) => {
+  try {
+    const { userId, richMenuId, botId } = req.body || {};
+    if (!userId || !richMenuId) return res.json({ success: false, error: 'userId / richMenuId 必填' });
+    const result = await linkRichMenu(userId, richMenuId, botId);
+    res.json({ success: true, result });
+  } catch (e) { res.json({ success: false, error: e.response?.data || e.message }); }
+});
+
+router.post('/richmenu/unbind', async (req, res) => {
+  try {
+    const { userId, botId } = req.body || {};
+    if (!userId) return res.json({ success: false, error: 'userId 必填' });
+    const result = await unlinkRichMenu(userId, botId);
+    res.json({ success: true, result });
+  } catch (e) { res.json({ success: false, error: e.response?.data || e.message }); }
+});
+
+// --- 收件人查詢（整合本地檔） ---
+const fs = require('fs');
+const path = require('path');
+function readJsonSafe(p, fallback) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return fallback; } }
+
+router.get('/recipients/users', (req, res) => {
+  try {
+    const file = path.join(process.cwd(), 'data', 'users.json');
+    const list = readJsonSafe(file, []);
+    const q = (req.query.q || '').toLowerCase();
+    const data = list.filter(u => !q || u.userId.toLowerCase().includes(q) || (u.displayName||'').toLowerCase().includes(q))
+      .map(u => ({ userId: u.userId, displayName: u.displayName||'' }));
+    res.json({ success: true, data });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+router.get('/recipients/teachers', (req, res) => {
+  try {
+    const file = path.join(process.cwd(), 'data', 'bindings.json');
+    const list = readJsonSafe(file, []).filter(b => b.isActive);
+    const q = (req.query.q || '').toLowerCase();
+    const data = list.filter(b => !q || (b.teacherName||'').toLowerCase().includes(q) || (b.userId||'').toLowerCase().includes(q))
+      .map(b => ({ userId: b.userId, teacherName: b.teacherName||'' }));
+    res.json({ success: true, data });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+router.get('/recipients/groups', (req, res) => {
+  try {
+    const file = path.join(process.cwd(), 'src', 'data', 'groups.json');
+    const list = readJsonSafe(file, []);
+    const q = (req.query.q || '').toLowerCase();
+    const data = list.filter(g => !q || (g.groupId||'').toLowerCase().includes(q) || (g.groupName||'').toLowerCase().includes(q))
+      .map(g => ({ groupId: g.groupId, groupName: g.groupName||'', type: g.type||'group' }));
+    res.json({ success: true, data });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+// 估算收件人數
+const { resolveRecipients } = require('./message-service');
+router.post('/recipients/estimate', (req, res) => {
+  try {
+    const { recipients } = req.body || {};
+    const { userIds, groupIds } = resolveRecipients(recipients || {});
+    res.json({ success: true, estimate: { users: userIds.length, groups: groupIds.length } });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+// 匯出作業 CSV（即時轉換 ndjson）
+router.get('/export/:id.csv', (req, res) => {
+  try {
+    const jobId = req.params.id;
+    const file = path.join(process.cwd(), 'jobs', `${jobId}.ndjson`);
+    if (!fs.existsSync(file)) return res.status(404).send('Not Found');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${jobId}.csv"`);
+    const lines = fs.readFileSync(file, 'utf8').trim().split(/\n+/);
+    res.write('target,isGroup,botId,ok,status,attempt,error,ts\n');
+    for (const ln of lines) {
+      const o = JSON.parse(ln);
+      const row = [o.target||'', o.isGroup?1:0, o.botId||'', o.ok?1:0, o.status||'', o.attempt||'', (o.error||'').toString().replace(/\n/g,' '), o.ts||'']
+        .map(v => '"' + String(v).replace(/"/g,'""') + '"').join(',');
+      res.write(row + '\n');
+    }
+    res.end();
+  } catch (e) { res.status(500).send(e.message); }
+});
+
+// Bot 健康檢查：回傳每個 token 的 /v2/bot/info
+const axios = require('axios');
+router.get('/tools/bot-info', async (req, res) => {
+  try {
+    const tokens = [process.env.LINE_CHANNEL_ACCESS_TOKEN, process.env.LINE_CHANNEL_ACCESS_TOKEN_2, process.env.LINE_CHANNEL_ACCESS_TOKEN_3]
+      .filter(Boolean);
+    const results = [];
+    for (const tk of tokens) {
+      try {
+        const r = await axios.get('https://api.line.me/v2/bot/info', { headers: { Authorization: `Bearer ${tk}` }, timeout: 8000 });
+        results.push({ ok: true, data: r.data });
+      } catch (e) {
+        results.push({ ok: false, error: e.response?.data || e.message });
+      }
+    }
+    res.json({ success: true, results });
   } catch (e) { res.json({ success: false, error: e.message }); }
 });
 
