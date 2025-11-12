@@ -41,6 +41,7 @@
             <option value="userIds">指定 userIds</option>
             <option value="segment_teacher">教師分眾</option>
             <option value="groups">群組 IDs</option>
+            <option value="upload">上傳名單</option>
           </select>
           <div class="row">
             <input id="searchQ" placeholder="搜尋使用者/群組關鍵字" />
@@ -50,6 +51,16 @@
           </div>
           <div id="searchResults" class="list" style="display:none"></div>
           <textarea id="recipientList" rows="6" placeholder="以換行分隔 userId 或 groupId"></textarea>
+
+          <details style="margin:8px 0">
+            <summary>上傳名單（貼上 CSV/每行一筆）</summary>
+            <textarea id="uploadContent" rows="6" placeholder="Uxxxxxx\nUyyyyyy\n... 或 groupId"></textarea>
+            <div class="row">
+              <select id="uploadKind"><option value="userIds">userIds</option><option value="groups">groups</option></select>
+              <button id="btnUpload">建立名單</button>
+              <span id="uploadInfo" style="font-size:12px;color:#666"></span>
+            </div>
+          </details>
 
           <div class="row">
             <label>Bot 策略</label>
@@ -106,6 +117,7 @@
     <section class="mc-section">
       <h2><i class="fa-solid fa-list-check"></i> 作業列表</h2>
       <div id="jobs" class="list"></div>
+      <div id="jobDetail" class="list" style="display:none"></div>
     </section>
   </div>
 

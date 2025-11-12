@@ -15,15 +15,20 @@
 ## 3. 功能切片（M1）
 - 模板庫：Text/Flex 模板 CRUD、即時預覽（Flex 以 JSON 輸入）
 - Composer：文字訊息建立、變數（v2 規劃）
-- 收件人：以 userId 手動輸入；分眾（教師）從 `data/bindings.json`；群組（以 groupId）
-- 發送：立即發送；選項含 bot 策略（primary/secondary/round_robin/all）、批次大小、每秒節流、重試次數
-- 稽核：作業列表/詳情；NDJSON 逐筆寫入；CSV 匯出（v2 規劃）
+- 收件人：以 userId 手動輸入；分眾（教師）從 `data/bindings.json`；群組（以 groupId）；支援搜尋與加入清單
+- 發送：立即或排程；選項含 bot 策略（primary/secondary/round_robin/all）、批次大小、每秒節流、重試次數
+- 稽核：作業列表/詳情；NDJSON 逐筆寫入；CSV 匯出（M1 已提供）
+- Rich Menu：單人綁定/解除（直連 LINE API，不是 mock）
 
 ## 4. 後端 API（/api/message）
 - `GET /templates` 列表、`POST /templates` 新增、`PATCH /templates/:id` 更新、`DELETE /templates/:id` 刪除
 - `POST /send` 建立發送作業（立即或排程）
 - `GET /jobs` 作業列表、`GET /jobs/:id` 詳情、`POST /jobs/:id/cancel` 取消
 - `POST /tools/test` 測試訊息、`POST /tools/loading` Loading 動畫
+- `GET /tools/bot-info` 檢查已配置 Bot 健康
+- `POST /richmenu/bind|unbind` Rich Menu 綁定/解除（需 `userId`，綁定需 `richMenuId`）
+- `GET /recipients/users|teachers|groups` 收件人查詢；`POST /recipients/estimate` 估算數量
+- `GET /export/:jobId.csv` 匯出作業明細
 - 安全：需 Header `X-Admin-Key: $ADMIN_API_KEY`
 
 ## 5. 資料模型
@@ -39,8 +44,7 @@
 - `server.js` 重要檔案修改前建立 `backup-YYYYMMDD-HHMMSS`
 
 ## 8. 待辦（M2+）
-- 變數插值（例如 `{{displayName}}`）
-- CSV/上傳名單支援、CSV 匯出
-- 圖文/模板訊息（Buttons/Confirm/Carousel）
-- Broadcast/Narrowcast API（視費率與權限評估）
-
+- 變數插值（例如 `{{displayName}}`）— 已完成（M2）
+- CSV/上傳名單支援、CSV 匯出 — 已完成（M2/M1）
+- 圖文/模板訊息（Buttons/Confirm/Carousel）— 規劃中
+- Broadcast/Narrowcast API（視費率與權限評估）— 已提供可選路由（需 ENABLE_BROADCAST=true）

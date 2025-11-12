@@ -18,6 +18,7 @@ const {
   sendLoading,
   linkRichMenu,
   unlinkRichMenu,
+  resolveRecipients,
 } = require('./message-service');
 
 // 啟動排程器（常駐）
@@ -28,6 +29,16 @@ router.use((req, res, next) => {
   const key = req.header('X-Admin-Key');
   if (!ADMIN_API_KEY || key === ADMIN_API_KEY) return next();
   return res.status(401).json({ success: false, error: '未授權，請提供正確的 X-Admin-Key' });
+});
+
+// 可選：IP 白名單
+router.use((req, res, next) => {
+  const allow = (process.env.ADMIN_IP_ALLOWLIST || '').trim();
+  if (!allow) return next();
+  const ips = allow.split(',').map(s => s.trim()).filter(Boolean);
+  const ip = (req.headers['x-forwarded-for'] || req.ip || '').toString();
+  if (ips.some(x => ip.includes(x))) return next();
+  return res.status(403).json({ success: false, error: 'IP 不在允許名單' });
 });
 
 // --- 模板 ---
@@ -127,6 +138,49 @@ router.post('/jobs/:id/cancel', (req, res) => {
   } catch (e) { res.json({ success: false, error: e.message }); }
 });
 
+// 作業詳情（讀取 ndjson 摘要）
+const fs = require('fs');
+const path = require('path');
+router.get('/jobs/:id/detail', (req, res) => {
+  try {
+    const f = path.join(process.cwd(), 'jobs', `${req.params.id}.ndjson`);
+    if (!fs.existsSync(f)) return res.json({ success: true, items: [] });
+    const lines = fs.readFileSync(f, 'utf8').trim().split(/\n+/).map(x => JSON.parse(x));
+    res.json({ success: true, items: lines });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+// 只重送失敗者
+router.post('/jobs/:id/retry', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const job = listJobs().find(j => j.id === id);
+    if (!job) return res.json({ success: false, error: '找不到作業' });
+    const f = path.join(process.cwd(), 'jobs', `${id}.ndjson`);
+    const failed = fs.existsSync(f) ? fs.readFileSync(f, 'utf8').trim().split(/\n+/).map(x => JSON.parse(x)).filter(x => x.ok === false) : [];
+    const userIds = failed.filter(x => !x.isGroup).map(x => x.target);
+    const groupIds = failed.filter(x => x.isGroup).map(x => x.target);
+    const newJob = createJob({ message: job.message, recipientsSpec: { mode: 'userIds', userIds, groups: groupIds }, options: job.options, operator: req.header('X-Operator') || 'admin' });
+    setTimeout(() => processJob(newJob).catch(() => {}), 10);
+    res.json({ success: true, job: newJob });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+// 針對指定 targets 重送
+router.post('/jobs/:id/resend', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const job = listJobs().find(j => j.id === id);
+    if (!job) return res.json({ success: false, error: '找不到作業' });
+    const { targets } = req.body || {};
+    const users = (targets||[]).filter(t => !t.isGroup).map(t => t.id || t);
+    const groups = (targets||[]).filter(t => t.isGroup).map(t => t.id || t);
+    const newJob = createJob({ message: job.message, recipientsSpec: { mode: 'userIds', userIds: users, groups }, options: job.options, operator: req.header('X-Operator') || 'admin' });
+    setTimeout(() => processJob(newJob).catch(() => {}), 10);
+    res.json({ success: true, job: newJob });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
 // --- 工具 ---
 router.post('/tools/test', async (req, res) => {
   try {
@@ -171,8 +225,6 @@ router.post('/richmenu/unbind', async (req, res) => {
 });
 
 // --- 收件人查詢（整合本地檔） ---
-const fs = require('fs');
-const path = require('path');
 function readJsonSafe(p, fallback) { try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return fallback; } }
 
 router.get('/recipients/users', (req, res) => {
@@ -209,7 +261,6 @@ router.get('/recipients/groups', (req, res) => {
 });
 
 // 估算收件人數
-const { resolveRecipients } = require('./message-service');
 router.post('/recipients/estimate', (req, res) => {
   try {
     const { recipients } = req.body || {};
@@ -255,6 +306,81 @@ router.get('/tools/bot-info', async (req, res) => {
     }
     res.json({ success: true, results });
   } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+// 上傳名單（文字/CSV 內容）
+router.post('/upload-list', (req, res) => {
+  try {
+    const { name, content, kind } = req.body || {};
+    if (!content) return res.json({ success: false, error: 'content 必填' });
+    const lines = String(content).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const items = [];
+    for (const s of lines) {
+      const cell = s.split(/[;,\t]/)[0].trim();
+      if (cell) items.push(cell);
+    }
+    const id = `upl_${Date.now().toString(36)}`;
+    const dir = path.join(process.cwd(), 'src', 'data', 'uploads');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify({ id, name: name||id, kind: kind==='groups'?'groups':'userIds', items }, null, 2));
+    res.json({ success: true, uploadId: id, count: items.length });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+// 群組成員展開（使用本地 users.json 的 groups 記錄）
+router.get('/recipients/group-members/:groupId', (req, res) => {
+  try {
+    const users = readJsonSafe(path.join(process.cwd(), 'data', 'users.json'), []);
+    const groupId = req.params.groupId;
+    const list = users.filter(u => Array.isArray(u.groups) && u.groups.includes(groupId)).map(u => ({ userId: u.userId, displayName: u.displayName||'' }));
+    res.json({ success: true, data: list });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+// 預覽插值
+router.post('/preview', (req, res) => {
+  try {
+    const { message, userId } = req.body || {};
+    const svc = require('./message-service');
+    const vars = svc.buildVarsForUser ? svc.buildVarsForUser(userId) : {};
+    if (message?.type === 'text') {
+      const text = svc.applyTemplateString ? svc.applyTemplateString(message.text||'', vars) : message.text||'';
+      return res.json({ success: true, preview: { type: 'text', text } });
+    }
+    if (message?.type === 'flex') {
+      const contents = svc.applyVariablesToObject ? svc.applyVariablesToObject(message.contents||{}, vars) : message.contents||{};
+      return res.json({ success: true, preview: { type: 'flex', altText: message.altText||'', contents } });
+    }
+    res.json({ success: false, error: '不支援的訊息格式' });
+  } catch (e) { res.json({ success: false, error: e.message }); }
+});
+
+// 對前端暴露可用功能開關
+router.get('/config', (req, res) => {
+  res.json({ success: true, features: { broadcast: process.env.ENABLE_BROADCAST === 'true' } });
+});
+
+// Broadcast / Narrowcast（可選）
+router.post('/broadcast', async (req, res) => {
+  try {
+    if (process.env.ENABLE_BROADCAST !== 'true') return res.status(403).json({ success: false, error: '未啟用 Broadcast' });
+    const { message } = req.body || {};
+    const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+    if (!token) return res.json({ success: false, error: '缺少主要 bot token' });
+    const r = await axios.post('https://api.line.me/v2/bot/message/broadcast', { messages: [message] }, { headers: { Authorization: `Bearer ${token}` } });
+    res.json({ success: true, data: r.data });
+  } catch (e) { res.json({ success: false, error: e.response?.data || e.message }); }
+});
+
+router.post('/narrowcast', async (req, res) => {
+  try {
+    if (process.env.ENABLE_BROADCAST !== 'true') return res.status(403).json({ success: false, error: '未啟用 Narrowcast' });
+    const { message, filter } = req.body || {};
+    const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+    if (!token) return res.json({ success: false, error: '缺少主要 bot token' });
+    const r = await axios.post('https://api.line.me/v2/bot/message/narrowcast', { messages: [message], filter: filter||{} }, { headers: { Authorization: `Bearer ${token}` } });
+    res.json({ success: true, data: r.data });
+  } catch (e) { res.json({ success: false, error: e.response?.data || e.message }); }
 });
 
 module.exports = router;

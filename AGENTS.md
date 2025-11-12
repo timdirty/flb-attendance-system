@@ -553,7 +553,11 @@ sudo docker logs -f flb-line-bot
 - ✅ `public/admin.html` 新增「📣 訊息中心」入口
 - ✅ `env.example` 新增 `ADMIN_API_KEY` 與訊息中心預設參數
 
-使用方式：在 `message-admin.html` 輸入 `X-Admin-Key` 後即可管理模板與發送作業（M1 支援 text 與 flex）。
+使用方式：在 `message-admin.html` 輸入 `X-Admin-Key` 後即可管理模板與發送作業（M1 支援 text 與 flex），並可：
+- 搜尋/挑選收件人（使用者/教師/群組）、估算收件人數
+- 立即或排程發送（Asia/Taipei）
+- Rich Menu 綁定/解除（直連 LINE API）
+- Bot 健康檢查、Loading 動畫測試
 
 
 ### 2025-11-11｜專案文件整理與規範化

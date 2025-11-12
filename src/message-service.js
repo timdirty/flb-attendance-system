@@ -14,6 +14,7 @@ const JOB_DETAIL_DIR = path.join(process.cwd(), 'jobs');
 
 const TEMPLATE_FILE = path.join(DATA_DIR, 'message-templates.json');
 const JOBS_FILE = path.join(DATA_DIR, 'message-jobs.json');
+const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 
 const LINE_PUSH_API = 'https://api.line.me/v2/bot/message/push';
 const LINE_LOADING_API = 'https://api.line.me/v2/bot/chat/loading/start';
@@ -51,6 +52,7 @@ function ensureDirs() {
 
   if (!fs.existsSync(TEMPLATE_FILE)) fs.writeFileSync(TEMPLATE_FILE, '[]', 'utf8');
   if (!fs.existsSync(JOBS_FILE)) fs.writeFileSync(JOBS_FILE, '[]', 'utf8');
+  if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
 function readJson(file) {
@@ -151,7 +153,65 @@ function resolveRecipients(spec) {
     spec.groups.forEach(g => g && groups.add(g));
   }
 
+  if (spec.mode === 'upload' && spec.uploadId) {
+    try {
+      const file = path.join(UPLOAD_DIR, `${spec.uploadId}.json`);
+      const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+      const kind = data.kind || 'userIds';
+      const list = Array.isArray(data.items) ? data.items : [];
+      if (kind === 'userIds') list.forEach(u => ids.add(u));
+      if (kind === 'groups') list.forEach(g => groups.add(g));
+    } catch {}
+  }
+
   return { userIds: Array.from(ids), groupIds: Array.from(groups) };
+}
+
+// ===== 變數插值 =====
+let cacheUsers = null, cacheBindings = null, cacheTs = 0;
+function loadCaches() {
+  const now = Date.now();
+  if (cacheUsers && (now - cacheTs) < 10000) return; // 10 秒緩存
+  try {
+    cacheUsers = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'users.json'), 'utf8'));
+  } catch { cacheUsers = []; }
+  try {
+    cacheBindings = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'data', 'bindings.json'), 'utf8'));
+  } catch { cacheBindings = []; }
+  cacheTs = now;
+}
+
+function buildVarsForUser(userId) {
+  loadCaches();
+  const user = cacheUsers.find(u => u.userId === userId) || {};
+  const bind = cacheBindings.find(b => b.userId === userId && b.isActive) || {};
+  const nowStr = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' });
+  return {
+    userId,
+    displayName: user.displayName || user.userName || '',
+    teacherName: bind.teacherName || '',
+    now: nowStr,
+    date: nowStr.split(' ')[0] || nowStr
+  };
+}
+
+function applyTemplateString(str, vars) {
+  return String(str).replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, k) => {
+    const v = vars[k];
+    return (v === undefined || v === null) ? '' : String(v);
+  });
+}
+
+function applyVariablesToObject(obj, vars) {
+  if (obj == null) return obj;
+  if (typeof obj === 'string') return applyTemplateString(obj, vars);
+  if (Array.isArray(obj)) return obj.map(v => applyVariablesToObject(v, vars));
+  if (typeof obj === 'object') {
+    const out = {};
+    for (const k of Object.keys(obj)) out[k] = applyVariablesToObject(obj[k], vars);
+    return out;
+  }
+  return obj;
 }
 
 async function sendOneWithBot(bot, toId, body) {
@@ -204,7 +264,12 @@ async function processJob(job) {
         try {
           // 輪詢/優先策略
           const bot = bots[(attempt - 1) % bots.length];
-          await sendOneWithBot(bot, t.id, body);
+          let curBody = body;
+          if (!t.isGroup) {
+            const vars = buildVarsForUser(t.id);
+            curBody = applyVariablesToObject(body, vars);
+          }
+          await sendOneWithBot(bot, t.id, curBody);
           appendJobDetail(job.id, { target: t.id, isGroup: t.isGroup, botId: bot.id, ok: true, attempt: r + 1, ts: new Date().toISOString() });
           ok = true; break;
         } catch (e) {

@@ -49,6 +49,7 @@ $('#btnSend').addEventListener('click', async () => {
     let recipients;
     if (modeSel === 'userIds') recipients = { mode: 'userIds', userIds: parseListArea($('#recipientList').value) };
     else if (modeSel === 'groups') recipients = { mode: 'groups', groups: parseListArea($('#recipientList').value) };
+    else if (modeSel === 'upload') recipients = { mode: 'upload', uploadId: sessionStorage.getItem('mc_uploadId') };
     else recipients = { mode: 'segment', segment: { role: 'teacher' } };
 
   const options = {
@@ -139,11 +140,54 @@ async function loadJobs() {
       div.className = 'job';
       const stat = j.stats ? `${j.stats.success||0}/${(j.stats.success||0)+(j.stats.fail||0)}` : '-';
       div.innerHTML = `<div><b>${j.id}</b> <span class="badge ${b}">${j.status}</span><div style="font-size:12px;color:#666">${j.createdAt}</div></div>
-        <div>${stat}</div>`;
+        <div>
+          ${stat}
+          <button class="detail">明細</button>
+          <a href="/api/message/export/${j.id}.csv" target="_blank">CSV</a>
+          ${(j.status==='error'||j.status==='partial')?`<button class="retry">重送失敗</button>`:''}
+        </div>`;
+      div.querySelector('.detail').onclick = () => showJobDetail(j.id);
+      if (div.querySelector('.retry')) div.querySelector('.retry').onclick = () => retryJob(j.id);
       box.appendChild(div);
     });
   } catch (e) { toast(e.message); }
 }
+
+async function showJobDetail(id) {
+  try {
+    const { items } = await api(`/jobs/${id}/detail`);
+    const box = $('#jobDetail');
+    box.style.display = '';
+    box.innerHTML = '';
+    items.slice(-200).forEach(it => {
+      const div = document.createElement('div');
+      div.className = 'job';
+      div.innerHTML = `<div>${it.target} ${it.isGroup?'[G]':''} <small>${it.botId||''}</small></div><div>${it.ok?'<span class="badge ok">OK</span>':'<span class="badge err">ERR</span>'}</div>`;
+      box.appendChild(div);
+    });
+  } catch (e) { alert(e.message); }
+}
+
+async function retryJob(id) {
+  try {
+    const { job } = await api(`/jobs/${id}/retry`, 'POST', {});
+    alert('已建立重送作業：'+job.id);
+    loadJobs();
+  } catch (e) { alert(e.message); }
+}
+
+// 上傳名單
+$('#btnUpload').addEventListener('click', async () => {
+  try {
+    const content = $('#uploadContent').value.trim();
+    if (!content) return alert('請貼上名單內容');
+    const kind = $('#uploadKind').value;
+    const { uploadId, count } = await api('/upload-list', 'POST', { name: '前端上傳', content, kind });
+    sessionStorage.setItem('mc_uploadId', uploadId);
+    $('#uploadInfo').textContent = `已建立名單：${uploadId}（${count} 筆）`;
+    $('#recipientMode').value = 'upload';
+  } catch (e) { alert(e.message); }
+});
 
 // 初始化
 loadTemplates();
