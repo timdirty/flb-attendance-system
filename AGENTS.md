@@ -544,6 +544,18 @@ sudo docker logs -f flb-line-bot
 
 ## 10. 最近重要更新
 
+### 2025-11-12｜訊息中心（Message Center）M1 規劃與落地
+
+- ✅ 新增 `docs/features/MESSAGE_CENTER_SPEC.md`（持續回填）
+- ✅ 後端新增：`src/message-service.js`（送信引擎）、`src/message-api.js`（API 路由，掛載於 `/api/message`）
+- ✅ 前端新增：`public/message-admin.html/js/css`（Composer、模板庫、作業列表）
+- ✅ 新增資料檔：`src/data/message-templates.json`、`src/data/message-jobs.json`
+- ✅ `public/admin.html` 新增「📣 訊息中心」入口
+- ✅ `env.example` 新增 `ADMIN_API_KEY` 與訊息中心預設參數
+
+使用方式：在 `message-admin.html` 輸入 `X-Admin-Key` 後即可管理模板與發送作業（M1 支援 text 與 flex）。
+
+
 ### 2025-11-11｜專案文件整理與規範化
 
 - ✅ 完成專案文件分類整理

@@ -4,7 +4,7 @@
     "groupName": "FLB CORE",
     "type": "group",
     "firstSeenAt": "2025-10-20T13:42:20.845Z",
-    "lastActivityAt": "2025-10-22T10:58:15.243Z",
+    "lastActivityAt": "2025-11-11T12:32:22.838Z",
     "memberCount": 0,
     "description": ""
   },
@@ -13,7 +13,25 @@
     "groupName": "樂程坊老師群",
     "type": "group",
     "firstSeenAt": "2025-10-20T15:12:57.453Z",
-    "lastActivityAt": "2025-10-20T15:13:01.224Z",
+    "lastActivityAt": "2025-11-10T03:38:43.660Z",
+    "memberCount": 0,
+    "description": ""
+  },
+  {
+    "groupId": "Cb18eff3a484d17f605da21fe639daa8a",
+    "groupName": "Louis & George 積木課",
+    "type": "group",
+    "firstSeenAt": "2025-10-30T05:02:23.529Z",
+    "lastActivityAt": "2025-11-08T10:17:13.223Z",
+    "memberCount": 0,
+    "description": ""
+  },
+  {
+    "groupId": "C721e9d6e4f8b71966ff620a6c87b61f7",
+    "groupName": "樂程坊（奧斯汀吉林長春）",
+    "type": "group",
+    "firstSeenAt": "2025-11-05T08:36:33.946Z",
+    "lastActivityAt": "2025-11-05T08:36:42.252Z",
     "memberCount": 0,
     "description": ""
   }

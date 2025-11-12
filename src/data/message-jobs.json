@@ -1,0 +1,28 @@
+[
+  {
+    "id": "job_1762909380423_yp54",
+    "createdAt": "2025-11-12T01:03:00.423Z",
+    "createdBy": "admin",
+    "message": {
+      "type": "text",
+      "text": "哈囉！這是測試模板"
+    },
+    "recipients": {
+      "userIds": [
+        "U_TEST"
+      ],
+      "groupIds": []
+    },
+    "options": {
+      "rateLimitPerSec": 5,
+      "batchSize": 1
+    },
+    "status": "error",
+    "startedAt": "2025-11-12T01:03:00.435Z",
+    "finishedAt": "2025-11-12T01:03:01.985Z",
+    "stats": {
+      "success": 0,
+      "fail": 1
+    }
+  }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "tpl_1762909369926_xueiqv",
+    "name": "歡迎文字",
+    "type": "text",
+    "payload": {
+      "text": "哈囉！這是測試模板"
+    },
+    "variables": [],
+    "tags": [],
+    "updatedAt": "2025-11-12T01:02:49.926Z",
+    "updatedBy": "admin"
+  }
+]

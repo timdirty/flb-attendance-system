@@ -28,15 +28,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// ====== 新增：掛載訊息中心 API 路由 ======
-try {
-  const messageApi = require('./src/message-api');
-  app.use('/api/message', messageApi);
-  console.log('✅ 訊息中心 API 已掛載於 /api/message');
-} catch (e) {
-  console.log('⚠️ 無法掛載訊息中心 API：', e.message);
-}
-
 // 重定向舊的 API 端點到新的端點（向後兼容）
 app.all('/api/attendance/course-students', (req, res) => {
     console.log('🔄 重定向舊 API 端點 /api/attendance/course-students 到 /api/course-students');
