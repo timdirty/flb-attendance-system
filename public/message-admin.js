@@ -51,12 +51,13 @@ $('#btnSend').addEventListener('click', async () => {
     else if (modeSel === 'groups') recipients = { mode: 'groups', groups: parseListArea($('#recipientList').value) };
     else recipients = { mode: 'segment', segment: { role: 'teacher' } };
 
-    const options = {
-      botStrategy: $('#botStrategy').value,
-      batchSize: Number($('#batchSize').value || 20),
-      rateLimitPerSec: Number($('#rateLimit').value || 8),
-      maxRetries: Number($('#maxRetries').value || 2)
-    };
+  const options = {
+    botStrategy: $('#botStrategy').value,
+    batchSize: Number($('#batchSize').value || 20),
+    rateLimitPerSec: Number($('#rateLimit').value || 8),
+    maxRetries: Number($('#maxRetries').value || 2),
+    scheduleAt: ($('#scheduleAt').value||'').trim() || undefined
+  };
 
     const { job } = await api('/send', 'POST', { message, recipients, options });
     toast('作業建立：' + job.id);
@@ -167,4 +168,65 @@ $('#btnUnbindRM').addEventListener('click', async () => {
     await api('/richmenu/unbind', 'POST', { userId });
     alert('Rich Menu 解除綁定成功');
   } catch (e) { alert('解除失敗：' + e.message); }
+});
+
+// 搜尋/載入收件人
+function renderResults(items, formatter, onPick) {
+  const box = $('#searchResults');
+  box.style.display = '';
+  box.innerHTML = '';
+  items.forEach(it => {
+    const div = document.createElement('div');
+    div.className = 'job';
+    div.innerHTML = `<div>${formatter(it)}</div><div><button class="pick">加入</button></div>`;
+    div.querySelector('.pick').onclick = () => onPick(it);
+    box.appendChild(div);
+  });
+}
+
+$('#btnFindUsers').addEventListener('click', async () => {
+  try {
+    const q = $('#searchQ').value.trim();
+    const { data } = await api(`/recipients/users?q=${encodeURIComponent(q)}`);
+    renderResults(data.slice(0,100), u => `${u.displayName||'-'} <small>${u.userId}</small>`, u => {
+      const cur = $('#recipientList').value.trim();
+      $('#recipientList').value = (cur ? cur + '\n' : '') + u.userId;
+    });
+    $('#recipientMode').value = 'userIds';
+  } catch (e) { alert(e.message); }
+});
+
+$('#btnFindTeachers').addEventListener('click', async () => {
+  try {
+    const { data } = await api('/recipients/teachers');
+    renderResults(data, t => `${t.teacherName||'-'} <small>${t.userId}</small>`, t => {
+      const cur = $('#recipientList').value.trim();
+      $('#recipientList').value = (cur ? cur + '\n' : '') + t.userId;
+    });
+    $('#recipientMode').value = 'userIds';
+  } catch (e) { alert(e.message); }
+});
+
+$('#btnFindGroups').addEventListener('click', async () => {
+  try {
+    const q = $('#searchQ').value.trim();
+    const { data } = await api(`/recipients/groups?q=${encodeURIComponent(q)}`);
+    renderResults(data, g => `${g.groupName||'-'} <small>${g.groupId}</small>`, g => {
+      const cur = $('#recipientList').value.trim();
+      $('#recipientList').value = (cur ? cur + '\n' : '') + g.groupId;
+    });
+    $('#recipientMode').value = 'groups';
+  } catch (e) { alert(e.message); }
+});
+
+$('#btnEstimate').addEventListener('click', async () => {
+  try {
+    const modeSel = $('#recipientMode').value;
+    let recipients;
+    if (modeSel === 'userIds') recipients = { mode: 'userIds', userIds: parseListArea($('#recipientList').value) };
+    else if (modeSel === 'groups') recipients = { mode: 'groups', groups: parseListArea($('#recipientList').value) };
+    else recipients = { mode: 'segment', segment: { role: 'teacher' } };
+    const { estimate } = await api('/recipients/estimate', 'POST', { recipients });
+    $('#estimateLabel').textContent = `估算：使用者 ${estimate.users}，群組 ${estimate.groups}`;
+  } catch (e) { alert(e.message); }
 });

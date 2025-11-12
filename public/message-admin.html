@@ -42,6 +42,13 @@
             <option value="segment_teacher">教師分眾</option>
             <option value="groups">群組 IDs</option>
           </select>
+          <div class="row">
+            <input id="searchQ" placeholder="搜尋使用者/群組關鍵字" />
+            <button id="btnFindUsers">搜尋使用者</button>
+            <button id="btnFindTeachers">載入教師</button>
+            <button id="btnFindGroups">搜尋群組</button>
+          </div>
+          <div id="searchResults" class="list" style="display:none"></div>
           <textarea id="recipientList" rows="6" placeholder="以換行分隔 userId 或 groupId"></textarea>
 
           <div class="row">
@@ -58,6 +65,12 @@
             <input id="rateLimit" type="number" min="1" value="8" />
             <label>重試</label>
             <input id="maxRetries" type="number" min="0" value="2" />
+          </div>
+          <div class="row">
+            <label>排程時間</label>
+            <input id="scheduleAt" placeholder="YYYY-MM-DDTHH:mm:ss+08:00（選填）" />
+            <button id="btnEstimate">估算收件人</button>
+            <span id="estimateLabel" style="font-size:12px;color:#666"></span>
           </div>
           <button id="btnSend" class="primary"><i class="fa-solid fa-paper-plane"></i> 立即發送</button>
         </div>
