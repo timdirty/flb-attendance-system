@@ -811,3 +811,7 @@ find . -maxdepth 1 -name "*.md" -type f
 
 **最後更新**：2025-11-11
 **版本**：v2.0.0
+- ✅ 新增「Webhook 與關鍵字管理」：
+  - 後端：`/api/keywords` 規則 CRUD + `/api/keywords/test`
+  - 前端：`message-admin.html` 新增規則列表/新增/測試、以及 Webhook 轉發目標管理
+  - 規則行為：`reply_text`、`reply_flex`、`alias_to`（可映射到現有關鍵字如「#出缺勤」）、`http_forward`

@@ -37,6 +37,15 @@ try {
   console.log('⚠️ 無法掛載訊息中心 API：', e.message);
 }
 
+// ====== 新增：掛載關鍵字管理 API 路由 ======
+try {
+  const keywordApi = require('./src/keyword-api');
+  app.use('/api/keywords', keywordApi);
+  console.log('✅ 關鍵字管理 API 已掛載於 /api/keywords');
+} catch (e) {
+  console.log('⚠️ 無法掛載關鍵字管理 API：', e.message);
+}
+
 // 重定向舊的 API 端點到新的端點（向後兼容）
 app.all('/api/attendance/course-students', (req, res) => {
     console.log('🔄 重定向舊 API 端點 /api/attendance/course-students 到 /api/course-students');
@@ -6068,7 +6077,7 @@ app.post('/webhook', async (req, res) => {
             // 處理訊息事件
             // ====================================
             if (event.type === 'message' && event.message.type === 'text') {
-                const messageText = event.message.text;
+                let messageText = event.message.text;
                 const userId = event.source?.userId;
                 const sourceType = event.source?.type; // 'user', 'group', 'room'
                 const groupId = event.source?.groupId;
@@ -6135,6 +6144,41 @@ app.post('/webhook', async (req, res) => {
                 }
                 
                 if (userId) {
+                    // 關鍵字規則：reply_text / reply_flex / alias_to / http_forward
+                    try {
+                        const kw = require('./src/keyword-service');
+                        const rule = kw.findFirstMatch(messageText, { sourceType });
+                        if (rule) {
+                            console.log('🧩 觸發關鍵字規則:', rule);
+                            if (rule.action === 'reply_text' && rule.params?.text) {
+                                await sendLineMessage(rule.params.text, userId, false);
+                                if (rule.stop !== false) continue; // 已處理
+                            }
+                            if (rule.action === 'reply_flex' && rule.params?.presetId) {
+                                try {
+                                    const presets = require('./src/message-service').listFlexPresets();
+                                    const p = presets.find(x=>x.id===rule.params.presetId);
+                                    if (p) {
+                                        await sendLineFlexMessage({ type:'flex', altText:p.altText||'通知', contents:p.contents }, userId);
+                                        if (rule.stop !== false) continue;
+                                    }
+                                } catch(e) { console.log('reply_flex 失敗', e.message); }
+                            }
+                            if (rule.action === 'alias_to' && rule.params?.target) {
+                                messageText = rule.params.target;
+                                console.log('🔁 alias_to →', messageText);
+                            }
+                            if (rule.action === 'http_forward' && rule.params?.url) {
+                                try {
+                                    await axios.post(rule.params.url, { event, rule }, { timeout: 8000 });
+                                    if (rule.stop !== false) continue;
+                                } catch(e) { console.log('http_forward 失敗', e.response?.data || e.message); }
+                            }
+                        }
+                    } catch (e) {
+                        console.log('關鍵字規則處理錯誤:', e.message);
+                    }
+
                     // 檢查關鍵字
                     if (messageText === '#本期課程規劃' || messageText === '#完整課程規劃') {
                         console.log(`🔑 檢測到關鍵字「${messageText}」來自 ${userId}`);

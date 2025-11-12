@@ -62,6 +62,22 @@
   - `POST /api/message/flex-presets/:id/send`
   - 資料檔：`src/data/flex-presets.json`
 
+## 11. Webhook 與關鍵字管理
+
+- 關鍵字規則 API（需 `X-Admin-Key`）
+  - `GET /api/keywords`：列出規則（依 priority 排序）
+  - `POST /api/keywords`：新增 `{ pattern, matchType: exact|contains|regex, action: alias_to|reply_text|reply_flex|http_forward, params, priority, enabled, stop }`
+  - `PATCH /api/keywords/:id`：更新
+  - `DELETE /api/keywords/:id`：刪除
+  - `POST /api/keywords/test`：規則測試 `{ text }`
+- 規則執行時機：在 Webhook 文字訊息處理前置攔截
+  - reply_text：直接回覆並可 `stop` 中止後續流程
+  - reply_flex：以 Flex 預設回覆
+  - alias_to：改寫訊息文字（例如別名對映到「#出缺勤」）後進入既有流程
+  - http_forward：將事件 `{ event, rule }` POST 至指定 URL（如需與外部服務整合）
+- 轉發管理：沿用既有 `/api/webhook-forward/*`，在前端提供新增/啟用/停用/刪除 UI
+
+
 ## 10. 強化功能（2025-11-12）
 
 - 屬性面板：點選預覽中元件可編輯文字/顏色/大小/action 等，並支援上移/下移/刪除

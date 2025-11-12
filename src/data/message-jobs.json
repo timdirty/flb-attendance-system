@@ -24,5 +24,33 @@
       "success": 0,
       "fail": 1
     }
+  },
+  {
+    "id": "job_1762914931428_gbqf",
+    "createdAt": "2025-11-12T02:35:31.428Z",
+    "createdBy": "admin",
+    "message": {
+      "type": "text",
+      "text": "ㄍ"
+    },
+    "recipients": {
+      "userIds": [
+        "Udb51363eb6fdc605a6a9816379a38103"
+      ],
+      "groupIds": []
+    },
+    "options": {
+      "botStrategy": "primary_first",
+      "batchSize": 20,
+      "rateLimitPerSec": 8,
+      "maxRetries": 2
+    },
+    "status": "success",
+    "startedAt": "2025-11-12T02:35:31.439Z",
+    "finishedAt": "2025-11-12T02:35:31.729Z",
+    "stats": {
+      "success": 1,
+      "fail": 0
+    }
   }
 ]

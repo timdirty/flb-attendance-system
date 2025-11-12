@@ -119,6 +119,26 @@
       <div id="jobs" class="list"></div>
       <div id="jobDetail" class="list" style="display:none"></div>
     </section>
+
+    <section class="mc-section">
+      <h2><i class="fa-solid fa-code-branch"></i> Webhook 與關鍵字管理</h2>
+      <div class="row">
+        <button id="btnReloadKW">重新載入規則</button>
+        <button id="btnAddKW">新增規則</button>
+        <input id="kwTestText" placeholder="輸入測試文字" />
+        <button id="btnTestKW">測試匹配</button>
+        <span id="kwTestResult" style="font-size:12px;color:#666"></span>
+      </div>
+      <div id="kwList" class="list"></div>
+
+      <h3>Webhook 轉發目標</h3>
+      <div class="row">
+        <input id="fwName" placeholder="名稱" />
+        <input id="fwUrl" placeholder="URL" />
+        <button id="btnAddForward">新增目標</button>
+      </div>
+      <div id="fwList" class="list"></div>
+    </section>
   </div>
 
   <script src="/message-admin.js"></script>

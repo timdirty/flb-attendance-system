@@ -215,6 +215,84 @@ setInterval(loadJobs, 5000);
   }
 })();
 
+// ===== 關鍵字規則管理 =====
+async function loadKeywords(){
+  try{
+    const res = await fetch('/api/keywords', { headers: authHeaders() });
+    const { data } = await res.json();
+    const box = document.getElementById('kwList'); box.innerHTML='';
+    data.sort((a,b)=>(a.priority||100)-(b.priority||100)).forEach(r=>{
+      const div = document.createElement('div'); div.className='job';
+      div.innerHTML = `<div><b>${r.pattern}</b> <span class="badge ${r.enabled!==false?'ok':'err'}">${r.matchType||'exact'}</span> <small>→ ${r.action}</small></div>
+        <div>
+          <button class="edit">編輯</button>
+          <button class="del">刪除</button>
+        </div>`;
+      div.querySelector('.edit').onclick = ()=> editKeyword(r);
+      div.querySelector('.del').onclick = async ()=>{ if(!confirm('確定刪除？'))return; await fetch(`/api/keywords/${r.id}`, { method:'DELETE', headers:authHeaders() }); loadKeywords(); };
+      box.appendChild(div);
+    });
+  }catch(e){ console.warn(e); }
+}
+
+function editKeyword(rule){
+  const pattern = prompt('規則關鍵字（pattern）', rule?.pattern||''); if (pattern==null) return;
+  const matchType = prompt('匹配方式 exact|contains|regex', rule?.matchType||'exact'); if (matchType==null) return;
+  const action = prompt('動作 alias_to|reply_text|reply_flex|http_forward', rule?.action||'reply_text'); if (action==null) return;
+  const params = prompt('參數(JSON) 例如 {"text":"Hi"} 或 {"target":"#出缺勤"} 或 {"presetId":"fx_xxx"}', JSON.stringify(rule?.params||{})); if (params==null) return;
+  const priority = parseInt(prompt('優先順序（數字越小越先）', rule?.priority??100));
+  const enabled = confirm('啟用此規則？');
+  const body = { pattern, matchType, action, params: JSON.parse(params||'{}'), priority, enabled };
+  const method = rule?.id ? 'PATCH' : 'POST';
+  const path = rule?.id ? `/api/keywords/${rule.id}` : '/api/keywords';
+  fetch(path, { method, headers: authHeaders(), body: JSON.stringify(body) }).then(()=>loadKeywords());
+}
+
+document.getElementById('btnReloadKW').onclick = loadKeywords;
+document.getElementById('btnAddKW').onclick = ()=> editKeyword(null);
+document.getElementById('btnTestKW').onclick = async ()=>{
+  try{
+    const text = document.getElementById('kwTestText').value.trim();
+    const res = await fetch('/api/keywords/test', { method:'POST', headers:authHeaders(), body: JSON.stringify({ text }) });
+    const data = await res.json();
+    document.getElementById('kwTestResult').textContent = data.rule ? `匹配：${data.rule.pattern} → ${data.rule.action}` : '未匹配';
+  }catch(e){ alert(e.message); }
+};
+
+// ===== Webhook 轉發管理 =====
+async function loadForwarders(){
+  try{
+    const res = await fetch('/api/webhook-forward/status');
+    const data = await res.json();
+    const box = document.getElementById('fwList'); box.innerHTML='';
+    (data.targets||[]).forEach(t=>{
+      const div=document.createElement('div'); div.className='job';
+      div.innerHTML = `<div><b>${t.name||t.url}</b> <small>${t.url}</small> <span class="badge ${t.enabled?'ok':'err'}">${t.enabled?'啟用':'停用'}</span></div>
+        <div>
+          <button class="toggle">${t.enabled?'停用':'啟用'}</button>
+          <button class="del">刪除</button>
+        </div>`;
+      div.querySelector('.toggle').onclick = async ()=>{ await fetch(`/api/webhook-forward/targets/${encodeURIComponent(t.name||t.url)}`, { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ enabled: !t.enabled }) }); loadForwarders(); };
+      div.querySelector('.del').onclick = async ()=>{ if(!confirm('確定移除？'))return; await fetch(`/api/webhook-forward/targets/${encodeURIComponent(t.name||t.url)}`, { method:'DELETE' }); loadForwarders(); };
+      box.appendChild(div);
+    });
+  }catch(e){ console.warn(e); }
+}
+
+document.getElementById('btnAddForward').onclick = async ()=>{
+  try{
+    const name = document.getElementById('fwName').value.trim();
+    const url = document.getElementById('fwUrl').value.trim();
+    if (!url) return alert('請填 URL');
+    await fetch('/api/webhook-forward/targets', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ name, url, enabled:true }) });
+    loadForwarders();
+  }catch(e){ alert(e.message); }
+};
+
+// 初始載入
+loadKeywords();
+loadForwarders();
+
 // Rich Menu 綁定/解除
 $('#btnBindRM').addEventListener('click', async () => {
   try {
