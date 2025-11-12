@@ -32,6 +32,7 @@
             <button id="btnNewBubble">新 Bubble</button>
             <button id="btnNewCarousel">新 Carousel</button>
           </div>
+          <div class="row" id="scopeChips" style="flex-wrap:wrap"></div>
           <div class="toolbar">
             <button data-add="text">文字</button>
             <button data-add="image">圖片</button>
@@ -39,11 +40,21 @@
             <button data-add="separator">分隔線</button>
             <button data-add="spacer">空白</button>
           </div>
-          <textarea id="flexJson" rows="20" placeholder="Flex JSON 內容（bubble/carousel）"></textarea>
-          <div class="row">
-            <button id="btnValidate">驗證 JSON</button>
-            <button id="btnPreview">預覽（插值）</button>
-            <button id="btnSendTest">試發到 userId</button>
+          <textarea id="flexJson" rows="18" placeholder="Flex JSON 內容（bubble/carousel）"></textarea>
+          <div class="row" style="justify-content:space-between">
+            <div>
+              <button id="btnValidate">驗證 JSON</button>
+              <button id="btnPreview">預覽（插值）</button>
+              <button id="btnSendTest">試發到 userId</button>
+            </div>
+            <div>
+              <select id="previewSize">
+                <option value="sm">小機型</option>
+                <option value="md" selected>中機型</option>
+                <option value="lg">大機型</option>
+              </select>
+              <label style="margin-left:8px"><input type="checkbox" id="darkMode"> 暗色背景</label>
+            </div>
           </div>
         </div>
         <div class="right">
@@ -53,8 +64,20 @@
           <div class="row">
             <button id="btnSavePreset" class="primary">儲存為 Flex 預設</button>
           </div>
+          <div class="prop-panel">
+            <h3>屬性面板</h3>
+            <div id="propTarget">未選取元件</div>
+            <div id="propFields"></div>
+            <div class="row">
+              <button id="btnUp">上移</button>
+              <button id="btnDown">下移</button>
+              <button id="btnRemove">刪除</button>
+            </div>
+          </div>
           <h3>已儲存預設</h3>
           <div class="list" id="presetList"></div>
+          <h3>常用範本庫</h3>
+          <div class="list" id="libraryList"></div>
         </div>
       </div>
     </section>
@@ -64,4 +87,3 @@
   <script>console.log('Flex Builder loaded')</script>
 </body>
 </html>
-

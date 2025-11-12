@@ -48,3 +48,25 @@
 - CSV/上傳名單支援、CSV 匯出 — 已完成（M2/M1）
 - 圖文/模板訊息（Buttons/Confirm/Carousel）— 規劃中
 - Broadcast/Narrowcast API（視費率與權限評估）— 已提供可選路由（需 ENABLE_BROADCAST=true）
+## 9. Flex Builder（管理員可視化排版）
+
+- 前端：`public/flex-builder.html|js|css`
+- 能力：
+  - 視覺化插入元件（text/image/button/separator/spacer），並編修 JSON
+  - 即時簡易預覽 + 插值預覽（呼叫 `/api/message/preview`）
+  - 試發到指定 userId（真實打 LINE）
+  - 儲存為「Flex 預設」，可附 `scopes`、`tags`、`notes`
+  - 從預設列表套用、刪除或直接發送（/flex-presets/:id/send）
+- 後端：
+  - `GET/POST/PATCH/DELETE /api/message/flex-presets`
+  - `POST /api/message/flex-presets/:id/send`
+  - 資料檔：`src/data/flex-presets.json`
+
+## 10. 強化功能（2025-11-12）
+
+- 屬性面板：點選預覽中元件可編輯文字/顏色/大小/action 等，並支援上移/下移/刪除
+- 常用範本庫：提供 10+ 卡片（見 `docs/features/FLEX_TEMPLATES.md`），可一鍵插入
+- 範圍（scopes）自動建議：從既有預設蒐集，顯示為 chips 供點選帶入
+- 區塊重排：支援對 `body.contents` 的上/下移操作
+- 多尺寸預覽：小/中/大型手機視圖；暗色背景模式
+- 離線 JSON Schema 驗證：提供簡化驗證器，檢查 bubble/carousel 基本結構與元件必要欄位

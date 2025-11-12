@@ -549,6 +549,14 @@ sudo docker logs -f flb-line-bot
 - ✅ 新增 `docs/features/MESSAGE_CENTER_SPEC.md`（持續回填）
 - ✅ 後端新增：`src/message-service.js`（送信引擎）、`src/message-api.js`（API 路由，掛載於 `/api/message`）
 - ✅ 前端新增：`public/message-admin.html/js/css`（Composer、模板庫、作業列表）
+- ✅ 新增 Flex Builder：`public/flex-builder.html/js/css`（視覺化 Flex 排版、JSON 編輯、預覽與試發）
+- ✅ Flex Builder 強化：
+  - 元件屬性面板（點選即編修）
+  - 常用範本庫 10+（見 docs/features/FLEX_TEMPLATES.md）
+  - 範圍（scopes）自動建議 chips
+  - 區塊重排（上/下移）
+  - 多尺寸與暗色預覽
+  - 離線 JSON 驗證器（簡化）
 - ✅ 新增資料檔：`src/data/message-templates.json`、`src/data/message-jobs.json`
 - ✅ `public/admin.html` 新增「📣 訊息中心」入口
 - ✅ `env.example` 新增 `ADMIN_API_KEY` 與訊息中心預設參數
@@ -558,6 +566,8 @@ sudo docker logs -f flb-line-bot
 - 立即或排程發送（Asia/Taipei）
 - Rich Menu 綁定/解除（直連 LINE API）
 - Bot 健康檢查、Loading 動畫測試
+
+另提供 Flex Builder：於 `flex-builder.html` 進行排版，可儲存為 Flex 預設並直接套用與發送。
 
 
 ### 2025-11-11｜專案文件整理與規範化
