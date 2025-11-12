@@ -70,3 +70,5 @@
 - 區塊重排：支援對 `body.contents` 的上/下移操作
 - 多尺寸預覽：小/中/大型手機視圖；暗色背景模式
 - 離線 JSON Schema 驗證：提供簡化驗證器，檢查 bubble/carousel 基本結構與元件必要欄位
+- 匯入/匯出/複製/貼上：在 Builder 內快速交換 JSON
+- 與訊息中心串接：一鍵儲存並跳轉載入當前 Flex（hash preset 方式）
