@@ -6651,8 +6651,16 @@ app.post('/webhook', async (req, res) => {
                     // 匯款相關通知 → 推播到正職群組（Flex）
                     try {
                         const isText = event.message.type === 'text';
+                        console.log('🔍 檢查匯款關鍵字:', {
+                            isText,
+                            messageText,
+                            keywords: config.remittance.keywords,
+                            messageType: event.message.type
+                        });
                         const hitKeywords = isText && config.remittance.keywords.some(k => messageText.includes(k));
+                        console.log('🔍 匯款關鍵字匹配結果:', hitKeywords);
                         if (hitKeywords || event.message.type === 'image') {
+                            console.log('✅ 觸發匯款通知處理...');
                             await handleRemittanceCandidate({
                                 event,
                                 messageText: messageText || '',
@@ -6666,6 +6674,7 @@ app.post('/webhook', async (req, res) => {
                         }
                     } catch (e) {
                         console.error('❌ 匯款提醒處理失敗:', e.message);
+                        console.error('❌ 錯誤堆疊:', e.stack);
                     }
 
                     // 檢查關鍵字
