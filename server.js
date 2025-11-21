@@ -3693,24 +3693,24 @@ function createRemittanceFlexBubble(record) {
                     type: 'box',
                     layout: 'baseline',
                     contents: [
-                        { type: 'text', text: '來自', weight: 'bold', color: '#555', flex: 2 },
-                        { type: 'text', text: userLabel, color: '#111', flex: 6, wrap: true }
+                        { type: 'text', text: '來自', weight: 'bold', color: '#555555', flex: 2 },
+                        { type: 'text', text: userLabel, color: '#111111', flex: 6, wrap: true }
                     ]
                 },
                 {
                     type: 'box',
                     layout: 'baseline',
                     contents: [
-                        { type: 'text', text: '訊息', weight: 'bold', color: '#555', flex: 2 },
-                        { type: 'text', text: snippet, color: '#111', flex: 6, wrap: true }
+                        { type: 'text', text: '訊息', weight: 'bold', color: '#555555', flex: 2 },
+                        { type: 'text', text: snippet, color: '#111111', flex: 6, wrap: true }
                     ]
                 },
                 {
                     type: 'box',
                     layout: 'baseline',
                     contents: [
-                        { type: 'text', text: '時間', weight: 'bold', color: '#555', flex: 2 },
-                        { type: 'text', text: timeString, color: '#111', flex: 6 }
+                        { type: 'text', text: '時間', weight: 'bold', color: '#555555', flex: 2 },
+                        { type: 'text', text: timeString, color: '#111111', flex: 6 }
                     ]
                 }
             ]
