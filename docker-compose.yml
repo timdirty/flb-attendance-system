@@ -27,6 +27,8 @@ services:
     volumes:
       # 資料持久化（使用絕對路徑或相對路徑）
       - ./data:/app/data
+      # 系統資料（包含 webhook 配置、管理員設定等）
+      - ./src/data:/app/src/data
       # 日誌
       - ./logs:/app/logs
     

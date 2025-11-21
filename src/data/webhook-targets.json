@@ -1,18 +1,1 @@
-[
-  {
-    "name": "AIbot",
-    "url": "https://example.com/webhook/aibot",
-    "method": "POST",
-    "enabled": false,
-    "headers": {},
-    "timeout": 5000
-  },
-  {
-    "name": "FLB課程提醒系統",
-    "url": "https://calendar.funlearnbar.synology.me/webhook/line",
-    "method": "POST",
-    "enabled": false,
-    "headers": {},
-    "timeout": 5000
-  }
-]
+[]

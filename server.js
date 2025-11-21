@@ -3732,17 +3732,6 @@ function createRemittanceFlexBubble(record) {
                         data: JSON.stringify(postbackData),
                         displayText: '已確認收款'
                     }
-                },
-                {
-                    type: 'button',
-                    style: 'secondary',
-                    height: 'sm',
-                    color: '#CCCCCC',
-                    action: {
-                        type: 'uri',
-                        label: '查看原訊息',
-                        uri: config.server.systemUrl || 'https://line.me'
-                    }
                 }
             ]
         }
