@@ -249,11 +249,41 @@ const config = {
         // 按鈕資料標識（如需與其他 postback 區分可調整）
         confirmAction: process.env.REMITTANCE_CONFIRM_ACTION || 'remittance_confirm',
 
-        // 允許的關鍵字（文字訊息觸發）
-        keywords: (process.env.REMITTANCE_KEYWORDS || '匯款,轉帳,轉帳完成,已轉,ATM').split(',').map(k => k.trim()).filter(Boolean),
+        // 🔍 匯款關鍵字檢測策略（兩階段）
+        // 1. 基礎關鍵字：匯款相關動作詞
+        keywords: (process.env.REMITTANCE_KEYWORDS || '匯款,轉帳,ATM轉帳,銀行轉帳').split(',').map(k => k.trim()).filter(Boolean),
+        
+        // 2. 完成詞：表示動作已完成的詞彙
+        completionWords: (process.env.REMITTANCE_COMPLETION_WORDS || '已,完成,好了,成功,剛剛,剛才,剛,已經,轉好,匯好').split(',').map(k => k.trim()).filter(Boolean),
+        
+        // 3. 明確完成短語：直接表示完成匯款的片語（優先級最高）
+        explicitPhrases: (process.env.REMITTANCE_EXPLICIT_PHRASES || '已匯款,已轉帳,轉帳完成,匯款完成,已轉,已匯,轉好了,匯好了,已付款,付款完成').split(',').map(k => k.trim()).filter(Boolean),
 
         // Flex 主題色（接近 LINE Pay 風格的綠色）
-        themeColor: process.env.REMITTANCE_THEME_COLOR || '#00C300'
+        themeColor: process.env.REMITTANCE_THEME_COLOR || '#00C300',
+
+        // 語意過濾設定
+        intentFilters: {
+            postponeKeywords: (process.env.REMITTANCE_POSTPONE_KEYWORDS || '明天,明日,明後天,稍後,稍晚,晚點,之後,過兩天,等一下,等候,等等,準備,先不,稍等,等我匯,待會,等下').split(',').map(k => k.trim()).filter(Boolean),
+            negativeKeywords: (process.env.REMITTANCE_NEGATIVE_KEYWORDS || '還沒,尚未,未匯,未轉,不會匯,暫不匯,暫不轉,不用匯,不用轉,取消匯款,沒匯,沒轉').split(',').map(k => k.trim()).filter(Boolean),
+            inquiryKeywords: (process.env.REMITTANCE_INQUIRY_KEYWORDS || '請問,如何匯,怎麼匯,匯款方式,匯款資訊,匯款帳號,想詢問,可以匯嗎,怎樣付款,如何付款,匯到哪,匯去哪,要匯到,怎麼付,想問').split(',').map(k => k.trim()).filter(Boolean),
+            questionIndicators: (process.env.REMITTANCE_QUESTION_INDICATORS || '?,？,嗎,嘛,呢').split(',').map(k => k.trim()).filter(Boolean),
+            deferReplyMessage: process.env.REMITTANCE_DEFER_REPLY || '👀 已收到您的訊息，完成匯款後請再通知，我們會立即協助 🙏'
+        }
+    },
+
+    // ==================== OCR 配置 ====================
+    ocr: {
+        provider: process.env.OCR_PROVIDER || 'none',
+        googleVisionApiKey: process.env.GOOGLE_VISION_API_KEY || process.env.GCLOUD_VISION_API_KEY || '',
+        googleVisionEndpoint: process.env.GOOGLE_VISION_ENDPOINT || 'https://vision.googleapis.com/v1/images:annotate',
+        enabled: (() => {
+            const provider = process.env.OCR_PROVIDER || 'none';
+            if (provider === 'google_vision') {
+                return Boolean(process.env.GOOGLE_VISION_API_KEY || process.env.GCLOUD_VISION_API_KEY);
+            }
+            return false;
+        })()
     },
 
     // ==================== 日誌配置 ====================
@@ -346,6 +376,7 @@ function printConfig() {
     console.log(`🤖 LINE Bot: ${config.line.channelAccessToken ? '✅ 已配置' : '❌ 未配置'}`);
     console.log(`👤 管理員 ID: ${config.line.adminUserId ? '✅ 已設定' : '❌ 未設定'}`);
     console.log(`📊 資料庫類型: ${config.database.type}`);
+    console.log(`🖼️ OCR: ${config.ocr.enabled ? `✅ ${config.ocr.provider}` : '❌ 未啟用'}`);
     console.log(`🔧 開發模式: ${config.development.enabled ? '✅ 啟用' : '❌ 停用'}`);
     console.log(`🧪 模擬模式: ${config.development.mockMode ? '✅ 啟用' : '❌ 停用'}`);
     console.log('='.repeat(50) + '\n');

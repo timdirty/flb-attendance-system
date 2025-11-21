@@ -116,6 +116,7 @@ docker-compose restart
 ```
 ✅ 發送：文字「匯款完成」+ 匯款截圖
 ✅ 預期：管理員收到通知，顯示「（圖片／非文字訊息）」
+💡 若想讓「只有截圖」也能觸發，請先於 `.env` 設定 `OCR_PROVIDER=google_vision` 並提供 `GOOGLE_VISION_API_KEY`
 ```
 
 ### 測試 3：確認流程
@@ -123,6 +124,14 @@ docker-compose restart
 ```
 ✅ 管理員點擊「已確認收款」
 ✅ 預期：客戶收到確認訊息
+```
+
+### 測試 4：語意過濾（避免誤判）
+
+```
+✅ 發送：「明天處理匯款，謝謝」
+✅ 預期：Bot 回覆 REMITTANCE_DEFER_REPLY 內容，不會通知管理員
+✅ 可於 src/data/remittance-intent-log.json 看到紀錄（reason = postpone）
 ```
 
 ---
@@ -200,6 +209,29 @@ REMITTANCE_KEYWORDS=匯款,轉帳,轉帳完成,已轉,ATM,付款完成,已付款
 ```bash
 REMITTANCE_THEME_COLOR=#FF6B6B  # 改為紅色
 ```
+
+### 啟用圖片 OCR
+
+```bash
+OCR_PROVIDER=google_vision
+GOOGLE_VISION_API_KEY=your_google_cloud_vision_api_key
+#（選填）自訂端點
+# GOOGLE_VISION_ENDPOINT=https://vision.googleapis.com/v1/images:annotate
+```
+
+啟用後，系統會先將圖片做 OCR，再判斷是否包含匯款關鍵字；若辨識不到文字，就不會誤觸。
+
+### 自訂語意過濾規則
+
+```bash
+REMITTANCE_POSTPONE_KEYWORDS=明天,明日,稍後,晚點
+REMITTANCE_NEGATIVE_KEYWORDS=還沒,尚未,未匯,暫不匯
+REMITTANCE_INQUIRY_KEYWORDS=請問,如何匯,匯款方式,匯款資訊
+REMITTANCE_QUESTION_INDICATORS=?,？,嗎,呢
+REMITTANCE_DEFER_REPLY=👀 已收到您的訊息，如完成匯款請再通知，我們會立即處理 🙏
+```
+
+語意被判定為延後/詢問時，不會觸發匯款提醒，而是回覆 `REMITTANCE_DEFER_REPLY` 並寫入 `src/data/remittance-intent-log.json`。
 
 ---
 

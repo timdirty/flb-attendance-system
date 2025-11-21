@@ -15,14 +15,37 @@ services:
       - PORT=3010
       - TZ=Asia/Taipei
       
+      # 系統 URL（用於 Flex Message 圖片等）
+      - SYSTEM_URL=${SYSTEM_URL:-https://flbbot.funlearnbar.synology.me}
+      
       # LINE Bot 設定（從 .env 讀取）
       - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN}
       - LINE_CHANNEL_SECRET=${LINE_CHANNEL_SECRET}
       - LINE_USER_ID=${LINE_USER_ID}
+      - LINE_CHANNEL_ACCESS_TOKEN_2=${LINE_CHANNEL_ACCESS_TOKEN_2}
+      - ENABLE_DUAL_BOT=${ENABLE_DUAL_BOT:-false}
+      
+      # 管理員設定
+      - ADMIN_USER_IDS=${ADMIN_USER_IDS}
+      - ENABLE_MULTI_ADMINS=${ENABLE_MULTI_ADMINS:-true}
       
       # Google Sheets 設定
       - GOOGLE_SHEETS_API=${GOOGLE_SHEETS_API}
       - GOOGLE_SHEETS_COOKIE=${GOOGLE_SHEETS_COOKIE}
+      
+      # 匯款通知設定
+      - REMITTANCE_GROUP_ID=${REMITTANCE_GROUP_ID}
+      - REMITTANCE_KEYWORDS=${REMITTANCE_KEYWORDS}
+      - REMITTANCE_COMPLETION_WORDS=${REMITTANCE_COMPLETION_WORDS}
+      - REMITTANCE_EXPLICIT_PHRASES=${REMITTANCE_EXPLICIT_PHRASES}
+      
+      # OCR 設定
+      - OCR_PROVIDER=${OCR_PROVIDER}
+      - GOOGLE_VISION_API_KEY=${GOOGLE_VISION_API_KEY}
+      
+      # Webhook 轉發設定
+      - WEBHOOK_FORWARD_TARGETS=${WEBHOOK_FORWARD_TARGETS}
+      - WEBHOOK_FORWARD_LOG=${WEBHOOK_FORWARD_LOG:-true}
     
     volumes:
       # 資料持久化（使用絕對路徑或相對路徑）

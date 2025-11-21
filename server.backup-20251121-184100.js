@@ -114,12 +114,11 @@ const LINE_USER_ID_3 = process.env.LINE_USER_ID_3 || '';
 const ENABLE_DUAL_BOT = false;
 const ENABLE_TRIPLE_BOT = process.env.ENABLE_TRIPLE_BOT === 'true';
 
-// 系統配置（已改用 config.server.systemUrl，此變數保留向後相容）
-const SYSTEM_URL = config.server.systemUrl;
+// 系統配置
+const SYSTEM_URL = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'https://your-railway-url.railway.app';
 
 // Remittance records file (for internal confirmation & audit)
 const REMITTANCE_RECORD_FILE = path.join(__dirname, 'src', 'data', 'remittance-records.json');
-const REMITTANCE_INTENT_LOG_FILE = path.join(__dirname, 'src', 'data', 'remittance-intent-log.json');
 
 // Google Sheets API 配置
 const GOOGLE_SHEETS_API = 'https://script.google.com/macros/s/AKfycbycZtdm2SGy07Sy06i2wM8oGNnERvEyyShUdTmHowlUmQz2kjS3I5VWdI1TszT1s2DCQA/exec';
@@ -153,12 +152,6 @@ const pendingLeaves = new Map();
 function ensureRemittanceFile() {
     if (!fs.existsSync(REMITTANCE_RECORD_FILE)) {
         fs.writeFileSync(REMITTANCE_RECORD_FILE, '[]', 'utf8');
-    }
-}
-
-function ensureRemittanceIntentLogFile() {
-    if (!fs.existsSync(REMITTANCE_INTENT_LOG_FILE)) {
-        fs.writeFileSync(REMITTANCE_INTENT_LOG_FILE, '[]', 'utf8');
     }
 }
 
@@ -197,17 +190,6 @@ function updateRemittanceRecord(id, patch) {
 
 function findRemittanceRecord(id) {
     return loadRemittanceRecords().find(r => r.id === id);
-}
-
-function appendRemittanceIntentLog(entry) {
-    try {
-        ensureRemittanceIntentLogFile();
-        const list = JSON.parse(fs.readFileSync(REMITTANCE_INTENT_LOG_FILE, 'utf8'));
-        list.push(entry);
-        fs.writeFileSync(REMITTANCE_INTENT_LOG_FILE, JSON.stringify(list, null, 2), 'utf8');
-    } catch (error) {
-        console.error('❌ 寫入匯款語意紀錄失敗:', error.message);
-    }
 }
 
 /**
@@ -3671,64 +3653,6 @@ async function sendLineFlexMessage(flexMessage, targetUserId) {
 
 // ==================== 匯款 Flex 組裝與通知 ====================
 
-function includesAnyKeyword(text, keywords = []) {
-    if (!text || !Array.isArray(keywords)) return false;
-    const normalized = text.toLowerCase();
-    return keywords.some(keyword => {
-        if (!keyword) return false;
-        return normalized.includes(keyword.toLowerCase());
-    });
-}
-
-function analyzeRemittanceIntentText(text) {
-    const raw = text || '';
-    const collapsed = raw.replace(/\s+/g, '');
-    const filters = config.remittance.intentFilters || {};
-    const postponeWords = filters.postponeKeywords || [];
-    const negativeWords = filters.negativeKeywords || [];
-    const inquiryWords = filters.inquiryKeywords || [];
-    const questionIndicators = filters.questionIndicators || [];
-
-    const hasPostpone = includesAnyKeyword(collapsed, postponeWords);
-    const hasNegative = includesAnyKeyword(collapsed, negativeWords);
-    const hasInquiry = includesAnyKeyword(collapsed, inquiryWords);
-    const hasQuestion = questionIndicators.some(ind => ind && raw.includes(ind));
-
-    const shouldDefer = hasPostpone || hasNegative || hasInquiry || hasQuestion;
-    let reason = null;
-    if (hasPostpone) reason = 'postpone';
-    else if (hasNegative) reason = 'negative';
-    else if (hasInquiry) reason = 'inquiry';
-    else if (hasQuestion) reason = 'question';
-
-    return {
-        shouldDefer,
-        reason,
-        flags: { hasPostpone, hasNegative, hasInquiry, hasQuestion }
-    };
-}
-
-async function sendRemittanceDeferredReply(userId, replyToken) {
-    const message = config.remittance.intentFilters?.deferReplyMessage 
-        || '👀 已收到您的訊息，完成匯款後請再通知我們，我們會立即為您處理 🙏';
-
-    try {
-        if (replyToken) {
-            await axios.post('https://api.line.me/v2/bot/message/reply', {
-                replyToken,
-                messages: [{ type: 'text', text: message }]
-            }, {
-                headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` },
-                timeout: config.server.timeout.line
-            });
-        } else if (userId) {
-            await sendLineMessage(message, userId, false);
-        }
-    } catch (error) {
-        console.error('❌ 匯款語意回覆失敗:', error.response?.data || error.message);
-    }
-}
-
 function parseAmountFromText(text) {
     if (!text) return null;
     const match = text.replace(/,/g, '').match(/(?:NT\$|NT|USD|台幣|元|塊)?\s*(\d{3,})/i);
@@ -3740,19 +3664,7 @@ function createRemittanceFlexBubble(record) {
     const timeString = dayjs(record.createdAt).tz('Asia/Taipei').format('YYYY/MM/DD HH:mm');
     const snippet = (record.messageText || '').slice(0, 40) || '（圖片／非文字訊息）';
     const userLabel = record.displayName || record.userId;
-    
-    // Logo URL：如果 systemUrl 是 localhost，使用預設外部圖片
-    let logoUrl;
-    if (config.server.systemUrl.includes('localhost') || config.server.systemUrl.includes('127.0.0.1')) {
-        // 使用公開的預設圖片（LINE 官方範例圖）
-        logoUrl = 'https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png';
-    } else {
-        logoUrl = `${config.server.systemUrl}/flb-logo.jpg`;
-        if (!logoUrl.startsWith('http://') && !logoUrl.startsWith('https://')) {
-            logoUrl = `https://${logoUrl}`;
-        }
-    }
-    
+    const logoUrl = `${config.server.systemUrl}/flb-logo.jpg`;
     const postbackData = {
         action: config.remittance.confirmAction,
         recordId: record.id
@@ -3882,17 +3794,7 @@ function createRemittanceFlexBubble(record) {
 function createPaymentConfirmationFlexMessage(record) {
     const amountDisplay = record.amount ? Number(record.amount).toLocaleString('en-US') : '—';
     const timeString = dayjs(record.confirmedAt || new Date()).tz('Asia/Taipei').format('YYYY/MM/DD HH:mm:ss');
-    
-    // Logo URL：如果 systemUrl 是 localhost，使用預設外部圖片
-    let logoUrl;
-    if (config.server.systemUrl.includes('localhost') || config.server.systemUrl.includes('127.0.0.1')) {
-        logoUrl = 'https://scdn.line-apps.com/n/channel_devcenter/img/fx/01_1_cafe.png';
-    } else {
-        logoUrl = `${config.server.systemUrl}/flb-logo.jpg`;
-        if (!logoUrl.startsWith('http://') && !logoUrl.startsWith('https://')) {
-            logoUrl = `https://${logoUrl}`;
-        }
-    }
+    const logoUrl = `${config.server.systemUrl}/flb-logo.jpg`;
 
     return {
         type: 'bubble',
@@ -4101,77 +4003,6 @@ function createPaymentConfirmationFlexMessage(record) {
             }
         }
     };
-}
-
-async function downloadLineMessageContent(messageId) {
-    if (!LINE_CHANNEL_ACCESS_TOKEN) {
-        throw new Error('LINE Channel Access Token 未設定，無法下載圖片內容');
-    }
-
-    const url = `https://api-data.line.me/v2/bot/message/${messageId}/content`;
-    const response = await axios.get(url, {
-        headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` },
-        responseType: 'arraybuffer',
-        timeout: config.server.timeout.line
-    });
-
-    return Buffer.from(response.data);
-}
-
-async function extractTextWithGoogleVision(imageBuffer) {
-    if (!config.ocr.googleVisionApiKey) {
-        throw new Error('Google Vision API Key 未設定');
-    }
-
-    const endpoint = `${config.ocr.googleVisionEndpoint}?key=${config.ocr.googleVisionApiKey}`;
-    const base64Image = imageBuffer.toString('base64');
-    const requestBody = {
-        requests: [
-            {
-                image: { content: base64Image },
-                features: [{ type: 'TEXT_DETECTION' }]
-            }
-        ]
-    };
-
-    const response = await axios.post(endpoint, requestBody, {
-        timeout: config.server.timeout.api
-    });
-
-    const annotations = response.data?.responses?.[0];
-    if (!annotations) return '';
-
-    const text = annotations.fullTextAnnotation?.text 
-        || annotations.textAnnotations?.[0]?.description 
-        || '';
-
-    return text.trim();
-}
-
-async function extractTextFromImage(messageId) {
-    if (!config.ocr.enabled) {
-        console.log('🖼️ OCR 未啟用，跳過圖片辨識');
-        return '';
-    }
-
-    try {
-        const imageBuffer = await downloadLineMessageContent(messageId);
-        if (!imageBuffer || imageBuffer.length === 0) {
-            console.log('⚠️ 無法取得圖片內容，OCR 取消');
-            return '';
-        }
-
-        switch (config.ocr.provider) {
-            case 'google_vision':
-                return await extractTextWithGoogleVision(imageBuffer);
-            default:
-                console.log(`⚠️ 未支援的 OCR Provider: ${config.ocr.provider}`);
-                return '';
-        }
-    } catch (error) {
-        console.error('❌ OCR 處理失敗:', error.response?.data || error.message);
-        return '';
-    }
 }
 
 async function handleRemittanceCandidate({ event, messageText, userId, sourceType, groupId, roomId, messageId }) {
@@ -6971,7 +6802,7 @@ app.post('/webhook', async (req, res) => {
             // 處理訊息事件（文字 + 圖片）
             // ====================================
             if (event.type === 'message' && (event.message.type === 'text' || event.message.type === 'image')) {
-                let messageText = event.message.type === 'text' ? (event.message.text || '') : '';
+                let messageText = event.message.text;
                 const userId = event.source?.userId;
                 const sourceType = event.source?.type; // 'user', 'group', 'room'
                 const groupId = event.source?.groupId;
@@ -7077,73 +6908,26 @@ app.post('/webhook', async (req, res) => {
                     try {
                         const isText = event.message.type === 'text';
                         const isImage = event.message.type === 'image';
-                        let remittanceSearchText = messageText || '';
-
-                        if (isImage) {
-                            const ocrText = await extractTextFromImage(event.message.id);
-                            if (ocrText) {
-                                remittanceSearchText = `${remittanceSearchText}\n${ocrText}`.trim();
-                                console.log('📝 OCR 辨識文字（截斷顯示）:', ocrText.slice(0, 120));
-                            } else {
-                                console.log('⚠️ OCR 未偵測到文字，暫不處理匯款通知');
-                            }
-                        }
-
-                        const normalizedTargetText = (remittanceSearchText || '').trim();
-                        
-                        // 🔍 雙重檢測：提高匯款關鍵字準確度
-                        // 策略 1（優先級最高）：包含明確完成短語（如「已匯款」、「轉帳完成」）
-                        const hasExplicitPhrase = config.remittance.explicitPhrases 
-                            && config.remittance.explicitPhrases.some(phrase => normalizedTargetText.includes(phrase));
-                        
-                        // 策略 2：同時包含「基礎關鍵字」+ 「完成詞」
-                        const hasBaseKeyword = config.remittance.keywords.some(k => normalizedTargetText.includes(k));
-                        const hasCompletionWord = config.remittance.completionWords 
-                            && config.remittance.completionWords.some(word => normalizedTargetText.includes(word));
-                        const hasBothKeywordAndCompletion = hasBaseKeyword && hasCompletionWord;
-                        
-                        // 最終判斷：符合任一策略即觸發
-                        const hitKeywords = normalizedTargetText.length > 0 
-                            && (hasExplicitPhrase || hasBothKeywordAndCompletion);
-                        
-                        const intentAnalysis = analyzeRemittanceIntentText(normalizedTargetText);
+                        const hitKeywords = isText && config.remittance.keywords.some(k => messageText.includes(k));
 
                         console.log('🔍 檢查匯款關鍵字:', {
                             isText,
                             isImage,
-                            targetTextPreview: normalizedTargetText.slice(0, 60),
-                            hasExplicitPhrase,
-                            hasBaseKeyword,
-                            hasCompletionWord,
-                            hasBothKeywordAndCompletion,
+                            messageText,
+                            keywords: config.remittance.keywords,
                             messageType: event.message.type,
-                            hitKeywords,
-                            intentAnalysis
+                            hitKeywords
                         });
 
                         if (!hitKeywords) {
                             if (isImage) {
                                 console.log('⚠️ 收到圖片但未偵測到匯款關鍵字，暫不處理匯款通知');
                             }
-                        } else if (intentAnalysis.shouldDefer) {
-                            console.log('⚠️ 匯款語意判斷為延後/詢問，暫不觸發通知:', intentAnalysis);
-                            appendRemittanceIntentLog({
-                                id: `intent_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-                                userId,
-                                messageType: event.message.type,
-                                sourceType,
-                                reason: intentAnalysis.reason,
-                                flags: intentAnalysis.flags,
-                                messageText: normalizedTargetText,
-                                rawOriginalText: messageText,
-                                createdAt: new Date().toISOString()
-                            });
-                            await sendRemittanceDeferredReply(userId, event.replyToken);
                         } else {
                             console.log('✅ 觸發匯款通知處理...');
                             await handleRemittanceCandidate({
                                 event,
-                                messageText: normalizedTargetText,
+                                messageText: messageText || '',
                                 userId,
                                 sourceType,
                                 groupId,
