@@ -988,11 +988,24 @@ async function handlePostback(event) {
             });
         }
 
-        // 推播給原客戶
+        // 推播專業的 Flex Message 給原客戶
         try {
-            await sendLineMessageWithBot(`✅ 已確認收到您的匯款${updated.amount ? `：NT$${updated.amount}` : ''}\n感謝！`, record.userId, null, false);
+            const confirmationFlex = createPaymentConfirmationFlexMessage(updated);
+            const flexMessage = {
+                type: 'flex',
+                altText: '✅ 付款已確認',
+                contents: confirmationFlex
+            };
+            await sendLineFlexMessage(flexMessage, record.userId);
+            console.log('✅ 已發送付款確認 Flex Message 給客戶:', record.userId);
         } catch (e) {
             console.error('❌ 回覆客戶匯款確認失敗:', e.message);
+            // 降級為文字訊息
+            try {
+                await sendLineMessageWithBot(`✅ 已確認收到您的匯款${updated.amount ? `：NT$${updated.amount}` : ''}\n感謝！`, record.userId, null, false);
+            } catch (fallbackError) {
+                console.error('❌ 降級文字訊息也失敗:', fallbackError.message);
+            }
         }
 
         return;
@@ -3651,6 +3664,7 @@ function createRemittanceFlexBubble(record) {
     const timeString = dayjs(record.createdAt).tz('Asia/Taipei').format('YYYY/MM/DD HH:mm');
     const snippet = (record.messageText || '').slice(0, 40) || '（圖片／非文字訊息）';
     const userLabel = record.displayName || record.userId;
+    const logoUrl = `${config.server.systemUrl}/flb-logo.jpg`;
     const postbackData = {
         action: config.remittance.confirmAction,
         recordId: record.id
@@ -3659,6 +3673,41 @@ function createRemittanceFlexBubble(record) {
     return {
         type: 'bubble',
         size: 'mega',
+        header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                {
+                    type: 'box',
+                    layout: 'horizontal',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: '匯款待確認',
+                            weight: 'bold',
+                            size: 'lg',
+                            color: '#111111',
+                            flex: 0
+                        },
+                        {
+                            type: 'filler'
+                        },
+                        {
+                            type: 'image',
+                            url: logoUrl,
+                            size: 'xxs',
+                            aspectMode: 'cover',
+                            aspectRatio: '1:1',
+                            flex: 0,
+                            margin: 'none'
+                        }
+                    ]
+                }
+            ],
+            paddingAll: '20px',
+            paddingBottom: '16px',
+            backgroundColor: '#FFFFFF'
+        },
         hero: {
             type: 'box',
             layout: 'vertical',
@@ -3667,9 +3716,8 @@ function createRemittanceFlexBubble(record) {
             contents: [
                 {
                     type: 'text',
-                    text: '匯款待確認',
+                    text: '匯款金額',
                     color: '#ffffff',
-                    weight: 'bold',
                     size: 'sm',
                     margin: 'md'
                 },
@@ -3678,8 +3726,8 @@ function createRemittanceFlexBubble(record) {
                     text: amountDisplay,
                     color: '#ffffff',
                     weight: 'bold',
-                    size: 'xl',
-                    margin: 'md'
+                    size: 'xxl',
+                    margin: 'sm'
                 }
             ],
             paddingAll: '16px'
@@ -3734,6 +3782,225 @@ function createRemittanceFlexBubble(record) {
                     }
                 }
             ]
+        }
+    };
+}
+
+/**
+ * 創建給客戶的匯款確認 Flex Message（LINE Pay 風格）
+ * @param {Object} record - 匯款記錄
+ * @returns {Object} Flex Message 物件
+ */
+function createPaymentConfirmationFlexMessage(record) {
+    const amountDisplay = record.amount ? Number(record.amount).toLocaleString('en-US') : '—';
+    const timeString = dayjs(record.confirmedAt || new Date()).tz('Asia/Taipei').format('YYYY/MM/DD HH:mm:ss');
+    const logoUrl = `${config.server.systemUrl}/flb-logo.jpg`;
+
+    return {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                {
+                    type: 'box',
+                    layout: 'horizontal',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: '付款確認',
+                            weight: 'bold',
+                            size: 'xl',
+                            color: '#00C300',
+                            flex: 0
+                        },
+                        {
+                            type: 'filler'
+                        },
+                        {
+                            type: 'image',
+                            url: logoUrl,
+                            size: 'xxs',
+                            aspectMode: 'cover',
+                            aspectRatio: '1:1',
+                            flex: 0,
+                            margin: 'none'
+                        }
+                    ]
+                }
+            ],
+            paddingAll: '20px',
+            paddingBottom: '16px'
+        },
+        body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                // 成功圖示與狀態
+                {
+                    type: 'box',
+                    layout: 'vertical',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: '✓',
+                            size: '5xl',
+                            color: '#00C300',
+                            weight: 'bold',
+                            align: 'center'
+                        },
+                        {
+                            type: 'text',
+                            text: '付款已確認',
+                            size: 'lg',
+                            color: '#00C300',
+                            weight: 'bold',
+                            align: 'center',
+                            margin: 'md'
+                        }
+                    ],
+                    paddingAll: '20px',
+                    backgroundColor: '#F0F9F4',
+                    cornerRadius: '12px',
+                    margin: 'none'
+                },
+                // 分隔線
+                {
+                    type: 'separator',
+                    margin: 'xl',
+                    color: '#E5E5E5'
+                },
+                // 金額資訊
+                {
+                    type: 'box',
+                    layout: 'vertical',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: '付款金額',
+                            size: 'sm',
+                            color: '#999999',
+                            margin: 'none'
+                        },
+                        {
+                            type: 'text',
+                            text: `NT$ ${amountDisplay}`,
+                            size: 'xxl',
+                            weight: 'bold',
+                            color: '#111111',
+                            margin: 'sm'
+                        }
+                    ],
+                    margin: 'xl'
+                },
+                // 付款人資訊
+                {
+                    type: 'box',
+                    layout: 'vertical',
+                    contents: [
+                        {
+                            type: 'box',
+                            layout: 'baseline',
+                            contents: [
+                                {
+                                    type: 'text',
+                                    text: '付款人',
+                                    size: 'sm',
+                                    color: '#999999',
+                                    flex: 0,
+                                    margin: 'none'
+                                },
+                                {
+                                    type: 'text',
+                                    text: record.displayName || '您',
+                                    size: 'sm',
+                                    color: '#111111',
+                                    align: 'end',
+                                    margin: 'none'
+                                }
+                            ],
+                            spacing: 'lg'
+                        },
+                        {
+                            type: 'box',
+                            layout: 'baseline',
+                            contents: [
+                                {
+                                    type: 'text',
+                                    text: '確認時間',
+                                    size: 'sm',
+                                    color: '#999999',
+                                    flex: 0,
+                                    margin: 'none'
+                                },
+                                {
+                                    type: 'text',
+                                    text: timeString,
+                                    size: 'sm',
+                                    color: '#111111',
+                                    align: 'end',
+                                    margin: 'none'
+                                }
+                            ],
+                            spacing: 'lg',
+                            margin: 'md'
+                        }
+                    ],
+                    margin: 'xl',
+                    paddingAll: '16px',
+                    backgroundColor: '#F7F7F7',
+                    cornerRadius: '8px'
+                },
+                // 感謝訊息
+                {
+                    type: 'text',
+                    text: '感謝您的付款！我們已收到您的款項。',
+                    size: 'sm',
+                    color: '#666666',
+                    align: 'center',
+                    wrap: true,
+                    margin: 'xl'
+                }
+            ],
+            paddingAll: '20px'
+        },
+        footer: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                {
+                    type: 'separator',
+                    color: '#E5E5E5'
+                },
+                {
+                    type: 'box',
+                    layout: 'horizontal',
+                    contents: [
+                        {
+                            type: 'text',
+                            text: '樂程坊 Fun Learn Bar',
+                            size: 'xs',
+                            color: '#999999',
+                            flex: 0
+                        }
+                    ],
+                    paddingAll: '16px'
+                }
+            ],
+            spacing: 'none',
+            margin: 'none'
+        },
+        styles: {
+            header: {
+                backgroundColor: '#FFFFFF'
+            },
+            body: {
+                backgroundColor: '#FFFFFF'
+            },
+            footer: {
+                backgroundColor: '#FFFFFF'
+            }
         }
     };
 }
