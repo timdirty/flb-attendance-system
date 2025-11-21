@@ -4,12 +4,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
-const dayjs = require('dayjs');
-const utc = require('dayjs/plugin/utc');
-const timezone = require('dayjs/plugin/timezone');
 const config = require('./src/config');
-dayjs.extend(utc);
-dayjs.extend(timezone);
 // const DatabaseManager = require('./database'); // 已改用 Google Sheets 資料庫
 
 // 引入講師ID對應表模組
@@ -117,9 +112,6 @@ const ENABLE_TRIPLE_BOT = process.env.ENABLE_TRIPLE_BOT === 'true';
 // 系統配置
 const SYSTEM_URL = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'https://your-railway-url.railway.app';
 
-// Remittance records file (for internal confirmation & audit)
-const REMITTANCE_RECORD_FILE = path.join(__dirname, 'src', 'data', 'remittance-records.json');
-
 // Google Sheets API 配置
 const GOOGLE_SHEETS_API = 'https://script.google.com/macros/s/AKfycbycZtdm2SGy07Sy06i2wM8oGNnERvEyyShUdTmHowlUmQz2kjS3I5VWdI1TszT1s2DCQA/exec';
 const GOOGLE_SHEETS_COOKIE = 'NID=525=IPIqwCVm1Z3C00Y2MFXoevvCftm-rj9UdMlgYFhlRAHY0MKSCbEO7I8EBlGrz-nwjYxoXSFUrDHBqGrYNUotcoSE3v2npcVn-j3QZsc6SAKkZcMLR6y1MkF5dZlXnbBIqWgw9cJLT3SvAvmpXUZa6RADuBXFDZpvSM85zYAoym0yXcBn3C4ayGgOookqVJaH';
@@ -146,51 +138,6 @@ const webhookForwarder = new WebhookForwarder({
 
 // 暫存等待理由的請假申請
 const pendingLeaves = new Map();
-
-// ==================== 匯款通知與確認 ====================
-// 簡易檔案型儲存，避免資料遺失
-function ensureRemittanceFile() {
-    if (!fs.existsSync(REMITTANCE_RECORD_FILE)) {
-        fs.writeFileSync(REMITTANCE_RECORD_FILE, '[]', 'utf8');
-    }
-}
-
-function loadRemittanceRecords() {
-    try {
-        ensureRemittanceFile();
-        return JSON.parse(fs.readFileSync(REMITTANCE_RECORD_FILE, 'utf8'));
-    } catch (e) {
-        console.error('❌ 讀取匯款紀錄失敗:', e.message);
-        return [];
-    }
-}
-
-function saveRemittanceRecords(list) {
-    try {
-        fs.writeFileSync(REMITTANCE_RECORD_FILE, JSON.stringify(list, null, 2), 'utf8');
-    } catch (e) {
-        console.error('❌ 寫入匯款紀錄失敗:', e.message);
-    }
-}
-
-function addRemittanceRecord(record) {
-    const list = loadRemittanceRecords();
-    list.push(record);
-    saveRemittanceRecords(list);
-}
-
-function updateRemittanceRecord(id, patch) {
-    const list = loadRemittanceRecords();
-    const idx = list.findIndex(r => r.id === id);
-    if (idx < 0) return null;
-    list[idx] = { ...list[idx], ...patch, updatedAt: new Date().toISOString() };
-    saveRemittanceRecords(list);
-    return list[idx];
-}
-
-function findRemittanceRecord(id) {
-    return loadRemittanceRecords().find(r => r.id === id);
-}
 
 /**
  * 解析 postback data
@@ -948,55 +895,6 @@ async function handlePostback(event) {
     };
     
     console.log('📥 收到 postback 事件 (已標準化):', JSON.stringify(postbackData, null, 2));
-
-    // ------------------------------------
-    // 0️⃣ 匯款確認（內部人員按下）
-    // ------------------------------------
-    if (postbackData.action === config.remittance.confirmAction && postbackData.recordId) {
-        const recordId = postbackData.recordId;
-        const record = findRemittanceRecord(recordId);
-        if (!record) {
-            const notFound = {
-                type: 'text',
-                text: '⚠️ 找不到對應的匯款紀錄，可能已過期或被移除'
-            };
-            if (replyToken) {
-                await axios.post('https://api.line.me/v2/bot/message/reply', {
-                    replyToken,
-                    messages: [notFound]
-                }, {
-                    headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` }
-                });
-            }
-            return;
-        }
-
-        // 更新狀態
-        const updated = updateRemittanceRecord(recordId, {
-            status: 'confirmed',
-            confirmedBy: userId,
-            confirmedAt: new Date().toISOString()
-        });
-
-        // 回覆按鈕操作者
-        if (replyToken) {
-            await axios.post('https://api.line.me/v2/bot/message/reply', {
-                replyToken,
-                messages: [{ type: 'text', text: `✅ 已回覆客戶，金額 NT$${updated.amount || '—'}` }]
-            }, {
-                headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` }
-            });
-        }
-
-        // 推播給原客戶
-        try {
-            await sendLineMessageWithBot(`✅ 已確認收到您的匯款${updated.amount ? `：NT$${updated.amount}` : ''}\n感謝！`, record.userId, null, false);
-        } catch (e) {
-            console.error('❌ 回覆客戶匯款確認失敗:', e.message);
-        }
-
-        return;
-    }
     
     // ------------------------------------
     // 1️⃣ 學生點擊「🏥 請假」
@@ -3635,202 +3533,6 @@ async function sendLineFlexMessage(flexMessage, targetUserId) {
     } catch (error) {
         console.error('Flex Message 發送失敗:', error.message);
         return { success: false, error: error.message };
-    }
-}
-
-// ==================== 匯款 Flex 組裝與通知 ====================
-
-function parseAmountFromText(text) {
-    if (!text) return null;
-    const match = text.replace(/,/g, '').match(/(?:NT\$|NT|USD|台幣|元|塊)?\s*(\d{3,})/i);
-    return match ? match[1] : null;
-}
-
-function createRemittanceFlexBubble(record) {
-    const amountDisplay = record.amount ? `NT$ ${Number(record.amount).toLocaleString('en-US')}` : '金額待確認';
-    const timeString = dayjs(record.createdAt).tz('Asia/Taipei').format('YYYY/MM/DD HH:mm');
-    const snippet = (record.messageText || '').slice(0, 40) || '（圖片／非文字訊息）';
-    const userLabel = record.displayName || record.userId;
-    const postbackData = {
-        action: config.remittance.confirmAction,
-        recordId: record.id
-    };
-
-    return {
-        type: 'bubble',
-        size: 'mega',
-        hero: {
-            type: 'box',
-            layout: 'vertical',
-            height: '88px',
-            backgroundColor: config.remittance.themeColor,
-            contents: [
-                {
-                    type: 'text',
-                    text: '匯款待確認',
-                    color: '#ffffff',
-                    weight: 'bold',
-                    size: 'sm',
-                    margin: 'md'
-                },
-                {
-                    type: 'text',
-                    text: amountDisplay,
-                    color: '#ffffff',
-                    weight: 'bold',
-                    size: 'xl',
-                    margin: 'md'
-                }
-            ],
-            paddingAll: '16px'
-        },
-        body: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [
-                {
-                    type: 'box',
-                    layout: 'baseline',
-                    contents: [
-                        { type: 'text', text: '來自', weight: 'bold', color: '#555', flex: 2 },
-                        { type: 'text', text: userLabel, color: '#111', flex: 6, wrap: true }
-                    ]
-                },
-                {
-                    type: 'box',
-                    layout: 'baseline',
-                    contents: [
-                        { type: 'text', text: '訊息', weight: 'bold', color: '#555', flex: 2 },
-                        { type: 'text', text: snippet, color: '#111', flex: 6, wrap: true }
-                    ]
-                },
-                {
-                    type: 'box',
-                    layout: 'baseline',
-                    contents: [
-                        { type: 'text', text: '時間', weight: 'bold', color: '#555', flex: 2 },
-                        { type: 'text', text: timeString, color: '#111', flex: 6 }
-                    ]
-                }
-            ]
-        },
-        footer: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'md',
-            paddingAll: '16px',
-            contents: [
-                {
-                    type: 'button',
-                    style: 'primary',
-                    color: config.remittance.themeColor,
-                    height: 'sm',
-                    action: {
-                        type: 'postback',
-                        label: '✅ 已確認收款',
-                        data: JSON.stringify(postbackData),
-                        displayText: '已確認收款'
-                    }
-                },
-                {
-                    type: 'button',
-                    style: 'secondary',
-                    height: 'sm',
-                    color: '#CCCCCC',
-                    action: {
-                        type: 'uri',
-                        label: '查看原訊息',
-                        uri: config.server.systemUrl || 'https://line.me'
-                    }
-                }
-            ]
-        }
-    };
-}
-
-async function handleRemittanceCandidate({ event, messageText, userId, sourceType, groupId, roomId, messageId }) {
-    // 取得所有管理員 ID
-    const adminIds = config.getAllAdminUserIds();
-    
-    // 檢查是否有管理員或群組可以發送
-    if (!config.remittance.alertGroupId && adminIds.length === 0) {
-        console.log('⚠️ 未設定管理員群組或管理員 User ID，跳過匯款提醒');
-        return;
-    }
-
-    // 取得使用者名稱
-    let displayName = '';
-    try {
-        const profile = await axios.get(`${config.line.profileApi}/${userId}`, {
-            headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` },
-            timeout: config.server.timeout.line
-        });
-        displayName = profile.data.displayName || '';
-    } catch (e) {
-        displayName = userId || '';
-    }
-
-    const amount = parseAmountFromText(messageText || '');
-    const recordId = `remit_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-    const record = {
-        id: recordId,
-        userId,
-        displayName,
-        messageText,
-        amount,
-        sourceType,
-        groupId,
-        roomId,
-        messageId,
-        status: 'pending',
-        createdAt: new Date().toISOString()
-    };
-
-    addRemittanceRecord(record);
-
-    const bubble = createRemittanceFlexBubble(record);
-    const flexMessage = { type: 'flex', altText: '匯款待確認', contents: bubble };
-
-    // 發送到管理員群組（如果有設定）
-    if (config.remittance.alertGroupId) {
-        try {
-            await sendLineFlexMessage(flexMessage, config.remittance.alertGroupId);
-            console.log('✅ 已發送匯款通知到管理員群組');
-        } catch (e) {
-            console.error('❌ 發送匯款通知到群組失敗:', e.message);
-        }
-    }
-
-    // 發送給所有管理員（個別推播）
-    if (adminIds.length > 0) {
-        console.log(`📤 發送匯款通知給 ${adminIds.length} 位管理員...`);
-        for (const adminId of adminIds) {
-            try {
-                await sendLineFlexMessage(flexMessage, adminId);
-                console.log(`✅ 已發送匯款通知給管理員: ${adminId}`);
-            } catch (e) {
-                console.error(`❌ 發送匯款通知給管理員 ${adminId} 失敗:`, e.message);
-            }
-        }
-    }
-
-    // 立即回覆用戶已收到申請（replyToken 若存在使用 reply）
-    try {
-        const ack = { type: 'text', text: '📄 已收到您的匯款資訊，將盡快為您確認。' };
-        if (event.replyToken) {
-            await axios.post('https://api.line.me/v2/bot/message/reply', {
-                replyToken: event.replyToken,
-                messages: [ack]
-            }, {
-                headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` },
-                timeout: config.server.timeout.line
-            });
-        } else {
-            await sendLineMessageWithBot(ack.text, userId, null, false);
-        }
-    } catch (e) {
-        console.error('❌ 回覆用戶匯款收件失敗:', e.message);
     }
 }
 
@@ -6543,16 +6245,16 @@ app.post('/webhook', async (req, res) => {
             }
             
             // ====================================
-            // 處理訊息事件（文字 + 圖片）
+            // 處理訊息事件
             // ====================================
-            if (event.type === 'message' && (event.message.type === 'text' || event.message.type === 'image')) {
+            if (event.type === 'message' && event.message.type === 'text') {
                 let messageText = event.message.text;
                 const userId = event.source?.userId;
                 const sourceType = event.source?.type; // 'user', 'group', 'room'
                 const groupId = event.source?.groupId;
                 const roomId = event.source?.roomId;
                 
-                console.log('收到訊息:', messageText || '[非文字訊息]');
+                console.log('收到訊息:', messageText);
                 console.log('用戶 ID:', userId || '未知');
                 console.log('來源類型:', sourceType || '未知');
                 
@@ -6646,26 +6348,6 @@ app.post('/webhook', async (req, res) => {
                         }
                     } catch (e) {
                         console.log('關鍵字規則處理錯誤:', e.message);
-                    }
-
-                    // 匯款相關通知 → 推播到正職群組（Flex）
-                    try {
-                        const isText = event.message.type === 'text';
-                        const hitKeywords = isText && config.remittance.keywords.some(k => messageText.includes(k));
-                        if (hitKeywords || event.message.type === 'image') {
-                            await handleRemittanceCandidate({
-                                event,
-                                messageText: messageText || '',
-                                userId,
-                                sourceType,
-                                groupId,
-                                roomId,
-                                messageId: event.message.id
-                            });
-                            // 繼續後續流程以保持原有功能，但已觸發匯款提醒
-                        }
-                    } catch (e) {
-                        console.error('❌ 匯款提醒處理失敗:', e.message);
                     }
 
                     // 檢查關鍵字

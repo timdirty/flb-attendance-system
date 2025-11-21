@@ -56,8 +56,23 @@ const config = {
         channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || '',
         channelSecret: process.env.LINE_CHANNEL_SECRET || '',
         
-        // 管理員 User ID
+        // 管理員 User ID（單一管理員，向後相容）
         adminUserId: process.env.LINE_USER_ID || '',
+        
+        // 多管理員支援
+        admins: {
+            // 從環境變數讀取（逗號分隔）
+            userIds: process.env.ADMIN_USER_IDS 
+                ? process.env.ADMIN_USER_IDS.split(',').map(id => id.trim()).filter(Boolean)
+                : [],
+            
+            // 管理員設定檔案路徑
+            configFile: process.env.ADMIN_CONFIG_FILE || 
+                require('path').join(__dirname, 'data', 'admin-users.json'),
+            
+            // 是否啟用多管理員模式
+            enabled: process.env.ENABLE_MULTI_ADMINS !== 'false'
+        },
         
         // LINE API 端點
         messagingApi: 'https://api.line.me/v2/bot/message/push',
@@ -226,6 +241,21 @@ const config = {
         }
     },
 
+    // ==================== 匯款通知配置 ====================
+    remittance: {
+        // 要推送匯款提醒的內部群組 ID（正職群組）
+        alertGroupId: process.env.REMITTANCE_GROUP_ID || '',
+
+        // 按鈕資料標識（如需與其他 postback 區分可調整）
+        confirmAction: process.env.REMITTANCE_CONFIRM_ACTION || 'remittance_confirm',
+
+        // 允許的關鍵字（文字訊息觸發）
+        keywords: (process.env.REMITTANCE_KEYWORDS || '匯款,轉帳,轉帳完成,已轉,ATM').split(',').map(k => k.trim()).filter(Boolean),
+
+        // Flex 主題色（接近 LINE Pay 風格的綠色）
+        themeColor: process.env.REMITTANCE_THEME_COLOR || '#00C300'
+    },
+
     // ==================== 日誌配置 ====================
     logging: {
         // 日誌級別: 'debug' | 'info' | 'warn' | 'error'
@@ -343,6 +373,60 @@ function checkEnvironment() {
         console.log('');
     }
 }
+
+// ==================== 管理員管理函數 ====================
+/**
+ * 獲取所有管理員 User ID
+ * 優先級：設定檔案 > 環境變數（ADMIN_USER_IDS）> 單一管理員（LINE_USER_ID）
+ */
+function getAllAdminUserIds() {
+    const fs = require('fs');
+    const adminIds = new Set();
+    
+    // 1. 從設定檔案讀取（最高優先級）
+    if (config.line.admins.enabled) {
+        try {
+            if (fs.existsSync(config.line.admins.configFile)) {
+                const adminUsers = JSON.parse(fs.readFileSync(config.line.admins.configFile, 'utf8'));
+                adminUsers
+                    .filter(admin => admin.enabled !== false)
+                    .forEach(admin => {
+                        if (admin.userId) {
+                            adminIds.add(admin.userId);
+                        }
+                    });
+            }
+        } catch (error) {
+            console.error('❌ 讀取管理員設定檔案失敗:', error.message);
+        }
+    }
+    
+    // 2. 從環境變數讀取（ADMIN_USER_IDS）
+    if (config.line.admins.userIds.length > 0) {
+        config.line.admins.userIds.forEach(id => adminIds.add(id));
+    }
+    
+    // 3. 向後相容：單一管理員（LINE_USER_ID）
+    if (config.line.adminUserId && 
+        config.line.adminUserId !== 'YOUR_USER_ID_HERE' &&
+        config.line.adminUserId !== '') {
+        adminIds.add(config.line.adminUserId);
+    }
+    
+    return Array.from(adminIds);
+}
+
+/**
+ * 檢查是否為管理員
+ */
+function isAdmin(userId) {
+    const adminIds = getAllAdminUserIds();
+    return adminIds.includes(userId);
+}
+
+// 將輔助函數加入 config
+config.getAllAdminUserIds = getAllAdminUserIds;
+config.isAdmin = isAdmin;
 
 // 執行驗證
 validateConfig();

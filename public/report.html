@@ -8,8 +8,15 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         /* 報表頁面專用樣式 */
+        .report-body {
+            font-family: 'Noto Sans TC', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            background: radial-gradient(circle at 10% 20%, #eef2ff 0%, #f8f9ff 25%, #fafafa 70%);
+            min-height: 100vh;
+            color: #1f2a37;
+        }
+
         .report-page-container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
             min-height: 100vh;
@@ -54,10 +61,15 @@
 
         .report-card {
             background: white;
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            margin-bottom: 20px;
+            border-radius: 24px;
+            padding: 35px;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+            margin-bottom: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .report-card:hover {
+            box-shadow: 0 16px 56px rgba(0,0,0,0.2);
         }
 
         .report-card h2 {
@@ -197,30 +209,60 @@
         /* 結果統計卡片 */
         .results-stats {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 15px;
-            padding: 20px;
+            border-radius: 20px;
+            padding: 28px;
             color: white;
-            margin-bottom: 25px;
+            margin-bottom: 28px;
             display: flex;
             justify-content: space-around;
             align-items: center;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 24px;
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .results-stats::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 3s ease-in-out infinite;
         }
 
         .stat-item {
             text-align: center;
+            position: relative;
+            z-index: 1;
+            padding: 12px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .stat-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
         }
 
         .stat-value {
-            font-size: 2rem;
-            font-weight: bold;
-            margin-bottom: 5px;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            line-height: 1;
         }
 
         .stat-label {
-            font-size: 0.9rem;
-            opacity: 0.9;
+            font-size: 0.95rem;
+            opacity: 0.95;
+            font-weight: 500;
+            letter-spacing: 0.5px;
         }
 
         /* 懸浮回到行事曆按鈕 */
@@ -319,9 +361,364 @@
         .teacher-loading-tip i {
             color: #ffd166;
         }
+
+        /* 優化的月份篩選器 */
+        .month-filter-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border-radius: 16px;
+            border: 2px solid #e9ecef;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .month-filter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .month-filter-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 1rem;
+        }
+
+        .month-filter-label i {
+            color: #667eea;
+            font-size: 1.1rem;
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-filter-action {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            border-radius: 8px;
+            border: 2px solid #dee2e6;
+            background: white;
+            color: #6c757d;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .btn-filter-action:hover {
+            background: #f8f9fa;
+            border-color: #adb5bd;
+            transform: translateY(-1px);
+        }
+
+        .btn-primary-action {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+            color: white;
+        }
+
+        .btn-primary-action:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+            border-color: #764ba2;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .month-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .month-btn {
+            padding: 10px 18px;
+            border: 2px solid #dee2e6;
+            border-radius: 25px;
+            background: white;
+            color: #495057;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .month-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .month-btn:hover::before {
+            left: 100%;
+        }
+
+        .month-btn:hover {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-color: #667eea;
+            color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .month-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+            color: white;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .month-btn.active:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.5);
+        }
+
+        /* 優化的報表結果卡片 */
+        .report-results {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .report-item {
+            padding: 28px 30px;
+            background: radial-gradient(circle at top left, rgba(102, 126, 234, 0.08), rgba(255,255,255,0.95));
+            border-radius: 24px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+            transition: transform 0.35s ease, box-shadow 0.35s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .report-item::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.25) 100%);
+            opacity: 0;
+            transition: opacity 0.35s ease;
+        }
+
+        .report-item:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 25px 65px rgba(15, 23, 42, 0.12);
+        }
+
+        .report-item:hover::after {
+            opacity: 1;
+        }
+
+        .report-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .title-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+        }
+
+        .report-item-name {
+            font-weight: 800;
+            color: #1f2937;
+            font-size: 1.4rem;
+            line-height: 1.35;
+        }
+
+        .report-item-topic {
+            font-size: 0.95rem;
+            color: #6b7280;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .report-item-topic i {
+            color: #f59e0b;
+        }
+
+        .week-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 999px;
+            background: rgba(14, 165, 233, 0.12);
+            color: #0ea5e9;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .meta-pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .meta-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(107, 114, 128, 0.2);
+            font-size: 0.9rem;
+            color: #374151;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+        }
+
+        .meta-pill i {
+            color: #4f46e5;
+        }
+
+        .meta-pill.people {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.25);
+            color: #047857;
+        }
+
+        .meta-pill.people i {
+            color: #10b981;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .info-block {
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .info-block i {
+            color: #6366f1;
+            font-size: 1rem;
+            margin-top: 2px;
+        }
+
+        .info-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .info-label {
+            font-size: 0.8rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #9ca3af;
+        }
+
+        .info-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .report-item-content,
+        .report-item-notes {
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: rgba(99, 102, 241, 0.08);
+            color: #312e81;
+            font-weight: 500;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .report-item-notes {
+            background: rgba(249, 115, 22, 0.08);
+            color: #7c2d12;
+            margin-top: 10px;
+        }
+
+        .report-item-content i,
+        .report-item-notes i {
+            margin-top: 2px;
+        }
+
+        .results-empty {
+            padding: 40px;
+            text-align: center;
+            background: rgba(15, 23, 42, 0.02);
+            border: 2px dashed rgba(99, 102, 241, 0.3);
+            border-radius: 20px;
+            color: #475569;
+            font-weight: 600;
+        }
+
+        /* 響應式優化 */
+        @media (max-width: 768px) {
+            .report-item-header {
+                flex-direction: column;
+            }
+
+            .meta-pill-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .month-filter-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .filter-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+
+            .month-buttons {
+                gap: 8px;
+            }
+
+            .month-btn {
+                padding: 8px 14px;
+                font-size: 0.85rem;
+            }
+        }
+
     </style>
 </head>
-<body>
+<body class="report-body">
     <div class="teacher-loading-overlay" id="teacher-loading-overlay">
         <div class="teacher-loading-content">
             <div class="teacher-loading-spinner"></div>
@@ -472,19 +869,21 @@
 
             <!-- 月份快速選擇 -->
             <div class="month-filter-section" id="month-filter-section" style="display: none;">
-                <div class="month-filter-label">
-                    <i class="fas fa-calendar-alt"></i> 快速篩選月份：
+                <div class="month-filter-header">
+                    <div class="month-filter-label">
+                        <i class="fas fa-calendar-alt"></i> 快速篩選月份
+                    </div>
+                    <div class="filter-actions">
+                        <button class="btn-filter-action" onclick="clearMonthFilter()">
+                            <i class="fas fa-times"></i> 清除篩選
+                        </button>
+                        <button class="btn-filter-action btn-primary-action" onclick="showAllResults()">
+                            <i class="fas fa-eye"></i> 顯示全部
+                        </button>
+                    </div>
                 </div>
                 <div class="month-buttons" id="month-buttons">
                     <!-- 月份按鈕將由 JavaScript 動態生成 -->
-                </div>
-                <div class="filter-actions">
-                    <button class="btn-secondary btn-sm" onclick="clearMonthFilter()">
-                        <i class="fas fa-times"></i> 清除篩選
-                    </button>
-                    <button class="btn-primary btn-sm" onclick="showAllResults()">
-                        <i class="fas fa-eye"></i> 顯示全部
-                    </button>
                 </div>
             </div>
 
@@ -523,6 +922,99 @@
         let filteredReportResults = [];
         let currentMonthFilter = null;
         let toastTimer = null;
+        const FIELD_GROUPS = {
+            courseName: ['course', '課程名稱', '課程', '課程類別', '課程主題', '班別', 'title', '名稱'],
+            courseDate: ['課程日期', '日期', 'date', '上課日期', 'Day'],
+            courseTime: ['上課時間', '時間', '時段', 'time', '課程時間'],
+            weekInfo: ['週次', '週', '到府週次', 'Week', '週別'],
+            location: ['地點', '場地', '教室', '據點', 'location', '地區'],
+            content: ['課程內容', '內容', '教案內容', '說明', '重點', '備課重點'],
+            topic: ['課程主題', '主題', '主題名稱'],
+            notes: ['備註', '註記', 'remark', 'note'],
+            students: [
+                '人數', '人數_助教', '人數助教', '人數 / 助教', '人數/助教',
+                'students', 'student_count', 'studentCount', 'attendance', 'people',
+                '出席人數', '實到人數', '總人數', '學員', '助教人數', '客製化人數'
+            ],
+        };
+
+        function normalizeFieldName(name) {
+            return String(name || '')
+                .replace(/[\s\u00A0_/\\-]+/g, '')
+                .replace(/[()（）:：]/g, '')
+                .toLowerCase();
+        }
+
+        function getFieldValue(record, keys = [], fallback = '') {
+            if (!record) return fallback;
+            const normalizedTargets = new Set(keys.map(normalizeFieldName));
+
+            // 1. 直接精準比對
+            for (const key of keys) {
+                if (record[key] !== undefined && record[key] !== null && record[key] !== '') {
+                    return String(record[key]).trim();
+                }
+            }
+
+            // 2. 正規化名稱比對（處理空白/符號差異）
+            for (const recordKey of Object.keys(record)) {
+                if (!normalizedTargets.size) break;
+                const normalizedKey = normalizeFieldName(recordKey);
+                if (normalizedTargets.has(normalizedKey)) {
+                    const value = record[recordKey];
+                    if (value !== undefined && value !== null && value !== '') {
+                        return String(value).trim();
+                    }
+                }
+            }
+
+            // 3. 若仍找不到且是人數欄位群組，嘗試任何包含「人數」關鍵字的欄位
+            if (normalizedTargets.has(normalizeFieldName('人數'))) {
+                for (const recordKey of Object.keys(record)) {
+                    const normalizedKey = normalizeFieldName(recordKey);
+                    if (normalizedKey.includes('人數') || normalizedKey.includes('student') || normalizedKey.includes('count')) {
+                        const value = record[recordKey];
+                        if (value !== undefined && value !== null && value !== '') {
+                            return String(value).trim();
+                        }
+                    }
+                }
+            }
+
+            return fallback;
+        }
+
+        function formatPeopleCount(value) {
+            if (!value) return '';
+            if (/\d/.test(value) && !/人/.test(value)) {
+                return `${value} 人`;
+            }
+            return value;
+        }
+
+        function createMetaChip(icon, text, modifier = '') {
+            if (!text) return '';
+            const extraClass = modifier ? ` ${modifier}` : '';
+            return `
+                <span class="meta-pill${extraClass}">
+                    <i class="fas ${icon}"></i>
+                    ${escapeHtml(text)}
+                </span>
+            `;
+        }
+
+        function createInfoBlock(icon, label, value) {
+            if (!value) return '';
+            return `
+                <div class="info-block">
+                    <i class="fas ${icon}"></i>
+                    <div class="info-content">
+                        <span class="info-label">${escapeHtml(label)}</span>
+                        <span class="info-value">${escapeHtml(value)}</span>
+                    </div>
+                </div>
+            `;
+        }
 
         // 頁面載入時初始化
         document.addEventListener('DOMContentLoaded', function() {
@@ -753,7 +1245,7 @@
             const monthFilterSection = document.getElementById('month-filter-section');
             
             if (!results || results.length === 0) {
-                resultsContainer.innerHTML = '<div class="no-results"><i class="fas fa-info-circle"></i> 沒有找到相關的報表資料</div>';
+                resultsContainer.innerHTML = '<div class="results-empty"><i class="fas fa-circle-info"></i> 沒有找到相關的報表資料，試試更換條件吧！</div>';
                 allReportResults = [];
                 filteredReportResults = [];
                 resultsStats.style.display = 'none';
@@ -912,35 +1404,65 @@
             const resultsContainer = document.getElementById('report-results-content');
             
             if (!results || results.length === 0) {
-                resultsContainer.innerHTML = '<div class="no-results"><i class="fas fa-info-circle"></i> 沒有找到相關的報表資料</div>';
-            } else {
-                let html = '';
-                results.forEach((item, index) => {
-                    const courseName = item.course || item.課程名稱 || item['課程名稱'] || '未知課程';
-                    let courseDate = item.date || item.日期 || item['課程日期'] || item['日期'] || '';
-                    if (courseDate && courseDate.includes(' 00:00')) {
-                        courseDate = courseDate.replace(' 00:00', '');
-                    }
-                    const courseTime = item.time || item.上課時間 || item['上課時間'] || '';
-                    const courseContent = item.content || item.課程內容 || item['課程內容'] || '';
-                    const studentCount = item.students || item.人數_助教 || item['人數_助教'] || '';
-                    
-                    html += `
-                        <div class="report-item">
-                            <div class="report-item-info">
-                                <div class="report-item-name">${courseName}</div>
-                                <div class="report-item-details">
-                                    <div><strong>日期：</strong>${courseDate}</div>
-                                    ${courseTime ? `<div><strong>時間：</strong>${courseTime}</div>` : ''}
-                                    ${courseContent ? `<div><strong>內容：</strong>${courseContent}</div>` : ''}
-                                    ${studentCount ? `<div><strong>人數：</strong>${studentCount}</div>` : ''}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                resultsContainer.innerHTML = html;
+                resultsContainer.innerHTML = '<div class="results-empty"><i class="fas fa-circle-info"></i> 沒有找到相關的報表資料，試試更換條件吧！</div>';
+                return;
             }
+
+            let html = '';
+            results.forEach((item) => {
+                const courseName = getFieldValue(item, FIELD_GROUPS.courseName, '未命名課程');
+                let courseDate = getFieldValue(item, FIELD_GROUPS.courseDate);
+                if (courseDate && courseDate.includes(' 00:00')) {
+                    courseDate = courseDate.replace(' 00:00', '');
+                }
+                const courseTime = getFieldValue(item, FIELD_GROUPS.courseTime);
+                const weekInfo = getFieldValue(item, FIELD_GROUPS.weekInfo);
+                const topic = getFieldValue(item, FIELD_GROUPS.topic);
+                const location = getFieldValue(item, FIELD_GROUPS.location);
+                const courseContent = getFieldValue(item, FIELD_GROUPS.content);
+                const notes = getFieldValue(item, FIELD_GROUPS.notes);
+                const studentCount = formatPeopleCount(getFieldValue(item, FIELD_GROUPS.students));
+
+                const metaChips = [
+                    createMetaChip('fa-calendar-day', courseDate),
+                    createMetaChip('fa-clock', courseTime),
+                    createMetaChip('fa-location-dot', location),
+                    createMetaChip('fa-user-group', studentCount, 'people')
+                ].filter(Boolean).join('');
+
+                const infoBlocks = [
+                    createInfoBlock('fa-calendar-plus', '日期', courseDate),
+                    createInfoBlock('fa-clock', '時間', courseTime),
+                    createInfoBlock('fa-user-friends', '人數', studentCount),
+                    createInfoBlock('fa-location-dot', '地點', location)
+                ].filter(Boolean).join('');
+
+                html += `
+                    <div class="report-item">
+                        <div class="report-item-header">
+                            <div class="title-stack">
+                                <div class="report-item-name">${escapeHtml(courseName)}</div>
+                                ${topic ? `<div class="report-item-topic"><i class="fas fa-lightbulb"></i>${escapeHtml(topic)}</div>` : ''}
+                            </div>
+                            ${weekInfo ? `<span class="week-badge"><i class="fas fa-flag"></i>${escapeHtml(weekInfo)}</span>` : ''}
+                        </div>
+                        ${metaChips ? `<div class="meta-pill-row">${metaChips}</div>` : ''}
+                        ${infoBlocks ? `<div class="info-grid">${infoBlocks}</div>` : ''}
+                        ${courseContent ? `<div class="report-item-content"><i class="fas fa-book-open"></i><span>${escapeHtml(courseContent)}</span></div>` : ''}
+                        ${notes ? `<div class="report-item-notes"><i class="fas fa-sticky-note"></i><span>${escapeHtml(notes)}</span></div>` : ''}
+                    </div>
+                `;
+            });
+
+            resultsContainer.innerHTML = html;
+        }
+
+        // HTML 轉義函數，防止 XSS
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         // Toast 通知
@@ -981,4 +1503,3 @@
     </script>
 </body>
 </html>
-

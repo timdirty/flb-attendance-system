@@ -1,0 +1,15 @@
+[
+  {
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "name": "主要管理員",
+    "role": "admin",
+    "enabled": true,
+    "createdAt": "2024-11-21T05:45:00.000Z",
+    "notificationTypes": [
+      "remittance",
+      "leave",
+      "registration",
+      "teacher_binding"
+    ]
+  }
+]

@@ -4,12 +4,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
-const dayjs = require('dayjs');
-const utc = require('dayjs/plugin/utc');
-const timezone = require('dayjs/plugin/timezone');
 const config = require('./src/config');
-dayjs.extend(utc);
-dayjs.extend(timezone);
 // const DatabaseManager = require('./database'); // 已改用 Google Sheets 資料庫
 
 // 引入講師ID對應表模組
@@ -96,9 +91,6 @@ const LINK_CALENDAR_API_URL = 'https://script.google.com/macros/s/AKfycbzFwsd8I_
 // 報表查詢 API URL
 const REPORT_API_URL = 'https://script.google.com/macros/s/AKfycbyfoNl1EBk5Wjv6rbAadCb0ZxZLupVl90PVGYUar-qNqVDEa0PbXzwC4t9DL39sVQ-aJQ/exec';
 
-// Google Sheets「報表連結」工作表 API（讀取講師清單及報表讀取 API）
-const GOOGLE_SHEETS_REPORT_LINK_API_URL = "https://sheets.googleapis.com/v4/spreadsheets/1A2dPb0iyvaqVGTOKqGcsq7aC6UHNttVcJ82r-G0xevk/values/'報表連結'!A:Z?key=AIzaSyDfYBGUCp1ixevg06acZCvWimwdqLKxh9Y";
-
 // LINE Messaging API 配置
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || 'YOUR_CHANNEL_ACCESS_TOKEN_HERE';
 const LINE_USER_ID = process.env.LINE_USER_ID || 'YOUR_USER_ID_HERE';
@@ -116,9 +108,6 @@ const ENABLE_TRIPLE_BOT = process.env.ENABLE_TRIPLE_BOT === 'true';
 
 // 系統配置
 const SYSTEM_URL = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'https://your-railway-url.railway.app';
-
-// Remittance records file (for internal confirmation & audit)
-const REMITTANCE_RECORD_FILE = path.join(__dirname, 'src', 'data', 'remittance-records.json');
 
 // Google Sheets API 配置
 const GOOGLE_SHEETS_API = 'https://script.google.com/macros/s/AKfycbycZtdm2SGy07Sy06i2wM8oGNnERvEyyShUdTmHowlUmQz2kjS3I5VWdI1TszT1s2DCQA/exec';
@@ -146,51 +135,6 @@ const webhookForwarder = new WebhookForwarder({
 
 // 暫存等待理由的請假申請
 const pendingLeaves = new Map();
-
-// ==================== 匯款通知與確認 ====================
-// 簡易檔案型儲存，避免資料遺失
-function ensureRemittanceFile() {
-    if (!fs.existsSync(REMITTANCE_RECORD_FILE)) {
-        fs.writeFileSync(REMITTANCE_RECORD_FILE, '[]', 'utf8');
-    }
-}
-
-function loadRemittanceRecords() {
-    try {
-        ensureRemittanceFile();
-        return JSON.parse(fs.readFileSync(REMITTANCE_RECORD_FILE, 'utf8'));
-    } catch (e) {
-        console.error('❌ 讀取匯款紀錄失敗:', e.message);
-        return [];
-    }
-}
-
-function saveRemittanceRecords(list) {
-    try {
-        fs.writeFileSync(REMITTANCE_RECORD_FILE, JSON.stringify(list, null, 2), 'utf8');
-    } catch (e) {
-        console.error('❌ 寫入匯款紀錄失敗:', e.message);
-    }
-}
-
-function addRemittanceRecord(record) {
-    const list = loadRemittanceRecords();
-    list.push(record);
-    saveRemittanceRecords(list);
-}
-
-function updateRemittanceRecord(id, patch) {
-    const list = loadRemittanceRecords();
-    const idx = list.findIndex(r => r.id === id);
-    if (idx < 0) return null;
-    list[idx] = { ...list[idx], ...patch, updatedAt: new Date().toISOString() };
-    saveRemittanceRecords(list);
-    return list[idx];
-}
-
-function findRemittanceRecord(id) {
-    return loadRemittanceRecords().find(r => r.id === id);
-}
 
 /**
  * 解析 postback data
@@ -320,206 +264,6 @@ async function sendLeaveReasonOptions(userId, postbackData, replyToken = null) {
         console.error('❌ 發送請假理由選項失敗:', error.response?.data || error.message);
         throw error;
     }
-}
-
-// ========== Google Sheets 報表工具 ==========
-async function fetchTeacherListFromSheets() {
-    console.log('正在呼叫 Google Sheets API:', GOOGLE_SHEETS_REPORT_LINK_API_URL);
-    const response = await axios.get(GOOGLE_SHEETS_REPORT_LINK_API_URL, {
-        timeout: 30000,
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    });
-
-    if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
-        throw new Error('GOOGLE_SHEETS_HTML_ERROR');
-    }
-
-    const values = response.data.values || [];
-    if (values.length === 0) {
-        return [];
-    }
-
-    const teacherNameIndex = 0;
-    const linkIndex = 1;
-    const webApiIndex = 2;
-    const reportApiIndex = 3;
-    const userIdIndex = 4;
-    const googleSheetReadApiIndex = 5;
-
-    const teachers = [];
-    for (let i = 1; i < values.length; i++) {
-        const row = values[i];
-        if (!row[teacherNameIndex]) continue;
-        teachers.push({
-            name: row[teacherNameIndex] || '',
-            link: row[linkIndex] || '',
-            webApi: row[webApiIndex] || '',
-            reportApi: row[reportApiIndex] || '',
-            userId: row[userIdIndex] || '',
-            googleSheetReadApi: row[googleSheetReadApiIndex] || ''
-        });
-    }
-
-    console.log(`成功解析 ${teachers.length} 位講師`);
-    return teachers;
-}
-
-function mapSheetValuesToRecords(values) {
-    if (!Array.isArray(values) || values.length <= 1) {
-        return [];
-    }
-
-    const headerUsage = {};
-    const headers = values[0].map((header, idx) => {
-        const clean = String(header || '').trim() || `column_${idx}`;
-        headerUsage[clean] = (headerUsage[clean] || 0) + 1;
-        if (headerUsage[clean] > 1) {
-            return `${clean}_${headerUsage[clean] - 1}`;
-        }
-        return clean;
-    });
-
-    return values.slice(1).map(row => {
-        const record = {};
-        headers.forEach((header, idx) => {
-            record[header] = row[idx] !== undefined ? row[idx] : '';
-        });
-        return record;
-    });
-}
-
-async function fetchReportRowsFromGoogleSheet(readApiUrl) {
-    console.log('🔎 透過 Google Sheet API 讀取講師報表:', readApiUrl);
-    const response = await axios.get(readApiUrl, {
-        timeout: 30000,
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    });
-
-    if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
-        throw new Error('GOOGLE_SHEET_REPORT_HTML_ERROR');
-    }
-
-    const values = response.data.values || response.data.valueRanges?.[0]?.values || [];
-    return mapSheetValuesToRecords(values);
-}
-
-function normalizeDateString(dateStr) {
-    if (!dateStr) return '';
-    const normalized = String(dateStr)
-        .trim()
-        .replace(/[年月]/g, '-')
-        .replace(/日/g, '')
-        .replace(/\./g, '-')
-        .replace(/\//g, '-');
-    const parts = normalized.split('-').filter(Boolean);
-    if (parts.length === 3) {
-        const [year, month, day] = parts;
-        const normalizedYear = year.length === 2 ? `20${year}` : year.padStart(4, '0');
-        return `${normalizedYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-    }
-    return normalized;
-}
-
-function parseDateValue(dateStr) {
-    const normalized = normalizeDateString(dateStr);
-    if (!normalized) return null;
-    const date = new Date(normalized);
-    return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function getFieldValue(record, keys) {
-    if (!record) return '';
-    for (const key of keys) {
-        if (record[key] !== undefined && record[key] !== null && record[key] !== '') {
-            return String(record[key]).trim();
-        }
-    }
-    return '';
-}
-
-function filterReportRowsByQuery(rows, queryParams = {}) {
-    if (!Array.isArray(rows) || rows.length === 0) {
-        return [];
-    }
-
-    const COURSE_NAME_FIELDS = ['課程名稱', '課程', '課程類別', 'course', '科目', '標題'];
-    const TOPIC_FIELDS = ['課程內容', '內容', '課程主題', '主題', '說明'];
-    const DATE_FIELDS = ['日期', '課程日期', 'date', '上課日期'];
-    const TIME_FIELDS = ['上課時間', '時間', 'time'];
-
-    let filtered = [...rows];
-
-    if (queryParams.name_contains) {
-        const keyword = String(queryParams.name_contains).toLowerCase();
-        filtered = filtered.filter(item => 
-            getFieldValue(item, COURSE_NAME_FIELDS).toLowerCase().includes(keyword)
-        );
-    }
-
-    if (queryParams.topic_contains) {
-        const keyword = String(queryParams.topic_contains).toLowerCase();
-        filtered = filtered.filter(item => 
-            getFieldValue(item, TOPIC_FIELDS).toLowerCase().includes(keyword)
-        );
-    }
-
-    const dateFrom = queryParams.date_from ? parseDateValue(queryParams.date_from) : null;
-    const dateTo = queryParams.date_to ? parseDateValue(queryParams.date_to) : null;
-    const specificDate = queryParams.date ? normalizeDateString(queryParams.date) : '';
-
-    if (dateFrom || dateTo || specificDate) {
-        filtered = filtered.filter(item => {
-            const dateText = getFieldValue(item, DATE_FIELDS);
-            if (!dateText) return false;
-            const normalizedDate = normalizeDateString(dateText);
-            if (specificDate && normalizedDate !== specificDate) {
-                return false;
-            }
-            if (!dateFrom && !dateTo) {
-                return true;
-            }
-            const dateValue = parseDateValue(normalizedDate);
-            if (!dateValue) return false;
-            if (dateFrom && dateValue < dateFrom) return false;
-            if (dateTo && dateValue > dateTo) return false;
-            return true;
-        });
-    }
-
-    const courseTime = queryParams['上課時間'] || queryParams.course_time || queryParams.time;
-    if (courseTime) {
-        const normalizedTarget = String(courseTime).trim();
-        filtered = filtered.filter(item => {
-            const value = getFieldValue(item, TIME_FIELDS);
-            return value === normalizedTarget;
-        });
-    }
-
-    if (queryParams.limit || queryParams.offset) {
-        const offset = Number(queryParams.offset) || 0;
-        const limit = Number(queryParams.limit) || 0;
-        if (offset > 0) {
-            filtered = filtered.slice(offset);
-        }
-        if (limit > 0) {
-            filtered = filtered.slice(0, limit);
-        }
-    }
-
-    filtered.sort((a, b) => {
-        const dateA = parseDateValue(getFieldValue(a, DATE_FIELDS));
-        const dateB = parseDateValue(getFieldValue(b, DATE_FIELDS));
-        if (dateA && dateB) return dateB - dateA;
-        if (dateA) return -1;
-        if (dateB) return 1;
-        return 0;
-    });
-
-    return filtered;
 }
 
 /**
@@ -948,55 +692,6 @@ async function handlePostback(event) {
     };
     
     console.log('📥 收到 postback 事件 (已標準化):', JSON.stringify(postbackData, null, 2));
-
-    // ------------------------------------
-    // 0️⃣ 匯款確認（內部人員按下）
-    // ------------------------------------
-    if (postbackData.action === config.remittance.confirmAction && postbackData.recordId) {
-        const recordId = postbackData.recordId;
-        const record = findRemittanceRecord(recordId);
-        if (!record) {
-            const notFound = {
-                type: 'text',
-                text: '⚠️ 找不到對應的匯款紀錄，可能已過期或被移除'
-            };
-            if (replyToken) {
-                await axios.post('https://api.line.me/v2/bot/message/reply', {
-                    replyToken,
-                    messages: [notFound]
-                }, {
-                    headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` }
-                });
-            }
-            return;
-        }
-
-        // 更新狀態
-        const updated = updateRemittanceRecord(recordId, {
-            status: 'confirmed',
-            confirmedBy: userId,
-            confirmedAt: new Date().toISOString()
-        });
-
-        // 回覆按鈕操作者
-        if (replyToken) {
-            await axios.post('https://api.line.me/v2/bot/message/reply', {
-                replyToken,
-                messages: [{ type: 'text', text: `✅ 已回覆客戶，金額 NT$${updated.amount || '—'}` }]
-            }, {
-                headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` }
-            });
-        }
-
-        // 推播給原客戶
-        try {
-            await sendLineMessageWithBot(`✅ 已確認收到您的匯款${updated.amount ? `：NT$${updated.amount}` : ''}\n感謝！`, record.userId, null, false);
-        } catch (e) {
-            console.error('❌ 回覆客戶匯款確認失敗:', e.message);
-        }
-
-        return;
-    }
     
     // ------------------------------------
     // 1️⃣ 學生點擊「🏥 請假」
@@ -3638,202 +3333,6 @@ async function sendLineFlexMessage(flexMessage, targetUserId) {
     }
 }
 
-// ==================== 匯款 Flex 組裝與通知 ====================
-
-function parseAmountFromText(text) {
-    if (!text) return null;
-    const match = text.replace(/,/g, '').match(/(?:NT\$|NT|USD|台幣|元|塊)?\s*(\d{3,})/i);
-    return match ? match[1] : null;
-}
-
-function createRemittanceFlexBubble(record) {
-    const amountDisplay = record.amount ? `NT$ ${Number(record.amount).toLocaleString('en-US')}` : '金額待確認';
-    const timeString = dayjs(record.createdAt).tz('Asia/Taipei').format('YYYY/MM/DD HH:mm');
-    const snippet = (record.messageText || '').slice(0, 40) || '（圖片／非文字訊息）';
-    const userLabel = record.displayName || record.userId;
-    const postbackData = {
-        action: config.remittance.confirmAction,
-        recordId: record.id
-    };
-
-    return {
-        type: 'bubble',
-        size: 'mega',
-        hero: {
-            type: 'box',
-            layout: 'vertical',
-            height: '88px',
-            backgroundColor: config.remittance.themeColor,
-            contents: [
-                {
-                    type: 'text',
-                    text: '匯款待確認',
-                    color: '#ffffff',
-                    weight: 'bold',
-                    size: 'sm',
-                    margin: 'md'
-                },
-                {
-                    type: 'text',
-                    text: amountDisplay,
-                    color: '#ffffff',
-                    weight: 'bold',
-                    size: 'xl',
-                    margin: 'md'
-                }
-            ],
-            paddingAll: '16px'
-        },
-        body: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [
-                {
-                    type: 'box',
-                    layout: 'baseline',
-                    contents: [
-                        { type: 'text', text: '來自', weight: 'bold', color: '#555', flex: 2 },
-                        { type: 'text', text: userLabel, color: '#111', flex: 6, wrap: true }
-                    ]
-                },
-                {
-                    type: 'box',
-                    layout: 'baseline',
-                    contents: [
-                        { type: 'text', text: '訊息', weight: 'bold', color: '#555', flex: 2 },
-                        { type: 'text', text: snippet, color: '#111', flex: 6, wrap: true }
-                    ]
-                },
-                {
-                    type: 'box',
-                    layout: 'baseline',
-                    contents: [
-                        { type: 'text', text: '時間', weight: 'bold', color: '#555', flex: 2 },
-                        { type: 'text', text: timeString, color: '#111', flex: 6 }
-                    ]
-                }
-            ]
-        },
-        footer: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'md',
-            paddingAll: '16px',
-            contents: [
-                {
-                    type: 'button',
-                    style: 'primary',
-                    color: config.remittance.themeColor,
-                    height: 'sm',
-                    action: {
-                        type: 'postback',
-                        label: '✅ 已確認收款',
-                        data: JSON.stringify(postbackData),
-                        displayText: '已確認收款'
-                    }
-                },
-                {
-                    type: 'button',
-                    style: 'secondary',
-                    height: 'sm',
-                    color: '#CCCCCC',
-                    action: {
-                        type: 'uri',
-                        label: '查看原訊息',
-                        uri: config.server.systemUrl || 'https://line.me'
-                    }
-                }
-            ]
-        }
-    };
-}
-
-async function handleRemittanceCandidate({ event, messageText, userId, sourceType, groupId, roomId, messageId }) {
-    // 取得所有管理員 ID
-    const adminIds = config.getAllAdminUserIds();
-    
-    // 檢查是否有管理員或群組可以發送
-    if (!config.remittance.alertGroupId && adminIds.length === 0) {
-        console.log('⚠️ 未設定管理員群組或管理員 User ID，跳過匯款提醒');
-        return;
-    }
-
-    // 取得使用者名稱
-    let displayName = '';
-    try {
-        const profile = await axios.get(`${config.line.profileApi}/${userId}`, {
-            headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` },
-            timeout: config.server.timeout.line
-        });
-        displayName = profile.data.displayName || '';
-    } catch (e) {
-        displayName = userId || '';
-    }
-
-    const amount = parseAmountFromText(messageText || '');
-    const recordId = `remit_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-    const record = {
-        id: recordId,
-        userId,
-        displayName,
-        messageText,
-        amount,
-        sourceType,
-        groupId,
-        roomId,
-        messageId,
-        status: 'pending',
-        createdAt: new Date().toISOString()
-    };
-
-    addRemittanceRecord(record);
-
-    const bubble = createRemittanceFlexBubble(record);
-    const flexMessage = { type: 'flex', altText: '匯款待確認', contents: bubble };
-
-    // 發送到管理員群組（如果有設定）
-    if (config.remittance.alertGroupId) {
-        try {
-            await sendLineFlexMessage(flexMessage, config.remittance.alertGroupId);
-            console.log('✅ 已發送匯款通知到管理員群組');
-        } catch (e) {
-            console.error('❌ 發送匯款通知到群組失敗:', e.message);
-        }
-    }
-
-    // 發送給所有管理員（個別推播）
-    if (adminIds.length > 0) {
-        console.log(`📤 發送匯款通知給 ${adminIds.length} 位管理員...`);
-        for (const adminId of adminIds) {
-            try {
-                await sendLineFlexMessage(flexMessage, adminId);
-                console.log(`✅ 已發送匯款通知給管理員: ${adminId}`);
-            } catch (e) {
-                console.error(`❌ 發送匯款通知給管理員 ${adminId} 失敗:`, e.message);
-            }
-        }
-    }
-
-    // 立即回覆用戶已收到申請（replyToken 若存在使用 reply）
-    try {
-        const ack = { type: 'text', text: '📄 已收到您的匯款資訊，將盡快為您確認。' };
-        if (event.replyToken) {
-            await axios.post('https://api.line.me/v2/bot/message/reply', {
-                replyToken: event.replyToken,
-                messages: [ack]
-            }, {
-                headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` },
-                timeout: config.server.timeout.line
-            });
-        } else {
-            await sendLineMessageWithBot(ack.text, userId, null, false);
-        }
-    } catch (e) {
-        console.error('❌ 回覆用戶匯款收件失敗:', e.message);
-    }
-}
-
 // LINE Rich Menu 綁定函數
 async function bindRichMenu(userId) {
     try {
@@ -4945,20 +4444,72 @@ app.delete('/api/student-responses/:id', async (req, res) => {
 // API路由：獲取講師列表
 app.get('/api/teachers', async (req, res) => {
     try {
-        const teachers = await fetchTeacherListFromSheets();
-        res.json({
-            success: true,
-            teachers
-        });
-    } catch (error) {
-        console.error('獲取講師列表錯誤:', error);
+        const GOOGLE_SHEETS_API_URL = "https://sheets.googleapis.com/v4/spreadsheets/1A2dPb0iyvaqVGTOKqGcsq7aC6UHNttVcJ82r-G0xevk/values/'報表連結'!A:Z?key=AIzaSyDfYBGUCp1ixevg06acZCvWimwdqLKxh9Y";
         
-        if (error.message === 'GOOGLE_SHEETS_HTML_ERROR') {
-            return res.status(500).json({
+        console.log('正在呼叫 Google Sheets API:', GOOGLE_SHEETS_API_URL);
+        
+        const response = await axios.get(GOOGLE_SHEETS_API_URL, {
+            timeout: 30000,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('Google Sheets API 回應狀態:', response.status);
+        console.log('Google Sheets API 回應資料:', response.data);
+        
+        if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+            console.error('Google Sheets API 回傳 HTML 錯誤頁面');
+            return res.status(500).json({ 
                 success: false,
-                error: 'Google Sheets API 發生錯誤，請檢查 API 連結是否正確'
+                error: 'Google Sheets API 發生錯誤，請檢查 API 連結是否正確' 
             });
         }
+        
+        // 解析 Google Sheets API 返回的數據格式
+        const values = response.data.values || [];
+        
+        if (values.length === 0) {
+            return res.json({ 
+                success: true, 
+                teachers: [] 
+            });
+        }
+        
+        // 第一行是標題: ["老師", "連結", "Web API", "讀報表 API", "user id", "Google Sheet API (讀)"]
+        const headers = values[0];
+        const teacherNameIndex = 0;  // 老師
+        const linkIndex = 1;         // 連結
+        const webApiIndex = 2;       // Web API
+        const reportApiIndex = 3;    // 讀報表 API
+        const userIdIndex = 4;       // user id
+        const googleSheetReadApiIndex = 5; // Google Sheet API (讀)
+        
+        // 轉換為前端需要的格式
+        const teachers = [];
+        for (let i = 1; i < values.length; i++) {
+            const row = values[i];
+            if (row[teacherNameIndex]) {
+                teachers.push({
+                    name: row[teacherNameIndex] || '',
+                    link: row[linkIndex] || '',
+                    webApi: row[webApiIndex] || '',
+                    reportApi: row[reportApiIndex] || '',
+                    userId: row[userIdIndex] || '',
+                    googleSheetReadApi: row[googleSheetReadApiIndex] || ''
+                });
+            }
+        }
+        
+        console.log(`成功解析 ${teachers.length} 位講師`);
+        
+        res.json({ 
+            success: true, 
+            teachers: teachers 
+        });
+        
+    } catch (error) {
+        console.error('獲取講師列表錯誤:', error);
         
         if (error.code === 'ECONNREFUSED') {
             res.status(500).json({ 
@@ -6411,9 +5962,24 @@ app.post('/api/query-report', async (req, res) => {
         const { teacherName, queryParams } = req.body;
         
         console.log('正在查詢報表:', { teacherName, queryParams });
-
-        const teachers = await fetchTeacherListFromSheets();
-        const teacher = teachers.find(t => t.name === teacherName);
+        
+        const teachersResponse = await axios.post(FLB_API_URL, {
+            action: 'getTeacherList'
+        }, {
+            timeout: 30000,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!teachersResponse.data.success) {
+            return res.status(500).json({ 
+                success: false,
+                error: '無法獲取講師列表' 
+            });
+        }
+        
+        const teacher = teachersResponse.data.teachers.find(t => t.name === teacherName);
         if (!teacher) {
             console.log('找不到講師:', teacherName);
             return res.status(404).json({ 
@@ -6421,27 +5987,9 @@ app.post('/api/query-report', async (req, res) => {
                 error: '找不到指定的講師' 
             });
         }
-
-        const safeQueryParams = queryParams || {};
-
-        if (teacher.googleSheetReadApi) {
-            try {
-                const sheetRows = await fetchReportRowsFromGoogleSheet(teacher.googleSheetReadApi);
-                const filteredRows = filterReportRowsByQuery(sheetRows, safeQueryParams);
-                console.log(`✅ 透過 Google Sheet 讀取報表成功，共 ${filteredRows.length} 筆`);
-                return res.json({
-                    success: true,
-                    data: filteredRows,
-                    count: filteredRows.length,
-                    source: 'googleSheets'
-                });
-            } catch (sheetError) {
-                console.error('⚠️ Google Sheet 報表讀取失敗，將改用 reportApi:', sheetError.message);
-            }
-        }
-
-        console.log('使用 reportApi 查詢報表:', teacher.reportApi);
-
+        
+        console.log('找到講師:', teacher.name, 'reportApi:', teacher.reportApi);
+        
         if (!teacher.reportApi || teacher.reportApi.trim() === '') {
             console.log('講師沒有設定reportApi:', teacher.name);
             return res.status(400).json({ 
@@ -6453,7 +6001,7 @@ app.post('/api/query-report', async (req, res) => {
         const requestBody = {
             action: 'queryReport',
             teacherName: teacherName,
-            ...safeQueryParams
+            ...queryParams
         };
         
         const response = await axios.post(teacher.reportApi, requestBody, {
@@ -6467,15 +6015,9 @@ app.post('/api/query-report', async (req, res) => {
         console.log('報表查詢 API 回應資料:', response.data);
         
         res.json(response.data);
+        
     } catch (error) {
         console.error('查詢報表錯誤:', error);
-        
-        if (error.message === 'GOOGLE_SHEETS_HTML_ERROR') {
-            return res.status(500).json({
-                success: false,
-                error: 'Google Sheets API 發生錯誤，請檢查 API 連結是否正確'
-            });
-        }
         
         if (error.code === 'ECONNREFUSED') {
             res.status(500).json({ 
@@ -6543,16 +6085,16 @@ app.post('/webhook', async (req, res) => {
             }
             
             // ====================================
-            // 處理訊息事件（文字 + 圖片）
+            // 處理訊息事件
             // ====================================
-            if (event.type === 'message' && (event.message.type === 'text' || event.message.type === 'image')) {
+            if (event.type === 'message' && event.message.type === 'text') {
                 let messageText = event.message.text;
                 const userId = event.source?.userId;
                 const sourceType = event.source?.type; // 'user', 'group', 'room'
                 const groupId = event.source?.groupId;
                 const roomId = event.source?.roomId;
                 
-                console.log('收到訊息:', messageText || '[非文字訊息]');
+                console.log('收到訊息:', messageText);
                 console.log('用戶 ID:', userId || '未知');
                 console.log('來源類型:', sourceType || '未知');
                 
@@ -6646,26 +6188,6 @@ app.post('/webhook', async (req, res) => {
                         }
                     } catch (e) {
                         console.log('關鍵字規則處理錯誤:', e.message);
-                    }
-
-                    // 匯款相關通知 → 推播到正職群組（Flex）
-                    try {
-                        const isText = event.message.type === 'text';
-                        const hitKeywords = isText && config.remittance.keywords.some(k => messageText.includes(k));
-                        if (hitKeywords || event.message.type === 'image') {
-                            await handleRemittanceCandidate({
-                                event,
-                                messageText: messageText || '',
-                                userId,
-                                sourceType,
-                                groupId,
-                                roomId,
-                                messageId: event.message.id
-                            });
-                            // 繼續後續流程以保持原有功能，但已觸發匯款提醒
-                        }
-                    } catch (e) {
-                        console.error('❌ 匯款提醒處理失敗:', e.message);
                     }
 
                     // 檢查關鍵字
