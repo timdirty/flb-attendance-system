@@ -12,6 +12,15 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Docker 指令前綴（Synology NAS 需要 sudo）
+DOCKER_CMD="docker"
+if ! docker ps >/dev/null 2>&1; then
+    if sudo docker ps >/dev/null 2>&1; then
+        DOCKER_CMD="sudo docker"
+        echo -e "${YELLOW}💡 使用 sudo 執行 Docker 指令${NC}\n"
+    fi
+fi
+
 echo -e "${BLUE}======================================${NC}"
 echo -e "${BLUE}🔍 OCR 配置檢查${NC}"
 echo -e "${BLUE}======================================${NC}\n"
