@@ -3745,10 +3745,11 @@ function parseAmountFromText(text) {
     for (const pattern of keywordPatterns) {
         const match = cleanText.match(pattern);
         if (match && match[1]) {
-            // 排除日期數字（避免匹配到 2024、2025 等年份）
             const amount = match[1];
-            if (amount.length >= 4 && amount.startsWith('20')) {
-                // 可能是年份，跳過
+            // 排除日期數字（只排除 2000-2099 之間的 4 位數年份）
+            const numAmount = parseInt(amount);
+            if (amount.length === 4 && numAmount >= 2000 && numAmount <= 2099) {
+                // 確定是年份，跳過
                 continue;
             }
             return amount;
@@ -4248,6 +4249,15 @@ async function handleRemittanceCandidate({ event, messageText, userId, sourceTyp
     }
 
     const amount = parseAmountFromText(messageText || '');
+    
+    // 🐛 調試日誌：追蹤金額提取
+    console.log('💰 金額提取調試:', {
+        messageTextLength: (messageText || '').length,
+        messageTextPreview: (messageText || '').slice(0, 100),
+        extractedAmount: amount,
+        amountType: typeof amount
+    });
+    
     const recordId = `remit_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     const record = {
         id: recordId,
