@@ -217,8 +217,8 @@ function createDetailContent(remittanceRecord) {
             type: 'paragraph',
             paragraph: {
                 rich_text: [
-                    { text: { content: 'User ID：', annotations: { code: true } } },
-                    { text: { content: remittanceRecord.userId || 'N/A', annotations: { code: true } } }
+                    { text: { content: 'User ID：' }, annotations: { code: true } },
+                    { text: { content: remittanceRecord.userId || 'N/A' }, annotations: { code: true } }
                 ]
             }
         },
@@ -228,8 +228,8 @@ function createDetailContent(remittanceRecord) {
             type: 'paragraph',
             paragraph: {
                 rich_text: [
-                    { text: { content: '記錄 ID：', annotations: { code: true } } },
-                    { text: { content: remittanceRecord.id || 'N/A', annotations: { code: true } } }
+                    { text: { content: '記錄 ID：' }, annotations: { code: true } },
+                    { text: { content: remittanceRecord.id || 'N/A' }, annotations: { code: true } }
                 ]
             }
         },
