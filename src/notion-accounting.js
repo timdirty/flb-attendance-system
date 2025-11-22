@@ -79,7 +79,7 @@ async function recordIncomeToNotion(remittanceRecord) {
                     title: [
                         {
                             text: {
-                                content: "課程收款"
+                                content: "課程收款（FLBsys 自動記帳）"
                             }
                         }
                     ]

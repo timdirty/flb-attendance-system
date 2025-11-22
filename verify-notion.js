@@ -196,7 +196,7 @@ async function testRecordIncome() {
             },
             properties: {
                 "收入": {
-                    title: [{ text: { content: "課程收款" } }]
+                    title: [{ text: { content: "課程收款（FLBsys 自動記帳）" } }]
                 },
                 "日期": {
                     date: { start: date }
@@ -272,7 +272,7 @@ async function testVerifyRecord(pageId) {
         
         // 驗證收入
         const income = props['收入']?.title?.[0]?.plain_text;
-        if (income === '課程收款') {
+        if (income === '課程收款（FLBsys 自動記帳）') {
             log('green', '✅', `收入標題正確：${income}`);
         } else {
             log('red', '❌', `收入標題錯誤：${income}`);
