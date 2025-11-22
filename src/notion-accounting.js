@@ -155,6 +155,11 @@ async function recordIncomeToNotion(remittanceRecord) {
             date
         });
 
+        // 建立詳細資訊子頁面（非阻塞）
+        createDetailSubpage(response.data.id, remittanceRecord).catch(err => {
+            console.error('⚠️ 建立詳細資訊子頁面失敗:', err.message);
+        });
+
         return {
             success: true,
             notionPageId: response.data.id,
@@ -175,6 +180,180 @@ async function recordIncomeToNotion(remittanceRecord) {
             error: error.message,
             notionError: error.response?.data
         };
+    }
+}
+
+/**
+ * 📄 建立詳細資訊子頁面
+ * 
+ * @param {string} parentPageId - 父頁面 ID（收入記錄頁面）
+ * @param {Object} remittanceRecord - 匯款記錄
+ */
+async function createDetailSubpage(parentPageId, remittanceRecord) {
+    if (!NOTION_CONFIG.enabled) {
+        return;
+    }
+
+    try {
+        const client = createNotionClient();
+
+        // 建立子頁面內容
+        const children = [
+            // 標題
+            {
+                object: 'block',
+                type: 'heading_2',
+                heading_2: {
+                    rich_text: [{ text: { content: '💰 收款詳細資訊' } }]
+                }
+            },
+            // 分隔線
+            { object: 'block', type: 'divider', divider: {} },
+            // 付款人資訊
+            {
+                object: 'block',
+                type: 'callout',
+                callout: {
+                    icon: { emoji: '👤' },
+                    rich_text: [
+                        { text: { content: '付款人：' }, annotations: { bold: true } },
+                        { text: { content: remittanceRecord.displayName || '未知用戶' } }
+                    ]
+                }
+            },
+            // 用戶 ID
+            {
+                object: 'block',
+                type: 'paragraph',
+                paragraph: {
+                    rich_text: [
+                        { text: { content: 'User ID：', annotations: { code: true } } },
+                        { text: { content: remittanceRecord.userId || 'N/A', annotations: { code: true } } }
+                    ]
+                }
+            },
+            // 記錄 ID
+            {
+                object: 'block',
+                type: 'paragraph',
+                paragraph: {
+                    rich_text: [
+                        { text: { content: '記錄 ID：', annotations: { code: true } } },
+                        { text: { content: remittanceRecord.id || 'N/A', annotations: { code: true } } }
+                    ]
+                }
+            },
+            // 確認時間
+            {
+                object: 'block',
+                type: 'paragraph',
+                paragraph: {
+                    rich_text: [
+                        { text: { content: '確認時間：' } },
+                        { text: { content: new Date(remittanceRecord.confirmedAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' }) } }
+                    ]
+                }
+            },
+            // 空行
+            { object: 'block', type: 'paragraph', paragraph: { rich_text: [] } },
+            // OCR 識別文字標題
+            {
+                object: 'block',
+                type: 'heading_3',
+                heading_3: {
+                    rich_text: [{ text: { content: '📝 OCR 識別文字' } }]
+                }
+            }
+        ];
+
+        // 添加 OCR 文字（如果有）
+        if (remittanceRecord.messageText) {
+            children.push({
+                object: 'block',
+                type: 'quote',
+                quote: {
+                    rich_text: [{
+                        text: {
+                            content: remittanceRecord.messageText.slice(0, 2000) // Notion 限制
+                        }
+                    }]
+                }
+            });
+        } else {
+            children.push({
+                object: 'block',
+                type: 'paragraph',
+                paragraph: {
+                    rich_text: [{
+                        text: { content: '（無 OCR 文字）' },
+                        annotations: { italic: true, color: 'gray' }
+                    }]
+                }
+            });
+        }
+
+        // 空行
+        children.push({ object: 'block', type: 'paragraph', paragraph: { rich_text: [] } });
+
+        // 原始資料
+        children.push({
+            object: 'block',
+            type: 'heading_3',
+            heading_3: {
+                rich_text: [{ text: { content: '🔧 原始資料' } }]
+            }
+        });
+
+        children.push({
+            object: 'block',
+            type: 'code',
+            code: {
+                language: 'json',
+                rich_text: [{
+                    text: {
+                        content: JSON.stringify({
+                            userId: remittanceRecord.userId,
+                            displayName: remittanceRecord.displayName,
+                            amount: remittanceRecord.amount,
+                            createdAt: remittanceRecord.createdAt,
+                            confirmedAt: remittanceRecord.confirmedAt,
+                            confirmedBy: remittanceRecord.confirmedBy,
+                            messageId: remittanceRecord.messageId,
+                            sourceType: remittanceRecord.sourceType
+                        }, null, 2).slice(0, 2000)
+                    }
+                }]
+            }
+        });
+
+        // 建立子頁面
+        const subpagePayload = {
+            parent: { page_id: parentPageId },
+            properties: {
+                title: {
+                    title: [{
+                        text: { content: `💰 收款詳情 - ${remittanceRecord.displayName || '未知'}` }
+                    }]
+                }
+            },
+            children: children.slice(0, 100) // Notion API 限制一次最多 100 個 blocks
+        };
+
+        const response = await client.post('/pages', subpagePayload);
+
+        console.log('✅ 已建立詳細資訊子頁面:', {
+            subpageId: response.data.id,
+            parentPageId
+        });
+
+        return response.data;
+
+    } catch (error) {
+        console.error('❌ 建立詳細資訊子頁面失敗:', {
+            message: error.message,
+            response: error.response?.data
+        });
+        throw error;
     }
 }
 
