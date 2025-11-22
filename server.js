@@ -24,6 +24,13 @@ const {
     getTeacherCount
 } = require('./src/teacher_mapping');
 
+// 引入 Notion 記帳模組
+const {
+    recordIncomeToNotion,
+    testNotionConnection,
+    getNotionConfigStatus
+} = require('./src/notion-accounting');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -1025,6 +1032,23 @@ async function handlePostback(event) {
                 console.error('❌ 降級文字訊息也失敗:', fallbackError.message);
             }
         }
+
+        // 🧾 記錄收入到 Notion（非阻塞式）
+        recordIncomeToNotion(updated).then(result => {
+            if (result.success) {
+                console.log('✅ 已記錄收入到 Notion:', {
+                    amount: result.amount,
+                    date: result.date,
+                    notionPageUrl: result.notionPageUrl
+                });
+            } else if (result.reason === 'disabled') {
+                // Notion 未啟用，不記錄日誌（避免干擾）
+            } else {
+                console.log('⚠️ Notion 記帳失敗:', result.reason || result.error);
+            }
+        }).catch(err => {
+            console.error('❌ Notion 記帳異常:', err.message);
+        });
 
         return;
     }
@@ -8051,6 +8075,38 @@ app.get('/health', (req, res) => {
         memory: process.memoryUsage(),
         version: '1.0.0'
     });
+});
+
+// ==================== Notion 整合端點 ====================
+
+// 🧪 測試 Notion 連線
+app.get('/api/notion/test', async (req, res) => {
+    try {
+        const result = await testNotionConnection();
+        res.status(result.success ? 200 : 503).json(result);
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: '❌ 測試 Notion 連線時發生錯誤',
+            error: error.message
+        });
+    }
+});
+
+// 🔍 檢查 Notion 配置狀態
+app.get('/api/notion/config', (req, res) => {
+    try {
+        const status = getNotionConfigStatus();
+        res.status(200).json({
+            success: true,
+            ...status
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
 });
 
 // 根路徑（歡迎訊息）
