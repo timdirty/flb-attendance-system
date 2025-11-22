@@ -3732,20 +3732,22 @@ async function sendRemittanceDeferredReply(userId, replyToken) {
 function parseAmountFromText(text) {
     if (!text) return null;
     
-    // 移除逗號，保留原始文字用於匹配
-    const cleanText = text.replace(/,/g, '');
-    
     // 策略 1：優先匹配有明確金額關鍵字的數字
     const keywordPatterns = [
-        /(?:金額|轉帳金額|匯款金額|付款金額|繳費金額|應繳金額)[\s:：]*(\d{3,})/i,
-        /(?:NT\$|NT|USD|台幣)\s*(\d{3,})/i,
+        // 支援 "轉帳金額 TWD1,000.00" 格式（保留逗號和小數點）
+        /(?:金額|轉帳金額|匯款金額|付款金額|繳費金額|應繳金額)[\s:：]*(?:TWD|NTD|NT\$|USD|\$)?[\s]*(\d{1,}(?:,\d{3})*(?:\.\d{2})?)/i,
+        // 支援 "NT$ 1000" 格式
+        /(?:NT\$|NT|USD|TWD|NTD|台幣)[\s]*(\d{1,}(?:,\d{3})*(?:\.\d{2})?)/i,
+        // 支援 "1000元" 格式
         /(\d{3,})\s*(?:元|塊)/i
     ];
     
     for (const pattern of keywordPatterns) {
-        const match = cleanText.match(pattern);
+        const match = text.match(pattern);
         if (match && match[1]) {
-            const amount = match[1];
+            // 移除逗號和小數點後的部分，只保留整數
+            let amount = match[1].replace(/,/g, '').split('.')[0];
+            
             // 排除日期數字（只排除 2000-2099 之間的 4 位數年份）
             const numAmount = parseInt(amount);
             if (amount.length === 4 && numAmount >= 2000 && numAmount <= 2099) {
@@ -3755,6 +3757,9 @@ function parseAmountFromText(text) {
             return amount;
         }
     }
+    
+    // 移除逗號用於策略 2 和 3
+    const cleanText = text.replace(/,/g, '');
     
     // 策略 2：匹配獨立的數字（避免日期格式）
     // 排除 YYYY-MM-DD 或 YYYY/MM/DD 格式中的數字
