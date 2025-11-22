@@ -3731,8 +3731,59 @@ async function sendRemittanceDeferredReply(userId, replyToken) {
 
 function parseAmountFromText(text) {
     if (!text) return null;
-    const match = text.replace(/,/g, '').match(/(?:NT\$|NT|USD|台幣|元|塊)?\s*(\d{3,})/i);
-    return match ? match[1] : null;
+    
+    // 移除逗號，保留原始文字用於匹配
+    const cleanText = text.replace(/,/g, '');
+    
+    // 策略 1：優先匹配有明確金額關鍵字的數字
+    const keywordPatterns = [
+        /(?:金額|轉帳金額|匯款金額|付款金額|繳費金額|應繳金額)[\s:：]*(\d{3,})/i,
+        /(?:NT\$|NT|USD|台幣)\s*(\d{3,})/i,
+        /(\d{3,})\s*(?:元|塊)/i
+    ];
+    
+    for (const pattern of keywordPatterns) {
+        const match = cleanText.match(pattern);
+        if (match && match[1]) {
+            // 排除日期數字（避免匹配到 2024、2025 等年份）
+            const amount = match[1];
+            if (amount.length >= 4 && amount.startsWith('20')) {
+                // 可能是年份，跳過
+                continue;
+            }
+            return amount;
+        }
+    }
+    
+    // 策略 2：匹配獨立的數字（避免日期格式）
+    // 排除 YYYY-MM-DD 或 YYYY/MM/DD 格式中的數字
+    const amounts = cleanText.match(/(?<![\d-\/])\d{3,}(?![\d-\/])/g);
+    if (amounts && amounts.length > 0) {
+        // 過濾掉可能是年份的數字（2000-2099）
+        const validAmounts = amounts.filter(num => {
+            const n = parseInt(num);
+            return !(n >= 2000 && n <= 2099);
+        });
+        
+        if (validAmounts.length > 0) {
+            // 返回第一個有效金額
+            return validAmounts[0];
+        }
+    }
+    
+    // 策略 3：回退到原始匹配（但排除年份）
+    const fallbackMatch = cleanText.match(/\d{3,}/g);
+    if (fallbackMatch && fallbackMatch.length > 0) {
+        // 找第一個不是年份的數字
+        for (const num of fallbackMatch) {
+            const n = parseInt(num);
+            if (n < 2000 || n > 2099) {
+                return num;
+            }
+        }
+    }
+    
+    return null;
 }
 
 function createRemittanceFlexBubble(record) {
