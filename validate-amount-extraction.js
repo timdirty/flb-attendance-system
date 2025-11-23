@@ -14,7 +14,7 @@ function parseAmountFromText(text) {
     // 策略 1：優先匹配有明確金額關鍵字的數字
     const keywordPatterns = [
         // 支援 "轉帳金額 TWD1,000.00" 格式（保留逗號和小數點）
-        /(?:金額|轉帳金額|匯款金額|付款金額|繳費金額|應繳金額)[\s:：]*(?:TWD|NTD|NT\$|USD|\$)?[\s]*(\d{1,}(?:,\d{3})*(?:\.\d{2})?)/i,
+        /(?:金額|轉帳金額|匯款金額|付款金額|繳費金額|應繳金額|轉出金額|轉入金額|交易金額)[\s:：]*(?:TWD|NTD|NT\$|USD|\$)?[\s]*(\d{1,}(?:,\d{3})*(?:\.\d{2})?)/i,
         // 支援 "NT$ 1000" 格式
         /(?:NT\$|NT|USD|TWD|NTD|台幣)[\s]*(\d{1,}(?:,\d{3})*(?:\.\d{2})?)/i,
         // 支援 "1000元" 格式
@@ -39,10 +39,20 @@ function parseAmountFromText(text) {
     
     // 移除逗號用於策略 2 和 3
     const cleanText = text.replace(/,/g, '');
+
+    // 先移除常見的「銀行代碼 + 長帳號」格式，避免把 812 這類銀行代碼誤判為金額
+    // 例如："(812)0028881014624669"、"812-0028881014624669"、"8120028881014624669"
+    let sanitizedText = cleanText
+        // 格式一：(812)0028881014624669
+        .replace(/\(\d{3}\)\d{5,}/g, ' ')
+        // 格式二：812-0028881014624669
+        .replace(/\b\d{3}-\d{5,}\b/g, ' ')
+        // 格式三：8120028881014624669（3 碼開頭後接 7 碼以上）
+        .replace(/\b\d{3}\d{7,}\b/g, ' ');
     
     // 策略 2：匹配獨立的數字（避免日期格式）
     // 排除 YYYY-MM-DD 或 YYYY/MM/DD 格式中的數字
-    const amounts = cleanText.match(/(?<![\d-\/])\d{3,}(?![\d-\/])/g);
+    const amounts = sanitizedText.match(/(?<![\d-\/])\d{3,}(?![\d-\/])/g);
     if (amounts && amounts.length > 0) {
         // 過濾掉可能是年份的數字（2000-2099）
         const validAmounts = amounts.filter(num => {
@@ -57,7 +67,7 @@ function parseAmountFromText(text) {
     }
     
     // 策略 3：回退到原始匹配（但排除年份）
-    const fallbackMatch = cleanText.match(/\d{3,}/g);
+    const fallbackMatch = sanitizedText.match(/\d{3,}/g);
     if (fallbackMatch && fallbackMatch.length > 0) {
         // 找第一個不是年份的數字
         for (const num of fallbackMatch) {
@@ -260,8 +270,8 @@ Status: Completed`,
 日期：2024/11/22
 帳號：1234567890
 狀態：處理中`,
-        expected: '1234567890', // 會提取到帳號
-        description: '無明確金額關鍵字時的回退行為'
+        expected: null,
+        description: '無明確金額關鍵字時應回傳 null（不再拿帳號當金額）'
     },
     
     // 16. 金額少於3位數
@@ -271,6 +281,17 @@ Status: Completed`,
 金額：50元`,
         expected: '50', // 「元」後綴可以匹配任意位數
         description: '測試兩位數（有「元」後綴可匹配）'
+    },
+    {
+        name: '銀行代碼 812 + 轉出金額 $300',
+        ocrText: `轉帳
+交易成功
+轉出帳號 (812)0028881014624669
+轉入帳號 (012)0082110000220178
+交易日期 2025/11/23 16:34:42
+轉出金額 $300`,
+        expected: '300',
+        description: '應忽略 812 銀行代碼與長帳號，抓到轉出金額 $300'
     }
 ];
 
