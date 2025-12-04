@@ -84,6 +84,14 @@ const config = {
             default: process.env.RICH_MENU_ID || '6636245039f343a37a8b7edc830c8cfa',
             internal: process.env.INTERNAL_RICH_MENU_ID || 'richmenu-11b4aaf42c0d33cd827ad5dbfc4dec77'
         },
+
+        // 官方帳號（LINE Official Account）資訊
+        officialAccount: {
+            bizId: process.env.LINE_OFFICIAL_BIZ_ID || '',
+            chatBaseUrl: process.env.LINE_OFFICIAL_CHAT_BASE || '',
+            botUserId: process.env.LINE_OFFICIAL_BOT_USER_ID || '',
+            managerId: process.env.LINE_OFFICIAL_MANAGER_ID || ''
+        },
         
         // 測試模式設定
         testMode: {
@@ -267,8 +275,18 @@ const config = {
             postponeKeywords: (process.env.REMITTANCE_POSTPONE_KEYWORDS || '明天,明日,明後天,稍後,稍晚,晚點,之後,過兩天,等一下,等候,等等,準備,先不,稍等,等我匯,待會,等下').split(',').map(k => k.trim()).filter(Boolean),
             negativeKeywords: (process.env.REMITTANCE_NEGATIVE_KEYWORDS || '還沒,尚未,未匯,未轉,不會匯,暫不匯,暫不轉,不用匯,不用轉,取消匯款,沒匯,沒轉').split(',').map(k => k.trim()).filter(Boolean),
             inquiryKeywords: (process.env.REMITTANCE_INQUIRY_KEYWORDS || '請問,如何匯,怎麼匯,匯款方式,匯款資訊,匯款帳號,想詢問,可以匯嗎,怎樣付款,如何付款,匯到哪,匯去哪,要匯到,怎麼付,想問').split(',').map(k => k.trim()).filter(Boolean),
+            instructionKeywords: (process.env.REMITTANCE_INSTRUCTION_KEYWORDS || '繳費方式,繳費資訊,繳費說明,付款方式,付款資訊,匯款說明,匯款繳費,繳款方式,繳費提醒,匯款提醒').split(',').map(k => k.trim()).filter(Boolean),
             questionIndicators: (process.env.REMITTANCE_QUESTION_INDICATORS || '?,？,嗎,嘛,呢').split(',').map(k => k.trim()).filter(Boolean),
             deferReplyMessage: process.env.REMITTANCE_DEFER_REPLY || '👀 已收到您的訊息，完成匯款後請再通知，我們會立即協助 🙏'
+        }
+    },
+
+    // ==================== AI 摘要設定 ====================
+    ai: {
+        provider: process.env.AI_PROVIDER || 'none',
+        gemini: {
+            apiKey: process.env.GEMINI_API_KEY || '',
+            model: process.env.GEMINI_MODEL || 'gemini-1.5-flash'
         }
     },
 

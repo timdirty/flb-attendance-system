@@ -127,7 +127,6 @@ const SYSTEM_URL = config.server.systemUrl;
 // Remittance records file (for internal confirmation & audit)
 const REMITTANCE_RECORD_FILE = path.join(__dirname, 'src', 'data', 'remittance-records.json');
 const REMITTANCE_INTENT_LOG_FILE = path.join(__dirname, 'src', 'data', 'remittance-intent-log.json');
-const AMOUNT_CORRECTION_STATE_FILE = path.join(__dirname, 'src', 'data', 'amount-correction-state.json');
 
 // Google Sheets API 配置
 const GOOGLE_SHEETS_API = 'https://script.google.com/macros/s/AKfycbycZtdm2SGy07Sy06i2wM8oGNnERvEyyShUdTmHowlUmQz2kjS3I5VWdI1TszT1s2DCQA/exec';
@@ -215,49 +214,6 @@ function appendRemittanceIntentLog(entry) {
         fs.writeFileSync(REMITTANCE_INTENT_LOG_FILE, JSON.stringify(list, null, 2), 'utf8');
     } catch (error) {
         console.error('❌ 寫入匯款語意紀錄失敗:', error.message);
-    }
-}
-
-// ==================== 金額修正狀態管理 ====================
-function ensureAmountCorrectionStateFile() {
-    if (!fs.existsSync(AMOUNT_CORRECTION_STATE_FILE)) {
-        fs.writeFileSync(AMOUNT_CORRECTION_STATE_FILE, '{}', 'utf8');
-    }
-}
-
-function setAmountCorrectionState(userId, recordId) {
-    try {
-        ensureAmountCorrectionStateFile();
-        const states = JSON.parse(fs.readFileSync(AMOUNT_CORRECTION_STATE_FILE, 'utf8'));
-        states[userId] = {
-            recordId,
-            timestamp: new Date().toISOString()
-        };
-        fs.writeFileSync(AMOUNT_CORRECTION_STATE_FILE, JSON.stringify(states, null, 2), 'utf8');
-    } catch (error) {
-        console.error('❌ 設定金額修正狀態失敗:', error.message);
-    }
-}
-
-function getAmountCorrectionState(userId) {
-    try {
-        ensureAmountCorrectionStateFile();
-        const states = JSON.parse(fs.readFileSync(AMOUNT_CORRECTION_STATE_FILE, 'utf8'));
-        return states[userId] || null;
-    } catch (error) {
-        console.error('❌ 讀取金額修正狀態失敗:', error.message);
-        return null;
-    }
-}
-
-function clearAmountCorrectionState(userId) {
-    try {
-        ensureAmountCorrectionStateFile();
-        const states = JSON.parse(fs.readFileSync(AMOUNT_CORRECTION_STATE_FILE, 'utf8'));
-        delete states[userId];
-        fs.writeFileSync(AMOUNT_CORRECTION_STATE_FILE, JSON.stringify(states, null, 2), 'utf8');
-    } catch (error) {
-        console.error('❌ 清除金額修正狀態失敗:', error.message);
     }
 }
 
@@ -1093,52 +1049,6 @@ async function handlePostback(event) {
         }).catch(err => {
             console.error('❌ Notion 記帳異常:', err.message);
         });
-
-        return;
-    }
-
-    // ------------------------------------
-    // 🔧 金額辨識有誤（管理員按下）
-    // ------------------------------------
-    if (postbackData.action === 'remittance_correct_amount' && postbackData.recordId) {
-        const recordId = postbackData.recordId;
-        const record = findRemittanceRecord(recordId);
-        
-        if (!record) {
-            const notFound = {
-                type: 'text',
-                text: '⚠️ 找不到對應的匯款紀錄，可能已過期或被移除'
-            };
-            if (replyToken) {
-                await axios.post('https://api.line.me/v2/bot/message/reply', {
-                    replyToken,
-                    messages: [notFound]
-                }, {
-                    headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` }
-                });
-            }
-            return;
-        }
-
-        // 設定等待輸入金額的狀態
-        setAmountCorrectionState(userId, recordId);
-
-        // 提示管理員輸入正確金額
-        const promptMessage = {
-            type: 'text',
-            text: `💰 請直接回覆正確的金額（只需輸入數字）\n\n📝 當前記錄：\n• 來自：${record.displayName || '未知'}\n• 辨識金額：${record.amount ? `NT$ ${record.amount}` : '無'}\n• 時間：${dayjs(record.createdAt).tz('Asia/Taipei').format('YYYY/MM/DD HH:mm')}`
-        };
-
-        if (replyToken) {
-            await axios.post('https://api.line.me/v2/bot/message/reply', {
-                replyToken,
-                messages: [promptMessage]
-            }, {
-                headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` }
-            });
-        } else {
-            await sendLineMessageWithBot(promptMessage.text, userId, null, false);
-        }
 
         return;
     }
@@ -3886,11 +3796,7 @@ function parseAmountFromText(text) {
         // 格式二：812-0028881014624669
         .replace(/\b\d{3}-\d{5,}\b/g, ' ')
         // 格式三：8120028881014624669（3 碼開頭後接 7 碼以上）
-        .replace(/\b\d{3}\d{7,}\b/g, ' ')
-        // 🆕 格式四：排除「末五碼XXXXX」「後五碼XXXXX」「末X碼XXXXX」等帳號尾碼（支援中文數字）
-        .replace(/(?:末|後|尾|最後).{0,5}碼[\s]*\d{3,}/gi, ' ')
-        // 🆕 格式五：排除「帳號XXXXX」「帳號尾數XXXXX」
-        .replace(/帳號(?:尾數|後[\s]*\d+[\s]*碼)?[\s]*\d{3,}/gi, ' ');
+        .replace(/\b\d{3}\d{7,}\b/g, ' ');
     
     // 策略 2：匹配獨立的數字（避免日期格式）
     // 排除 YYYY-MM-DD 或 YYYY/MM/DD 格式中的數字
@@ -3923,140 +3829,11 @@ function parseAmountFromText(text) {
     return null;
 }
 
-function buildOfficialChatUrl(userId, messageId) {
-    const bizId = config.line?.officialAccount?.bizId || '';
-    const template = config.line?.officialAccount?.chatBaseUrl || '';
-    const botUserId = config.line?.officialAccount?.botUserId || '';
-    const managerId = config.line?.officialAccount?.managerId || '';
-    const chatId = userId ? (userId.startsWith('U') ? `2${userId}` : userId) : '';
-    // 1) 優先使用官方 chat.line.biz 的聊天介面（/chat），由管理員自行依客戶名稱查詢對話
-    if (managerId) {
-        return `https://chat.line.biz/${managerId}/chat`;
-    }
-
-    // 2) 若有自訂 template，則帶入變數
-    if (template) {
-        let url = template
-            .replace('{BIZ_ID}', bizId)
-            .replace('{CHAT_ID}', chatId)
-            .replace('{USER_ID}', userId || '')
-            .replace('{BOT_USER_ID}', botUserId || '')
-            .replace('{MESSAGE_ID}', messageId || '');
-        if (messageId && !url.includes('messageId')) {
-            url += (url.includes('?') ? '&' : '?') + `messageId=${messageId}`;
-        }
-        return url;
-    }
-    
-    // 3) 再退回以 botUserId 打開官方帳號對話
-    if (botUserId) {
-        let url = `https://line.me/R/oaMessage/${botUserId}`;
-        if (messageId) {
-            url += (url.includes('?') ? '&' : '?') + `messageId=${messageId}`;
-        }
-        return url;
-    }
-    return `https://line.me/R/oaMessage/_/${userId || ''}`;
-}
-
-async function summarizeMessageText(rawText) {
-    const normalized = (rawText || '').trim();
-    const lines = normalized ? normalized.split(/\n+/).map(line => line.trim()).filter(Boolean) : [];
-    const fallbackSummary = lines.length > 0
-        ? lines.slice(0, 5).join(' │ ')
-        : '（無文字可摘要）';
-
-    if (!normalized) return fallbackSummary;
-
-    console.log('🧪 Gemini 摘要輸入預覽:', {
-        length: normalized.length,
-        preview: normalized.slice(0, 120)
-    });
-
-    if (config.ai?.provider === 'gemini') {
-        const { apiKey, model } = config.ai.gemini || {};
-        if (apiKey) {
-            const candidateModels = Array.from(new Set([
-                model,
-                'gemini-2.5-flash',
-                'gemini-2.0-flash'
-            ].filter(Boolean)));
-
-            console.log('🧪 Gemini 可用模型清單:', candidateModels);
-
-            const prompt = [
-                '你是一名財務助理，需將以下匯款憑證重點整理給管理員。',
-                '請僅使用原文資訊，以繁體中文輸出 2-3 行，每行 40 字內，格式建議如下：',
-                '第 1 行：金額｜交易日期｜轉出帳戶 → 轉入帳戶（無資訊填「未知」）',
-                '第 2 行：備註 / 留言 / 其他關鍵字（若無可省略）',
-                '規則：不得自行猜測、不得加入客套語或說明文字，數字與專有名詞需照原文保留。',
-                '',
-                '原始文字：',
-                normalized
-            ].join('\n');
-
-            for (const candidateModel of candidateModels) {
-                try {
-                    const summary = await requestGeminiSummary(candidateModel, prompt, apiKey);
-                    console.log('🧪 Gemini 回傳摘要預覽:', {
-                        model: candidateModel,
-                        length: summary ? summary.length : 0,
-                        preview: summary ? summary.slice(0, 120) : '(empty)'
-                    });
-                    if (summary) return summary;
-                } catch (error) {
-                    const statusCode = error.response?.status;
-                    const apiStatus = error.response?.data?.error?.status;
-                    const isModelMissing = statusCode === 404 || apiStatus === 'NOT_FOUND';
-                    console.error(`❌ Gemini 摘要失敗 (model=${candidateModel}):`, error.response?.data || error.message);
-                    if (isModelMissing) {
-                        console.warn(`⚠️ 模型 ${candidateModel} 無法使用，嘗試下一個可用模型`);
-                        continue;
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    return fallbackSummary;
-}
-
-async function requestGeminiSummary(modelName, prompt, apiKey) {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-    const body = {
-        contents: [
-            {
-                role: 'user',
-                parts: [{ text: prompt }]
-            }
-        ]
-    };
-
-    const response = await axios.post(endpoint, body, {
-        timeout: config.server.timeout.api || 15000
-    });
-
-    const parts = response.data?.candidates?.[0]?.content?.parts || [];
-    return parts.map(part => part.text || '').join('\n').trim();
-}
-
 function createRemittanceFlexBubble(record) {
     const amountDisplay = record.amount ? `NT$ ${Number(record.amount).toLocaleString('en-US')}` : '金額待確認';
     const timeString = dayjs(record.createdAt).tz('Asia/Taipei').format('YYYY/MM/DD HH:mm');
-    const rawMessageText = (record.messageText || '').trim();
-    const messageLines = rawMessageText
-        ? rawMessageText.split(/\n+/).map(line => line.trim()).filter(Boolean)
-        : ['（圖片／非文字訊息）'];
-    const fallbackSnippet = messageLines.slice(0, 2).join(' │ ').slice(0, 80);
+    const snippet = (record.messageText || '').slice(0, 40) || '（圖片／非文字訊息）';
     const userLabel = record.displayName || record.userId;
-    const userChatUrl = buildOfficialChatUrl(record.userId, record.messageId);
-    const summaryText = (record.summaryText || '').trim();
-    const summaryLines = (summaryText ? summaryText.split(/\n+/) : [fallbackSnippet])
-        .map(line => line.trim())
-        .filter(Boolean);
-    const summarySnippet = summaryLines.slice(0, 2).join(' │ ').slice(0, 80) || fallbackSnippet;
-    const rawPreviewLines = messageLines.slice(0, Math.min(5, messageLines.length));
     
     // Logo URL：如果 systemUrl 是 localhost，使用預設外部圖片
     let logoUrl;
@@ -4074,16 +3851,6 @@ function createRemittanceFlexBubble(record) {
         action: config.remittance.confirmAction,
         recordId: record.id
     };
-
-    console.log('🧪 匯款 Flex 顯示內容預覽:', {
-        userId: record.userId,
-        messageId: record.messageId,
-        displayName: userLabel,
-        amountDisplay,
-        summarySnippet,
-        userChatUrl,
-        rawPreview: rawPreviewLines.join(' │ ').slice(0, 80)
-    });
 
     return {
         type: 'bubble',
@@ -4162,27 +3929,10 @@ function createRemittanceFlexBubble(record) {
                 },
                 {
                     type: 'box',
-                    layout: 'horizontal',
-                    contents: [
-                        { type: 'text', text: '快速動作', weight: 'bold', color: '#555555', flex: 2 },
-                        {
-                            type: 'button',
-                            style: 'link',
-                            flex: 6,
-                            action: {
-                                type: 'uri',
-                                label: '➡️ 快速打開官方 LINE',
-                                uri: userChatUrl
-                            }
-                        }
-                    ]
-                },
-                {
-                    type: 'box',
                     layout: 'baseline',
                     contents: [
-                        { type: 'text', text: '摘要', weight: 'bold', color: '#555555', flex: 2 },
-                        { type: 'text', text: summarySnippet || fallbackSnippet, color: '#111111', flex: 6, wrap: true }
+                        { type: 'text', text: '訊息', weight: 'bold', color: '#555555', flex: 2 },
+                        { type: 'text', text: snippet, color: '#111111', flex: 6, wrap: true }
                     ]
                 },
                 {
@@ -4211,20 +3961,6 @@ function createRemittanceFlexBubble(record) {
                         label: '✅ 已確認收款',
                         data: JSON.stringify(postbackData),
                         displayText: '已確認收款'
-                    }
-                },
-                {
-                    type: 'button',
-                    style: 'link',
-                    height: 'sm',
-                    action: {
-                        type: 'postback',
-                        label: '⚠️ 金額辨識有誤',
-                        data: JSON.stringify({
-                            action: 'remittance_correct_amount',
-                            recordId: record.id
-                        }),
-                        displayText: '金額辨識有誤，需要修正'
                     }
                 }
             ]
@@ -4554,39 +4290,7 @@ async function handleRemittanceCandidate({ event, messageText, userId, sourceTyp
         displayName = userId || '';
     }
 
-    // 先立即回覆用戶已收到匯款資訊（不等待 Gemini 摘要與管理員通知完成）
-    try {
-        const ack = { type: 'text', text: '📄 已收到您的匯款資訊，將盡快為您確認🙏🏻' };
-        if (event.replyToken) {
-            await axios.post('https://api.line.me/v2/bot/message/reply', {
-                replyToken: event.replyToken,
-                messages: [ack]
-            }, {
-                headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` },
-                timeout: config.server.timeout.line
-            });
-        } else {
-            await sendLineMessageWithBot(ack.text, userId, null, false);
-        }
-    } catch (e) {
-        console.error('❌ 回覆用戶匯款收件失敗:', e.message);
-    }
-
     const amount = parseAmountFromText(messageText || '');
-    let summaryText = '';
-    if (messageText && messageText.trim()) {
-        try {
-            summaryText = await summarizeMessageText(messageText);
-        } catch (err) {
-            console.error('⚠️ Gemini 摘要流程失敗（main）:', err.message);
-        }
-    }
-
-    console.log('🧪 匯款記錄摘要狀態:', {
-        hasMessageText: Boolean(messageText && messageText.trim()),
-        summaryLength: summaryText ? summaryText.length : 0,
-        summaryPreview: summaryText ? summaryText.slice(0, 120) : '(empty)'
-    });
     
     // 🐛 調試日誌：追蹤金額提取
     console.log('💰 金額提取調試:', {
@@ -4603,7 +4307,6 @@ async function handleRemittanceCandidate({ event, messageText, userId, sourceTyp
         displayName,
         messageText,
         amount,
-        summaryText,
         sourceType,
         groupId,
         roomId,
@@ -4638,6 +4341,24 @@ async function handleRemittanceCandidate({ event, messageText, userId, sourceTyp
                 console.error(`❌ 發送匯款通知給管理員 ${adminId} 失敗:`, e.message);
             }
         }
+    }
+
+    // 立即回覆用戶已收到申請（replyToken 若存在使用 reply）
+    try {
+        const ack = { type: 'text', text: '📄 已收到您的匯款資訊，將盡快為您確認。' };
+        if (event.replyToken) {
+            await axios.post('https://api.line.me/v2/bot/message/reply', {
+                replyToken: event.replyToken,
+                messages: [ack]
+            }, {
+                headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` },
+                timeout: config.server.timeout.line
+            });
+        } else {
+            await sendLineMessageWithBot(ack.text, userId, null, false);
+        }
+    } catch (e) {
+        console.error('❌ 回覆用戶匯款收件失敗:', e.message);
     }
 }
 
@@ -7362,93 +7083,6 @@ app.post('/webhook', async (req, res) => {
                 console.log('收到訊息:', messageText || '[非文字訊息]');
                 console.log('用戶 ID:', userId || '未知');
                 console.log('來源類型:', sourceType || '未知');
-
-                // ====================================
-                // 🔧 檢查是否為金額修正流程
-                // ====================================
-                if (event.message.type === 'text' && userId) {
-                    const correctionState = getAmountCorrectionState(userId);
-                    if (correctionState) {
-                        const inputAmount = messageText.trim().replace(/[,\s]/g, '');
-                        
-                        // 驗證是否為有效數字
-                        if (/^\d+$/.test(inputAmount)) {
-                            const recordId = correctionState.recordId;
-                            const record = findRemittanceRecord(recordId);
-                            
-                            if (record) {
-                                // 更新金額並確認
-                                const updated = updateRemittanceRecord(recordId, {
-                                    amount: inputAmount,
-                                    amountCorrectedBy: userId,
-                                    amountCorrectedAt: new Date().toISOString(),
-                                    status: 'confirmed',
-                                    confirmedBy: userId,
-                                    confirmedAt: new Date().toISOString()
-                                });
-
-                                // 回覆管理員
-                                const confirmMsg = `✅ 已更新金額為 NT$ ${Number(inputAmount).toLocaleString('en-US')}\n並已通知客戶`;
-                                if (event.replyToken) {
-                                    await axios.post('https://api.line.me/v2/bot/message/reply', {
-                                        replyToken: event.replyToken,
-                                        messages: [{ type: 'text', text: confirmMsg }]
-                                    }, {
-                                        headers: { 'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` }
-                                    });
-                                }
-
-                                // 發送確認訊息給客戶（使用正確金額）
-                                try {
-                                    const confirmationFlex = createPaymentConfirmationFlexMessage(updated);
-                                    const flexMessage = {
-                                        type: 'flex',
-                                        altText: '✅ 付款已確認',
-                                        contents: confirmationFlex
-                                    };
-                                    await sendLineFlexMessage(flexMessage, record.userId);
-                                    console.log('✅ 已發送付款確認 Flex Message 給客戶（修正後金額）:', record.userId);
-                                } catch (e) {
-                                    console.error('❌ 回覆客戶匯款確認失敗:', e.message);
-                                    try {
-                                        await sendLineMessageWithBot(`✅ 已確認收到您的匯款：NT$${Number(inputAmount).toLocaleString('en-US')}\n感謝！`, record.userId, null, false);
-                                    } catch (fallbackError) {
-                                        console.error('❌ 降級文字訊息也失敗:', fallbackError.message);
-                                    }
-                                }
-
-                                // 🧾 記錄收入到 Notion（使用正確金額）
-                                recordIncomeToNotion(updated).then(result => {
-                                    if (result.success) {
-                                        console.log('✅ 已記錄收入到 Notion（修正後金額）:', {
-                                            amount: result.amount,
-                                            date: result.date,
-                                            notionPageUrl: result.notionPageUrl
-                                        });
-                                    } else if (result.reason === 'disabled') {
-                                        // Notion 未啟用，不記錄日誌
-                                    } else {
-                                        console.log('⚠️ Notion 記帳失敗:', result.reason || result.error);
-                                    }
-                                }).catch(err => {
-                                    console.error('❌ Notion 記帳異常:', err.message);
-                                });
-
-                                // 清除狀態
-                                clearAmountCorrectionState(userId);
-                            } else {
-                                await sendLineMessageWithBot('⚠️ 找不到對應的匯款紀錄', userId, null, false);
-                                clearAmountCorrectionState(userId);
-                            }
-                        } else {
-                            // 輸入無效，提示重新輸入
-                            await sendLineMessageWithBot('❌ 請輸入有效的數字金額（例如：1000）', userId, null, false);
-                        }
-                        
-                        // 處理完畢，跳過後續處理
-                        continue;
-                    }
-                }
                 
                 // 記錄群組資訊
                 if ((groupId || roomId) && userId) {
@@ -7609,8 +7243,8 @@ app.post('/webhook', async (req, res) => {
                             });
                             await sendRemittanceDeferredReply(userId, event.replyToken);
                         } else {
-                            console.log('✅ 觸發匯款通知處理（背景任務）...');
-                            handleRemittanceCandidate({
+                            console.log('✅ 觸發匯款通知處理...');
+                            await handleRemittanceCandidate({
                                 event,
                                 messageText: normalizedTargetText,
                                 userId,
@@ -7618,13 +7252,8 @@ app.post('/webhook', async (req, res) => {
                                 groupId,
                                 roomId,
                                 messageId: event.message.id
-                            }).catch(err => {
-                                console.error('❌ 匯款通知背景處理失敗:', err.message);
-                                if (err.stack) {
-                                    console.error('❌ 錯誤堆疊（背景匯款）:', err.stack);
-                                }
                             });
-                            // 不 await，讓 Webhook 能儘快結束請求，匯款流程在背景繼續執行
+                            // 繼續後續流程以保持原有功能，但已觸發匯款提醒
                         }
                     } catch (e) {
                         console.error('❌ 匯款提醒處理失敗:', e.message);
