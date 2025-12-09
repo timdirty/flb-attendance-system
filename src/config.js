@@ -277,6 +277,8 @@ const config = {
             inquiryKeywords: (process.env.REMITTANCE_INQUIRY_KEYWORDS || '請問,如何匯,怎麼匯,匯款方式,匯款資訊,匯款帳號,想詢問,可以匯嗎,怎樣付款,如何付款,匯到哪,匯去哪,要匯到,怎麼付,想問').split(',').map(k => k.trim()).filter(Boolean),
             instructionKeywords: (process.env.REMITTANCE_INSTRUCTION_KEYWORDS || '繳費方式,繳費資訊,繳費說明,付款方式,付款資訊,匯款說明,匯款繳費,繳款方式,繳費提醒,匯款提醒').split(',').map(k => k.trim()).filter(Boolean),
             questionIndicators: (process.env.REMITTANCE_QUESTION_INDICATORS || '?,？,嗎,嘛,呢').split(',').map(k => k.trim()).filter(Boolean),
+            // 🆕 公告/通知類排除關鍵字：這類訊息是「通知別人會匯款」而非「我已匯款」
+            announcementKeywords: (process.env.REMITTANCE_ANNOUNCEMENT_KEYWORDS || '@All,@all,各位,薪資,薪水,發薪,入帳,會匯款,將匯款,會轉帳,將轉帳,通知,公告,提醒各位').split(',').map(k => k.trim()).filter(Boolean),
             deferReplyMessage: process.env.REMITTANCE_DEFER_REPLY || '👀 已收到您的訊息，完成匯款後請再通知，我們會立即協助 🙏'
         }
     },

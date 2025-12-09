@@ -3803,16 +3803,23 @@ function analyzeRemittanceIntentText(text) {
     const inquiryWords = filters.inquiryKeywords || [];
     const instructionWords = filters.instructionKeywords || [];
     const questionIndicators = filters.questionIndicators || [];
+    const announcementWords = filters.announcementKeywords || [];
 
     const hasPostpone = includesAnyKeyword(collapsed, postponeWords);
     const hasNegative = includesAnyKeyword(collapsed, negativeWords);
     const hasInquiry = includesAnyKeyword(collapsed, inquiryWords);
     const hasInstruction = includesAnyKeyword(collapsed, instructionWords);
     const hasQuestion = questionIndicators.some(ind => ind && raw.includes(ind));
+    // 🆕 檢測公告/通知類訊息（如「@All 薪資部分...會匯款入帳」）
+    const hasAnnouncement = includesAnyKeyword(raw, announcementWords);
 
-    const shouldDefer = hasPostpone || hasNegative || hasInquiry || hasInstruction || hasQuestion;
+    // 🆕 公告類訊息直接跳過，不觸發任何匯款相關回覆
+    const shouldSkip = hasAnnouncement;
+    const shouldDefer = !shouldSkip && (hasPostpone || hasNegative || hasInquiry || hasInstruction || hasQuestion);
+    
     let reason = null;
-    if (hasPostpone) reason = 'postpone';
+    if (shouldSkip) reason = 'announcement';
+    else if (hasPostpone) reason = 'postpone';
     else if (hasNegative) reason = 'negative';
     else if (hasInquiry) reason = 'inquiry';
     else if (hasInstruction) reason = 'instruction';
@@ -3820,8 +3827,9 @@ function analyzeRemittanceIntentText(text) {
 
     return {
         shouldDefer,
+        shouldSkip,
         reason,
-        flags: { hasPostpone, hasNegative, hasInquiry, hasInstruction, hasQuestion }
+        flags: { hasPostpone, hasNegative, hasInquiry, hasInstruction, hasQuestion, hasAnnouncement }
     };
 }
 
@@ -7594,6 +7602,9 @@ app.post('/webhook', async (req, res) => {
                             if (isImage) {
                                 console.log('⚠️ 收到圖片但未偵測到匯款關鍵字，暫不處理匯款通知');
                             }
+                        } else if (intentAnalysis.shouldSkip) {
+                            // 🆕 公告/通知類訊息，完全跳過匯款處理（不回覆任何訊息）
+                            console.log('⏭️ 偵測到公告/通知類訊息，跳過匯款處理:', intentAnalysis);
                         } else if (intentAnalysis.shouldDefer) {
                             console.log('⚠️ 匯款語意判斷為延後/詢問，暫不觸發通知:', intentAnalysis);
                             appendRemittanceIntentLog({
