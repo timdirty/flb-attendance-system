@@ -7993,7 +7993,7 @@ app.post('/webhook', async (req, res) => {
                                                 action: {
                                                     type: "uri",
                                                     label: "查看完整學習歷程",
-                                                    uri: "https://funlearnbar.com/portfolio"
+                                                    uri: "https://liff.line.me/1657746214-dZXb2on6"
                                                 },
                                                 height: "sm",
                                                 offsetTop: "10px"
