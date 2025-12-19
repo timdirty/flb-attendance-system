@@ -7903,6 +7903,128 @@ app.post('/webhook', async (req, res) => {
                         return; // 處理完關鍵字後直接返回
                     }
                     
+                    if (messageText === '#學習歷程') {
+                        console.log(`🔑 檢測到關鍵字「#學習歷程」來自 ${userId}`);
+                        
+                        try {
+                            // 發送 Loading Animation
+                            await showLoadingAnimation(userId, 5);
+                            
+                            // 建立學習歷程 Flex Message
+                            const learningPortfolioFlexMessage = {
+                                type: 'flex',
+                                altText: '📚 FunLearnBar 學習成長日誌',
+                                contents: {
+                                    type: "bubble",
+                                    size: "mega",
+                                    header: {
+                                        type: "box",
+                                        layout: "horizontal",
+                                        contents: [
+                                            {
+                                                type: "image",
+                                                url: "https://i.ibb.co/fYCPHGM0/LOGO.jpg",
+                                                size: "xs",
+                                                aspectMode: "fit",
+                                                flex: 0,
+                                                margin: "sm"
+                                            },
+                                            {
+                                                type: "box",
+                                                layout: "vertical",
+                                                contents: [
+                                                    {
+                                                        type: "text",
+                                                        text: "FunLearnBar",
+                                                        color: "#5D4037",
+                                                        weight: "bold",
+                                                        size: "md"
+                                                    },
+                                                    {
+                                                        type: "text",
+                                                        text: "學習成長日誌",
+                                                        color: "#8D6E63",
+                                                        size: "xxs",
+                                                        weight: "bold"
+                                                    }
+                                                ],
+                                                justifyContent: "center",
+                                                margin: "md"
+                                            },
+                                            {
+                                                type: "text",
+                                                text: "FLB sys",
+                                                color: "#8D6E63",
+                                                size: "xs",
+                                                weight: "bold",
+                                                align: "end",
+                                                gravity: "center",
+                                                flex: 1
+                                            }
+                                        ],
+                                        paddingAll: "lg",
+                                        backgroundColor: "#FFFBF2"
+                                    },
+                                    hero: {
+                                        type: "image",
+                                        url: "https://i.ibb.co/Z6fMLyBB/Google-Gemini.jpg",
+                                        size: "full",
+                                        aspectRatio: "20:17",
+                                        aspectMode: "cover",
+                                        action: {
+                                            type: "uri",
+                                            uri: "https://funlearnbar.com/portfolio"
+                                        },
+                                        gravity: "bottom",
+                                        align: "center",
+                                        animated: true
+                                    },
+                                    footer: {
+                                        type: "box",
+                                        layout: "vertical",
+                                        contents: [
+                                            {
+                                                type: "button",
+                                                style: "primary",
+                                                color: "#5D4037",
+                                                action: {
+                                                    type: "uri",
+                                                    label: "查看完整學習歷程",
+                                                    uri: "https://funlearnbar.com/portfolio"
+                                                },
+                                                height: "sm",
+                                                offsetTop: "10px"
+                                            },
+                                            {
+                                                type: "text",
+                                                text: "@FunLearnBar",
+                                                size: "xxs",
+                                                color: "#A1887F",
+                                                align: "center",
+                                                margin: "md",
+                                                offsetTop: "10px"
+                                            }
+                                        ],
+                                        backgroundColor: "#FFFBF2",
+                                        paddingAll: "xl",
+                                        paddingTop: "none"
+                                    }
+                                }
+                            };
+                            
+                            // 發送 Flex Message
+                            await sendLineFlexMessage(learningPortfolioFlexMessage, userId);
+                            console.log(`✅ 學習歷程 Flex Message 已發送給: ${userId}`);
+                            
+                        } catch (error) {
+                            console.error('❌ 發送學習歷程失敗:', error);
+                            const errorMessage = '❌ 學習歷程載入失敗，請稍後再試';
+                            await sendLineMessage(errorMessage, userId, false);
+                        }
+                        
+                        return; // 處理完關鍵字後直接返回
+                    }
+                    
                     // 原有的使用者註冊和上傳邏輯
                     console.log('請將此 User ID 設定到環境變數:');
                     console.log('LINE_USER_ID =', userId);
