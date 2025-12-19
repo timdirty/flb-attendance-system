@@ -7907,6 +7907,9 @@ app.post('/webhook', async (req, res) => {
                         console.log(`🔑 檢測到關鍵字「#學習歷程」來自 ${userId}`);
                         
                         try {
+                            // 記錄開始時間
+                            const startTime = Date.now();
+                            
                             // 發送 Loading Animation（延長到 15 秒）
                             await showLoadingAnimation(userId, 15);
                             
@@ -8012,9 +8015,16 @@ app.post('/webhook', async (req, res) => {
                                 }
                             };
                             
+                            // 確保 loading animation 至少跑 1 秒
+                            const elapsedTime = Date.now() - startTime;
+                            const minLoadingTime = 1000; // 1 秒
+                            if (elapsedTime < minLoadingTime) {
+                                await new Promise(resolve => setTimeout(resolve, minLoadingTime - elapsedTime));
+                            }
+                            
                             // 發送 Flex Message
                             await sendLineFlexMessage(learningPortfolioFlexMessage, userId);
-                            console.log(`✅ 學習歷程 Flex Message 已發送給: ${userId}`);
+                            console.log(`✅ 學習歷程 Flex Message 已發送給: ${userId} (loading 時間: ${Date.now() - startTime}ms)`);
                             
                         } catch (error) {
                             console.error('❌ 發送學習歷程失敗:', error);
