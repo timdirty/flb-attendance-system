@@ -1,1 +1,275 @@
-[]
+[
+  {
+    "id": "intent_1763727743649_zmgvc3l",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "text",
+    "sourceType": "user",
+    "reason": "inquiry",
+    "flags": {
+      "hasPostpone": false,
+      "hasNegative": false,
+      "hasInquiry": true,
+      "hasQuestion": false
+    },
+    "messageText": "我想詢問匯款資訊",
+    "rawOriginalText": "我想詢問匯款資訊",
+    "createdAt": "2025-11-21T12:22:23.649Z"
+  },
+  {
+    "id": "intent_1763800540523_1aheome",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "image",
+    "sourceType": "user",
+    "reason": "postpone",
+    "flags": {
+      "hasPostpone": true,
+      "hasNegative": false,
+      "hasInquiry": false,
+      "hasQuestion": false
+    },
+    "messageText": "台灣大哥大\n5G 74\n22 週六 21°\n254\n江佩珊♡喆、溱\n[樂程坊 Fun Learn\n現在\nBar]\n10 傳送了照片\n交易結果轉帳成功\n交易時間\n轉出帳號\n2025-11-22 15:54:07\n1935***3957\n轉入銀行 012 台北富邦\n轉入帳號 8211***0220178\n轉帳金額 2,250\n灯’守于机处理人\nL\n江佩珊♡喆、溱 [樂程...\n明天處理匯款,謝謝\nטון6ין 7\nL\n可以\nL\n可以\nHA\n示\nLINE\n2\n目 工作\n昨天下午6:44",
+    "rawOriginalText": "",
+    "createdAt": "2025-11-22T08:35:40.523Z"
+  },
+  {
+    "id": "intent_1763800965856_lzn3he1",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "image",
+    "sourceType": "user",
+    "reason": "postpone",
+    "flags": {
+      "hasPostpone": true,
+      "hasNegative": false,
+      "hasInquiry": false,
+      "hasQuestion": false
+    },
+    "messageText": "台灣大哥大\n5G 74\n22 週六 21°\n254\n江佩珊♡喆、溱\n[樂程坊 Fun Learn\n現在\nBar]\n10 傳送了照片\n交易結果轉帳成功\n交易時間\n轉出帳號\n2025-11-22 15:54:07\n1935***3957\n轉入銀行 012 台北富邦\n轉入帳號 8211***0220178\n轉帳金額 2,250\n灯’守于机处理人\nL\n江佩珊♡喆、溱 [樂程...\n明天處理匯款,謝謝\nטון6ין 7\nL\n可以\nL\n可以\nHA\n示\nLINE\n2\n目 工作\n昨天下午6:44",
+    "rawOriginalText": "",
+    "createdAt": "2025-11-22T08:42:45.856Z"
+  },
+  {
+    "id": "intent_1763965106619_8rrd64y",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "image",
+    "sourceType": "user",
+    "reason": "instruction",
+    "flags": {
+      "hasPostpone": false,
+      "hasNegative": false,
+      "hasInquiry": false,
+      "hasInstruction": true,
+      "hasQuestion": false
+    },
+    "messageText": "繳費方式\n繳費方式\n請先與官方 LINE 確認報名成功後,再完成以\n下繳費方式:\n1 匯款繳費(建議)\n台北富邦(銀行代碼:012)\n帳號:82110000220178\n匯款完成後,請加官方 LINE 並告知轉帳後\n5碼。",
+    "rawOriginalText": "",
+    "createdAt": "2025-11-24T06:18:26.620Z"
+  },
+  {
+    "id": "intent_1763965528769_9gd1irt",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "image",
+    "sourceType": "user",
+    "reason": "instruction",
+    "flags": {
+      "hasPostpone": false,
+      "hasNegative": false,
+      "hasInquiry": false,
+      "hasInstruction": true,
+      "hasQuestion": false
+    },
+    "messageText": "繳費方式\n繳費方式\n請先與官方 LINE 確認報名成功後,再完成以\n下繳費方式:\n1 匯款繳費(建議)\n台北富邦(銀行代碼:012)\n帳號:82110000220178\n匯款完成後,請加官方 LINE 並告知轉帳後\n5碼。",
+    "rawOriginalText": "",
+    "createdAt": "2025-11-24T06:25:28.769Z"
+  },
+  {
+    "id": "intent_1763966887976_g7xrjev",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "image",
+    "sourceType": "user",
+    "reason": "instruction",
+    "flags": {
+      "hasPostpone": false,
+      "hasNegative": false,
+      "hasInquiry": false,
+      "hasInstruction": true,
+      "hasQuestion": false
+    },
+    "messageText": "繳費方式\n繳費方式\n請先與官方 LINE 確認報名成功後,再完成以\n下繳費方式:\n1 匯款繳費(建議)\n台北富邦(銀行代碼:012)\n帳號:82110000220178\n匯款完成後,請加官方 LINE 並告知轉帳後\n5碼。",
+    "rawOriginalText": "",
+    "createdAt": "2025-11-24T06:48:07.976Z"
+  },
+  {
+    "id": "intent_1764003256030_gy820du",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "image",
+    "sourceType": "user",
+    "reason": "postpone",
+    "flags": {
+      "hasPostpone": true,
+      "hasNegative": false,
+      "hasInquiry": false,
+      "hasInstruction": false,
+      "hasQuestion": false
+    },
+    "messageText": "台灣大哥大\n5G 74\n22 週六 21°\n254\n江佩珊♡喆、溱\n[樂程坊 Fun Learn\n現在\nBar]\n10 傳送了照片\n交易結果轉帳成功\n交易時間\n轉出帳號\n2025-11-22 15:54:07\n1935***3957\n轉入銀行 012 台北富邦\n轉入帳號 8211***0220178\n轉帳金額 2,250\n灯’守于机处理人\nL\n江佩珊♡喆、溱 [樂程...\n明天處理匯款,謝謝\nטון6ין 7\nL\n可以\nL\n可以\nHA\n示\nLINE\n2\n目 工作\n昨天下午6:44",
+    "rawOriginalText": "",
+    "createdAt": "2025-11-24T16:54:16.030Z"
+  },
+  {
+    "id": "intent_1765266954460_z6h013i",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "text",
+    "sourceType": "group",
+    "reason": "postpone",
+    "flags": {
+      "hasPostpone": true,
+      "hasNegative": false,
+      "hasInquiry": false,
+      "hasInstruction": false,
+      "hasQuestion": false
+    },
+    "messageText": "@All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝謝",
+    "rawOriginalText": "@All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝謝",
+    "createdAt": "2025-12-09T07:55:54.460Z"
+  },
+  {
+    "id": "intent_1765269980240_7zsb3m9",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "text",
+    "sourceType": "user",
+    "reason": "postpone",
+    "flags": {
+      "hasPostpone": true,
+      "hasNegative": false,
+      "hasInquiry": false,
+      "hasInstruction": false,
+      "hasQuestion": false
+    },
+    "messageText": "@All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝謝",
+    "rawOriginalText": "@All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝謝",
+    "createdAt": "2025-12-09T08:46:20.240Z"
+  },
+  {
+    "id": "intent_1765269996613_f2p8kjf",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "text",
+    "sourceType": "user",
+    "reason": "postpone",
+    "flags": {
+      "hasPostpone": true,
+      "hasNegative": false,
+      "hasInquiry": false,
+      "hasInstruction": false,
+      "hasQuestion": false
+    },
+    "messageText": "@All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝",
+    "rawOriginalText": "@All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝",
+    "createdAt": "2025-12-09T08:46:36.613Z"
+  },
+  {
+    "id": "intent_1765274522471_w2d8zje",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "text",
+    "sourceType": "user",
+    "reason": "postpone",
+    "flags": {
+      "hasPostpone": true,
+      "hasNegative": false,
+      "hasInquiry": false,
+      "hasInstruction": false,
+      "hasQuestion": false
+    },
+    "messageText": "@All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝",
+    "rawOriginalText": "@All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝",
+    "createdAt": "2025-12-09T10:02:02.471Z"
+  },
+  {
+    "id": "intent_1765274867578_9oun1uw",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "text",
+    "sourceType": "user",
+    "reason": "postpone",
+    "flags": {
+      "hasPostpone": true,
+      "hasNegative": false,
+      "hasInquiry": false,
+      "hasInstruction": false,
+      "hasQuestion": false
+    },
+    "messageText": "@All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝",
+    "rawOriginalText": "@All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝",
+    "createdAt": "2025-12-09T10:07:47.578Z"
+  },
+  {
+    "id": "intent_1765275138996_zaca26r",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "text",
+    "sourceType": "user",
+    "reason": "postpone",
+    "flags": {
+      "hasPostpone": true,
+      "hasNegative": false,
+      "hasInquiry": false,
+      "hasInstruction": false,
+      "hasQuestion": false,
+      "hasAnnouncement": false
+    },
+    "messageText": "@All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝",
+    "rawOriginalText": "@All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝",
+    "createdAt": "2025-12-09T10:12:18.996Z"
+  },
+  {
+    "id": "intent_1765275148195_yz94sn4",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "text",
+    "sourceType": "user",
+    "reason": "postpone",
+    "flags": {
+      "hasPostpone": true,
+      "hasNegative": false,
+      "hasInquiry": false,
+      "hasInstruction": false,
+      "hasQuestion": false,
+      "hasAnnouncement": false
+    },
+    "messageText": "WARN[0000] buildx: git was not found in the system. Current commit information was not captured by the build \nctctim14@FLB_NAS:~/樂程坊計畫/課程資料/Cursor/FLB簽到系統（line）$ sudo docker-compose up -d\nWARN[0000] The \"ADMIN_USER_IDS\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"REMITTANCE_GROUP_ID\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"REMITTANCE_KEYWORDS\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"REMITTANCE_COMPLETION_WORDS\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"REMITTANCE_EXPLICIT_PHRASES\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"NOTION_INCOME_CATEGORY_ID\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"NOTION_INCOME_ACCOUNT_ID\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"NOTION_INCOME_TYPE\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"NOTION_INCOME_HAS_MEMO_FIELD\" variable is not set. Defaulting to a blank string. \n[+] Running 2/2\n ✔ Network flbline_flb-network  Created                                    0.3s \n ✔ Container flb-line-bot       Started                                    0.9s \nctctim14@FLB_NAS:~/樂程坊計畫/課程資料/Cursor/FLB簽到系統（line）$ sudo docker logs -f flb-line-bot\n\n📋 系統配置摘要:\n==================================================\n🌐 伺服器端口: 3010\n🔗 系統 URL: https://flbbot.funlearnbar.synology.me\n🤖 LINE Bot: ✅ 已配置\n👤 管理員 ID: ✅ 已設定\n📊 資料庫類型: google-sheets\n🖼️ OCR: ✅ google_vision\n🔧 開發模式: ❌ 停用\n🧪 模擬模式: ❌ 停用\n==================================================\n\n✅ 訊息中心 API 已掛載於 /api/message\n✅ 關鍵字管理 API 已掛載於 /api/keywords\n✅ 內建功能管理 API 已掛載於 /api/features\n📂 從檔案載入 2 個轉發目標\n🔄 Webhook 轉發器已初始化，共 2 個目標\n✅ 設定 API 路由已註冊\n📁 載入 7 個本地使用者資料\n📁 載入 12 個本地綁定資料\n📁 載入 4 個本地群組資料\n📁 使用本地快取資料\nGoogle Sheets 資料庫連線成功\n資料庫初始化完成\n伺服器運行在 http://localhost:3010\nFLB講師簽到系統已啟動！\n🎉 系統完全啟動完成！\n收到 LINE Webhook 請求: {\n  destination: 'Ufed41740515943bbf2a94f119b1a375d',\n  events: [\n    {\n      type: 'message',\n      message: [Object],\n      webhookEventId: '01KC19HYG168G61GVF8EWYHRMZ',\n      deliveryContext: [Object],\n      timestamp: 1765275138052,\n      source: [Object],\n      replyToken: '8723bc0817fb460f8534bd0327aede95',\n      mode: 'active'\n    }\n  ]\n}\n⏭️  目標 AIbot 已停用，跳過\n📤 轉發到 FLB課程提醒系統 (https://calendar.funlearnbar.synology.me/webhook/line)\n收到訊息: @All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝\n用戶 ID: Udb51363eb6fdc605a6a9816379a38103\n來源類型: user\n🔍 檢查匯款關鍵字: {\n  isText: true,\n⚠️ 匯款語意判斷為延後/詢問，暫不觸發通知: {\n  shouldDefer: true,\n  shouldSkip: false,\n  reason: 'postpone',\n  flags: {\n⚠️  FLB課程提醒系統 回應異常 (404, 222ms)\n✅ Webhook 轉發完成：0/1 成功\n請將此 User ID 設定到環境變數:\nLINE_USER_ID = Udb51363eb6fdc605a6a9816379a38103\n獲取到使用者資訊: 張庭豪 TimDirty (Udb51363eb6fdc605a6a9816379a38103)",
+    "rawOriginalText": "WARN[0000] buildx: git was not found in the system. Current commit information was not captured by the build \nctctim14@FLB_NAS:~/樂程坊計畫/課程資料/Cursor/FLB簽到系統（line）$ sudo docker-compose up -d\nWARN[0000] The \"ADMIN_USER_IDS\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"REMITTANCE_GROUP_ID\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"REMITTANCE_KEYWORDS\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"REMITTANCE_COMPLETION_WORDS\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"REMITTANCE_EXPLICIT_PHRASES\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"NOTION_INCOME_CATEGORY_ID\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"NOTION_INCOME_ACCOUNT_ID\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"NOTION_INCOME_TYPE\" variable is not set. Defaulting to a blank string. \nWARN[0000] The \"NOTION_INCOME_HAS_MEMO_FIELD\" variable is not set. Defaulting to a blank string. \n[+] Running 2/2\n ✔ Network flbline_flb-network  Created                                    0.3s \n ✔ Container flb-line-bot       Started                                    0.9s \nctctim14@FLB_NAS:~/樂程坊計畫/課程資料/Cursor/FLB簽到系統（line）$ sudo docker logs -f flb-line-bot\n\n📋 系統配置摘要:\n==================================================\n🌐 伺服器端口: 3010\n🔗 系統 URL: https://flbbot.funlearnbar.synology.me\n🤖 LINE Bot: ✅ 已配置\n👤 管理員 ID: ✅ 已設定\n📊 資料庫類型: google-sheets\n🖼️ OCR: ✅ google_vision\n🔧 開發模式: ❌ 停用\n🧪 模擬模式: ❌ 停用\n==================================================\n\n✅ 訊息中心 API 已掛載於 /api/message\n✅ 關鍵字管理 API 已掛載於 /api/keywords\n✅ 內建功能管理 API 已掛載於 /api/features\n📂 從檔案載入 2 個轉發目標\n🔄 Webhook 轉發器已初始化，共 2 個目標\n✅ 設定 API 路由已註冊\n📁 載入 7 個本地使用者資料\n📁 載入 12 個本地綁定資料\n📁 載入 4 個本地群組資料\n📁 使用本地快取資料\nGoogle Sheets 資料庫連線成功\n資料庫初始化完成\n伺服器運行在 http://localhost:3010\nFLB講師簽到系統已啟動！\n🎉 系統完全啟動完成！\n收到 LINE Webhook 請求: {\n  destination: 'Ufed41740515943bbf2a94f119b1a375d',\n  events: [\n    {\n      type: 'message',\n      message: [Object],\n      webhookEventId: '01KC19HYG168G61GVF8EWYHRMZ',\n      deliveryContext: [Object],\n      timestamp: 1765275138052,\n      source: [Object],\n      replyToken: '8723bc0817fb460f8534bd0327aede95',\n      mode: 'active'\n    }\n  ]\n}\n⏭️  目標 AIbot 已停用，跳過\n📤 轉發到 FLB課程提醒系統 (https://calendar.funlearnbar.synology.me/webhook/line)\n收到訊息: @All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝\n用戶 ID: Udb51363eb6fdc605a6a9816379a38103\n來源類型: user\n🔍 檢查匯款關鍵字: {\n  isText: true,\n⚠️ 匯款語意判斷為延後/詢問，暫不觸發通知: {\n  shouldDefer: true,\n  shouldSkip: false,\n  reason: 'postpone',\n  flags: {\n⚠️  FLB課程提醒系統 回應異常 (404, 222ms)\n✅ Webhook 轉發完成：0/1 成功\n請將此 User ID 設定到環境變數:\nLINE_USER_ID = Udb51363eb6fdc605a6a9816379a38103\n獲取到使用者資訊: 張庭豪 TimDirty (Udb51363eb6fdc605a6a9816379a38103)\n",
+    "createdAt": "2025-12-09T10:12:28.195Z"
+  },
+  {
+    "id": "intent_1765275751319_et3dg77",
+    "userId": "Udb51363eb6fdc605a6a9816379a38103",
+    "messageType": "text",
+    "sourceType": "user",
+    "reason": "postpone",
+    "flags": {
+      "hasPostpone": true,
+      "hasNegative": false,
+      "hasInquiry": false,
+      "hasInstruction": false,
+      "hasQuestion": false,
+      "hasAnnouncement": false
+    },
+    "messageText": "@All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝",
+    "rawOriginalText": "@All 薪資部分剛剛有傳給各位了 再請抽空確認 沒問題明天會匯款入帳！謝",
+    "createdAt": "2025-12-09T10:22:31.319Z"
+  },
+  {
+    "id": "intent_1765369535976_vonu0xt",
+    "userId": "U2d5b263cd52516ead0e3d2a473a9d848",
+    "messageType": "image",
+    "sourceType": "user",
+    "reason": "inquiry",
+    "flags": {
+      "hasPostpone": false,
+      "hasNegative": false,
+      "hasInquiry": true,
+      "hasInstruction": false,
+      "hasQuestion": true,
+      "hasAnnouncement": false
+    },
+    "messageText": "樂程坊\n20:16\n99+\n樂程...n Bar\nAutomated responses\n嗎?\n19:11\n69\n=\nRead\n好的十堂\n19:12\n媽媽您好 ♡\n這邊與您確認一下後續課程的\n費用明細如下:\n贈課\n上課時數:120 分鐘 / 堂\n課程堂數:共10堂 + 1 堂\n◆ 原價總費用:13,200元\n優惠折扣:團報 95 折\n折扣後金額:13,200x\n0.95 = 12,540\n☆ 匯款資訊:\n銀行名稱|台北富邦(代碼:\n012)\n帳號 | 82110000220178\n完成匯款後,再請幫忙回傳匯\n款後5碼,我們會盡快為您\n確認唷!感謝您的支持與配合\n樂程坊\n不好意思,更正 上期多一堂\n課程,因此共計是11堂課程\n喔!謝謝\n三十\nAa\n19:17\n19:18\n↓",
+    "rawOriginalText": "",
+    "createdAt": "2025-12-10T12:25:35.976Z"
+  }
+]

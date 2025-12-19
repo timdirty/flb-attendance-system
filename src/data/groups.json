@@ -1,10 +1,19 @@
 [
   {
-    " ": "C721e9d6e4f8b71966ff620a6c87b61f7",
-    "groupName": "樂程坊（奧斯汀吉林長春）",
+    " ": "Cde5148c3c964686da2f1dc9081543acd",
+    "groupName": "樂高",
     "type": "group",
-    "firstSeenAt": "2025-11-05T08:36:33.946Z",
-    "lastActivityAt": "2025-11-14T01:49:56.893Z",
+    "firstSeenAt": "2025-12-06T02:12:07.172Z",
+    "lastActivityAt": "2025-12-06T02:21:49.387Z",
+    "memberCount": 0,
+    "description": ""
+  },
+  {
+    "groupId": "C9cd9530405411fdd46de96f4e6cdecb7",
+    "groupName": "FLB CORE",
+    "type": "group",
+    "firstSeenAt": "2025-12-11T03:32:05.003Z",
+    "lastActivityAt": "2025-12-11T07:34:19.148Z",
     "memberCount": 0,
     "description": ""
   }
