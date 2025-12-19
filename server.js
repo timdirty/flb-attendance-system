@@ -7907,8 +7907,8 @@ app.post('/webhook', async (req, res) => {
                         console.log(`🔑 檢測到關鍵字「#學習歷程」來自 ${userId}`);
                         
                         try {
-                            // 發送 Loading Animation
-                            await showLoadingAnimation(userId, 5);
+                            // 發送 Loading Animation（延長到 15 秒）
+                            await showLoadingAnimation(userId, 15);
                             
                             // 建立學習歷程 Flex Message
                             const learningPortfolioFlexMessage = {
