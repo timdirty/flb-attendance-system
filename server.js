@@ -7970,7 +7970,7 @@ app.post('/webhook', async (req, res) => {
                                     },
                                     hero: {
                                         type: "image",
-                                        url: "https://i.ibb.co/Z6fMLyBB/Google-Gemini.jpg",
+                                        url: "https://flbbot.funlearnbar.synology.me/learning-portfolio-hero.png",
                                         size: "full",
                                         aspectRatio: "20:17",
                                         aspectMode: "cover",
