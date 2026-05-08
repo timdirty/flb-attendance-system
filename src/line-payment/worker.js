@@ -77,6 +77,29 @@ class LinePaymentWorker {
   }
 
   async _processDetectEvent(payload) {
+    // Phase 9.3：上傳截圖（如有）
+    if (payload.image_url || payload.image_buffer_b64) {
+      try {
+        const axios = require('axios');
+        let buf, mime;
+        if (payload.image_buffer_b64) {
+          buf = Buffer.from(payload.image_buffer_b64, 'base64');
+          mime = payload.image_mime || 'image/jpeg';
+        } else {
+          const dl = await axios.get(payload.image_url, { responseType: 'arraybuffer', timeout: 15000 });
+          buf = Buffer.from(dl.data);
+          mime = dl.headers['content-type'] || 'image/jpeg';
+        }
+        const up = await this.smClient.uploadScreenshot(payload.fingerprint, buf, mime);
+        if (up.ok && up.data) {
+          payload.screenshot_url = up.data.screenshot_url;
+          payload.media_status = up.data.media_status;
+        }
+      } catch (e) {
+        this.logger.warn(`[line-payment-worker] screenshot upload failed: ${e.message}`);
+      }
+    }
+
     // 偵測到匯款 → 取候選 → 推 Flex 給 enabled admins
     const cands = await this.smClient.getCandidates(
       payload.line_user_id, payload.amount, payload.account_last5);
@@ -100,8 +123,17 @@ class LinePaymentWorker {
       this.logger.warn('[line-payment-worker] no enabled admins; skipping flex push');
       return;
     }
+    // Phase 9.4：第一次推給某 admin 前，先推 tutorial
+    let tutorialFn = null;
+    try {
+      tutorialFn = require('./admin-tutorial').maybeShowTutorial;
+    } catch (e) { /* tutorial module 可選 */ }
+
     for (const admin of enabledAdmins) {
       try {
+        if (tutorialFn) {
+          await tutorialFn(admin.userId, this.lineSendFn);
+        }
         await this.lineSendFn(admin.userId, flexMsg);
       } catch (e) {
         this.logger.warn(`[line-payment-worker] flex push failed admin=${admin.userId}: ${e.message}`);
@@ -126,19 +158,51 @@ class LinePaymentWorker {
       admin_user_id: payload.admin_user_id,
     });
 
-    let text;
+    let messageToSend;
     if (result.ok) {
       if (result.data && result.data.status === 'duplicate') {
-        text = `ℹ️ 此 LINE 訊息已處理過`;
+        messageToSend = { type: 'text', text: `ℹ️ 此 LINE 訊息已處理過` };
+      } else if (result.data && result.data.verification_id && payload.action === 'verify') {
+        // Phase 9.4: 1 分鐘撤銷按鈕
+        const undoToken = this.signFn({
+          verification_id: result.data.verification_id,
+          action: 'undo',
+        });
+        messageToSend = {
+          type: 'flex',
+          altText: `✅ 已綁定 ${payload.target_type || ''}`,
+          contents: {
+            type: 'bubble', size: 'kilo',
+            body: {
+              type: 'box', layout: 'vertical', spacing: 'sm',
+              contents: [
+                { type: 'text', weight: 'bold',
+                  text: `✅ 已綁定 ${payload.student_name || payload.target_type || ''}`,
+                  wrap: true },
+                { type: 'text', size: 'xs', color: '#888888',
+                  text: '1 分鐘內可撤銷' },
+              ],
+            },
+            footer: {
+              type: 'box', layout: 'vertical',
+              contents: [{
+                type: 'button', style: 'link',
+                action: { type: 'postback', label: '⏪ 撤銷', data: undoToken },
+              }],
+            },
+          },
+        };
       } else {
-        text = `✅ 已綁定 ${payload.target_type || ''} #${payload.target_id || ''}`.trim();
+        messageToSend = { type: 'text',
+          text: `✅ 已綁定 ${payload.target_type || ''} #${payload.target_id || ''}`.trim() };
       }
     } else {
-      text = `⚠️ 處理失敗：${result.error || (result.data && result.data.error) || 'unknown'}`;
+      messageToSend = { type: 'text',
+        text: `⚠️ 處理失敗：${result.error || (result.data && result.data.error) || 'unknown'}` };
     }
     if (payload.admin_user_id) {
       try {
-        await this.lineSendFn(payload.admin_user_id, { type: 'text', text });
+        await this.lineSendFn(payload.admin_user_id, messageToSend);
       } catch (e) {
         this.logger.warn(`[line-payment-worker] result push failed: ${e.message}`);
       }

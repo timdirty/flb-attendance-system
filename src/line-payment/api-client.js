@@ -66,6 +66,52 @@ class StudentManagerClient {
   createManualEvent(payload) {
     return this._request('POST', '/api/payments/manual-events', { body: payload });
   }
+
+  /** Phase 9.3 — upload LINE image binary to student-manager.
+   *  Multipart body 不能用 canonical body 簽（boundary 不確定性）— 改用 fingerprint
+   *  作為簽名 token (UPLOAD:<fingerprint>) 以保 idempotency。
+   */
+  async uploadScreenshot(fingerprint, imageBuffer, mimeType) {
+    const FormData = require('form-data');
+    const form = new FormData();
+    form.append('image', imageBuffer, {
+      filename: 'image.jpg',
+      contentType: mimeType || 'image/jpeg',
+    });
+    form.append('fingerprint', fingerprint);
+    // 簡化簽名：path + fingerprint，body 不參與
+    const sigCanonical = `POST:/api/payments/line-screenshot::UPLOAD:${fingerprint}`;
+    const ts = Math.floor(Date.now() / 1000);
+    const crypto = require('crypto');
+    const sig = crypto.createHmac('sha256', this.hmac.current)
+      .update(`${ts}:${sigCanonical}`).digest('hex');
+    const sigHeader = `t=${ts},v1=${sig},kid=${this.hmac.current_kid}`;
+
+    try {
+      const res = await axios.post(
+        `${this.baseUrl}/api/payments/line-screenshot`,
+        form,
+        {
+          headers: { ...form.getHeaders(), 'X-Bot-Signature': sigHeader },
+          timeout: 30000,
+          maxContentLength: 15 * 1024 * 1024,
+          validateStatus: () => true,
+        });
+      if (res.status >= 200 && res.status < 300) {
+        return { ok: true, data: res.data };
+      }
+      return { ok: false, error: `http_${res.status}`, status: res.status, data: res.data };
+    } catch (e) {
+      return { ok: false, error: e.message, status: 0 };
+    }
+  }
+
+  /** Phase 9.4 — undo verify within 1 min window. */
+  undoVerify(verification_id) {
+    return this._request('POST',
+      `/api/payments/verifications/${verification_id}/undo`,
+      { body: {} });
+  }
 }
 
 module.exports = { StudentManagerClient };
