@@ -31,6 +31,9 @@ const {
     getNotionConfigStatus
 } = require('./src/notion-accounting');
 
+// 引入 LINE 匯款 → student-manager 整合層
+const linePayment = require('./src/line-payment/integration');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -7330,7 +7333,24 @@ app.post('/api/query-report', async (req, res) => {
 // LINE Webhook 端點
 app.post('/webhook', async (req, res) => {
     console.log('收到 LINE Webhook 請求:', req.body);
-    
+
+    // v2 critical: durable enqueue line-payment events BEFORE ACK (crash safety)
+    // SQLite 同步 I/O，<10ms，不會超時 LINE 30s webhook 限制
+    if (linePayment.isInitialized()) {
+        const earlyEvents = req.body.events || [];
+        for (const event of earlyEvents) {
+            try {
+                if (event.type === 'postback') {
+                    linePayment.handlePostback(event);
+                } else if (event.type === 'message') {
+                    linePayment.handleWebhookEvent(event);
+                }
+            } catch (e) {
+                console.error('[line-payment] webhook pre-ACK enqueue err:', e);
+            }
+        }
+    }
+
     // 立即回應 LINE 伺服器
     res.status(200).send('OK');
     
@@ -8687,6 +8707,17 @@ async function startServer() {
         app.listen(PORT, async () => {
     console.log(`伺服器運行在 http://localhost:${PORT}`);
             console.log('FLB講師簽到系統已啟動！');
+
+            // 啟動 LINE 匯款整合層（若 env 齊全才會啟動）
+            try {
+                linePayment.init({
+                    env: process.env,
+                    lineSendFn: async (userId, message) => sendLineMessageWithBot(message, userId, null, false),
+                });
+            } catch (e) {
+                console.warn('[line-payment] init failed:', e.message);
+            }
+
             console.log('🎉 系統完全啟動完成！');
         });
     } catch (error) {
