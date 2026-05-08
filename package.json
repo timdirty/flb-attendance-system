@@ -6,7 +6,9 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "node --no-warnings --test test/**/*.test.js",
+    "test:watch": "node --no-warnings --test --watch test/**/*.test.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
