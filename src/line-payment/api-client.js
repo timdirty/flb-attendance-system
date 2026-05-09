@@ -68,8 +68,9 @@ class StudentManagerClient {
   }
 
   /** Phase 9.3 — upload LINE image binary to student-manager.
-   *  Multipart body 不能用 canonical body 簽（boundary 不確定性）— 改用 fingerprint
-   *  作為簽名 token (UPLOAD:<fingerprint>) 以保 idempotency。
+   *  v2 fix (codex-adv MED 1): use canonical request string (POST:/path::fingerprint=<fp>)
+   *  Sender + receiver agree on this canonical (server reads form 'fingerprint' field).
+   *  Multipart binary body 不參與簽名 — fingerprint 作為 idempotency 與簽名的綁定。
    */
   async uploadScreenshot(fingerprint, imageBuffer, mimeType) {
     const FormData = require('form-data');
@@ -79,12 +80,14 @@ class StudentManagerClient {
       contentType: mimeType || 'image/jpeg',
     });
     form.append('fingerprint', fingerprint);
-    // 簡化簽名：path + fingerprint，body 不參與
-    const sigCanonical = `POST:/api/payments/line-screenshot::UPLOAD:${fingerprint}`;
+
+    // Canonical: POST:/api/payments/line-screenshot::fingerprint=<fp>
+    // Server side will reconstruct same canonical from request.form.get('fingerprint')
+    const canonical = `POST:/api/payments/line-screenshot::fingerprint=${fingerprint}`;
     const ts = Math.floor(Date.now() / 1000);
     const crypto = require('crypto');
     const sig = crypto.createHmac('sha256', this.hmac.current)
-      .update(`${ts}:${sigCanonical}`).digest('hex');
+      .update(`${ts}:${canonical}`).digest('hex');
     const sigHeader = `t=${ts},v1=${sig},kid=${this.hmac.current_kid}`;
 
     try {
