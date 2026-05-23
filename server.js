@@ -2438,6 +2438,157 @@ function createCoursePlanBubble(student, apiResult = null, index = null, total =
 }
 
 /**
+ * 建立「家長入口」統一引導 Flex Message
+ * 用於 #剩餘堂數 / #出缺勤 / #課程規劃 等家長查詢類關鍵字
+ *
+ * @param {'attendance'|'remaining'|'course_plan'} type 引導類型
+ */
+function buildParentPortalGuideFlex(type = 'remaining') {
+    const liffUrl = (config.parentPortal && config.parentPortal.liffUrl)
+        || 'https://liff.line.me/1657746214-Vbr2GNK7';
+
+    const presets = {
+        attendance: {
+            icon: '📅',
+            title: '出缺勤紀錄',
+            description: '完整出缺勤、請假、補課紀錄已整合到「家長入口」，輕鬆查看即時狀態。',
+            altText: '查看出缺勤紀錄 - 家長入口'
+        },
+        remaining: {
+            icon: '🎯',
+            title: '剩餘堂數',
+            description: '剩餘堂數、出席率、課程進度都在「家長入口」一目了然。',
+            altText: '查看剩餘堂數 - 家長入口'
+        },
+        course_plan: {
+            icon: '📘',
+            title: '本期課程規劃',
+            description: '本期完整課程規劃、教學進度與每週主題，全部整理在「家長入口」。',
+            altText: '查看課程規劃 - 家長入口'
+        }
+    };
+
+    const preset = presets[type] || presets.remaining;
+
+    return {
+        type: 'flex',
+        altText: preset.altText,
+        contents: {
+            type: 'bubble',
+            size: 'mega',
+            header: {
+                type: 'box',
+                layout: 'vertical',
+                paddingAll: '20px',
+                backgroundColor: '#0F172A',
+                contents: [
+                    {
+                        type: 'text',
+                        text: `${preset.icon} ${preset.title}`,
+                        size: 'xl',
+                        weight: 'bold',
+                        color: '#FFFFFF'
+                    },
+                    {
+                        type: 'text',
+                        text: '家長入口・FunLearnBar',
+                        size: 'xs',
+                        color: '#94A3B8',
+                        margin: 'sm'
+                    }
+                ]
+            },
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                paddingAll: '20px',
+                spacing: 'md',
+                contents: [
+                    {
+                        type: 'text',
+                        text: preset.description,
+                        size: 'sm',
+                        color: '#334155',
+                        wrap: true
+                    },
+                    {
+                        type: 'separator',
+                        margin: 'md',
+                        color: '#E2E8F0'
+                    },
+                    {
+                        type: 'box',
+                        layout: 'vertical',
+                        margin: 'md',
+                        spacing: 'sm',
+                        contents: [
+                            {
+                                type: 'text',
+                                text: '在家長入口可以查看：',
+                                size: 'xs',
+                                color: '#64748B',
+                                weight: 'bold'
+                            },
+                            {
+                                type: 'text',
+                                text: '・剩餘堂數與出席率',
+                                size: 'xs',
+                                color: '#475569'
+                            },
+                            {
+                                type: 'text',
+                                text: '・出缺勤完整紀錄',
+                                size: 'xs',
+                                color: '#475569'
+                            },
+                            {
+                                type: 'text',
+                                text: '・本期課程規劃',
+                                size: 'xs',
+                                color: '#475569'
+                            },
+                            {
+                                type: 'text',
+                                text: '・學習歷程與作品',
+                                size: 'xs',
+                                color: '#475569'
+                            }
+                        ]
+                    }
+                ]
+            },
+            footer: {
+                type: 'box',
+                layout: 'vertical',
+                paddingAll: '16px',
+                spacing: 'sm',
+                contents: [
+                    {
+                        type: 'button',
+                        style: 'primary',
+                        color: '#0F172A',
+                        height: 'sm',
+                        action: {
+                            type: 'uri',
+                            label: '前往家長入口',
+                            uri: liffUrl
+                        }
+                    },
+                    {
+                        type: 'text',
+                        text: '若尚未綁定，將自動引導完成綁定',
+                        size: 'xxs',
+                        color: '#94A3B8',
+                        align: 'center',
+                        margin: 'sm'
+                    }
+                ]
+            }
+        }
+    };
+}
+
+/**
  * 創建課程規劃 Flex Message（單一學生，使用新 API）
  */
 async function createCoursePlanFlexMessage(student) {
@@ -7667,185 +7818,58 @@ app.post('/webhook', async (req, res) => {
                         console.error('❌ 錯誤堆疊:', e.stack);
                     }
 
-                    // 檢查關鍵字
+                    // 檢查關鍵字 - 課程規劃統一引導到家長入口
                     if (messageText === '#本期課程規劃' || messageText === '#完整課程規劃') {
-                        console.log(`🔑 檢測到關鍵字「${messageText}」來自 ${userId}`);
+                        const liffUrl = (config.parentPortal && config.parentPortal.liffUrl)
+                            || 'https://liff.line.me/1657746214-Vbr2GNK7';
+                        console.log(`🔑 檢測到關鍵字「${messageText}」來自 ${userId} → 引導至家長入口`);
 
                         try {
-                            // 啟動 Loading Animation（60秒，會在發送訊息前停止）
-                            await showLoadingAnimation(userId, 60);
-
-                            const requestHeaders = {
-                                'Content-Type': 'application/json'
-                            };
-
-                            if (config.googleSheets && config.googleSheets.cookie) {
-                                requestHeaders.Cookie = config.googleSheets.cookie;
-                            }
-
-                            const coursePlanResponse = await axios.post(
-                                config.api.studentAttendance,
-                                { action: 'getStudentList' },
-                                {
-                                    headers: requestHeaders,
-                                    timeout: config.server.timeout.api
-                                }
-                            );
-
-                            const rawData = coursePlanResponse.data || {};
-                            let studentsData = [];
-
-                            if (Array.isArray(rawData.students)) {
-                                studentsData = rawData.students;
-                            } else if (rawData.data && Array.isArray(rawData.data.students)) {
-                                studentsData = rawData.data.students;
-                            } else if (rawData.result && Array.isArray(rawData.result.students)) {
-                                studentsData = rawData.result.students;
-                            }
-
-                            console.log('🔍 課程規劃原始資料:', JSON.stringify(studentsData, null, 2));
-
-                            // 過濾 userId 匹配的學生，並且只保留 remaining > 0 的學生（當期課程）
-                            const matchingStudents = studentsData.filter(student => {
-                                const isUserMatch = student.userId === userId;
-                                const isActiveStudent = !student.hasOwnProperty('remaining') || (student.remaining && student.remaining > 0);
-                                
-                                if (isUserMatch && !isActiveStudent) {
-                                    console.log(`⏭️ 跳過舊期學生: ${student.name} (remaining: ${student.remaining})`);
-                                }
-                                
-                                return isUserMatch && isActiveStudent;
-                            });
-
-                            if (matchingStudents.length === 0) {
-                                await sendLineMessage('❌ 找不到您的課程規劃資料，請確認是否完成綁定或稍後再試。', userId, false);
-                                console.log(`⚠️ 未找到課程規劃資料: ${userId}`);
-                                return;
-                            }
-
-                            // 過濾出有課程和時段資訊的學生（使用新的外部 API）
-                            const studentsWithCourseInfo = matchingStudents.filter(student =>
-                                student && student.course && student.period && 
-                                String(student.course).trim() !== '' && 
-                                String(student.period).trim() !== ''
-                            );
-
-                            if (studentsWithCourseInfo.length === 0) {
-                                await sendLineMessage('❌ 目前尚未為您設定課程資訊（課程類型和時段），請聯繫客服。', userId, false);
-                                console.log(`⚠️ 無課程資訊: ${userId}`);
-                                return;
-                            }
-
-                            console.log(`📚 準備查詢 ${studentsWithCourseInfo.length} 位學生的課程規劃`);
-
-                            if (studentsWithCourseInfo.length === 1) {
-                                const flexMessage = await createCoursePlanFlexMessage(studentsWithCourseInfo[0]);
-                                await sendLineFlexMessage(flexMessage, userId);
+                            const guideFlex = buildParentPortalGuideFlex('course_plan');
+                            const result = await sendLineFlexMessage(guideFlex, userId);
+                            if (result && result.success) {
+                                console.log(`✅ 已發送家長入口引導（課程規劃）給: ${userId}`);
                             } else {
-                                const carouselMessage = await createCoursePlanFlexCarousel(studentsWithCourseInfo);
-                                await sendLineFlexMessage(carouselMessage, userId);
+                                console.warn(`⚠️ Flex 發送失敗，退回純文字引導: ${userId}`, result);
+                                await sendLineMessage(`請至家長入口查看本期課程規劃：\n${liffUrl}`, userId, false);
                             }
-
-                            await sendLineMessage(`📘 已顯示 ${studentsWithCourseInfo.length} 位學生的本期課程規劃`, userId, false);
-                            console.log(`✅ 課程規劃已發送給: ${userId} (共 ${studentsWithCourseInfo.length} 位學生)`);
-
                         } catch (error) {
-                            console.error('❌ 查詢課程規劃失敗:', error);
-                            const errorMessage = '❌ 查詢課程規劃失敗，請稍後再試\n\n可能原因：\n1. 網路連線問題\n2. 系統暫時無法使用\n3. 課程規劃 API 無回應\n\n如有疑問，請聯繫客服人員。';
-                            await sendLineMessage(errorMessage, userId, false);
+                            console.error('❌ 發送家長入口引導失敗:', error);
+                            await sendLineMessage(`請至家長入口查看本期課程規劃：\n${liffUrl}`, userId, false);
                         }
 
                         return; // 處理完關鍵字後直接返回
                     }
 
-                    if (messageText === '#剩餘堂數' 
-                        || messageText === '#剩餘堂數完整' 
+                    if (messageText === '#剩餘堂數'
+                        || messageText === '#剩餘堂數完整'
                         || messageText === '#完整出缺勤'
-                        || messageText === '#出缺勤') {
-                        console.log(`🔑 檢測到關鍵字「${messageText}」來自 ${userId}`);
-                        
-                        try {
-                            // 發送 Loading Animation
-                            await showLoadingAnimation(userId, 5);
-                            
-                            // 調用學生資料 API
-                            const response = await axios.get('https://calendar.funlearnbar.synology.me/api/student-data', {
-                                timeout: 30000
-                            });
-                            
-                            if (response.data && response.data.success && response.data.data.students) {
-                                const students = response.data.data.students;
-                                
-                                // 過濾 userId 匹配的學生，並且只保留 remaining > 0 的學生（當期課程）
-                                const matchingStudents = students.filter(student => {
-                                    const isUserMatch = student.userId === userId;
-                                    const isActiveStudent = !student.hasOwnProperty('remaining') || (student.remaining && student.remaining > 0);
-                                    
-                                    if (isUserMatch && !isActiveStudent) {
-                                        console.log(`⏭️ 跳過舊期學生: ${student.name} (remaining: ${student.remaining})`);
-                                    }
-                                    
-                                    return isUserMatch && isActiveStudent;
-                                });
-                                
-                                console.log('🔍 查詢到的學生數據:', JSON.stringify(matchingStudents, null, 2));
-                                console.log(`📊 找到 ${matchingStudents.length} 個學生的資料`);
-                                
-                                if (matchingStudents.length > 0) {
-                                    // 根據關鍵字決定模式和顯示類型
-                                    let mode = 'compact';
-                                    let displayType = 'remaining'; // 'remaining' 或 'attendance'
+                        || messageText === '#出缺勤'
+                        || messageText === '#查詢出缺勤') {
+                        const liffUrl = (config.parentPortal && config.parentPortal.liffUrl)
+                            || 'https://liff.line.me/1657746214-Vbr2GNK7';
+                        const isAttendance = messageText === '#出缺勤'
+                            || messageText === '#完整出缺勤'
+                            || messageText === '#查詢出缺勤';
+                        const guideType = isAttendance ? 'attendance' : 'remaining';
+                        console.log(`🔑 檢測到關鍵字「${messageText}」來自 ${userId} → 引導至家長入口 (${guideType})`);
 
-                                    if (messageText === '#出缺勤') {
-                                        if (matchingStudents.length === 1) {
-                                            const studentData = matchingStudents[0];
-                                            const flexMessage = createFullAttendanceFlexMessage(studentData);
-                                            await sendLineFlexMessage(flexMessage, userId);
-                                            console.log(`✅ 出缺勤完整記錄已發送給: ${userId} (學生: ${studentData.name})`);
-                                        } else {
-                                            const multiFlexMessage = createFullAttendanceCarousel(matchingStudents);
-                                            await sendLineFlexMessage(multiFlexMessage, userId);
-                                            console.log(`✅ 多學生出缺勤完整記錄已發送給: ${userId} (共 ${matchingStudents.length} 個學生)`);
-                                        }
-                                        await sendLineMessage(`📚 已顯示 ${matchingStudents.length} 位學生的完整出缺勤紀錄`, userId, false);
-                                    } else {
-                                        if (messageText === '#剩餘堂數完整') {
-                                            mode = 'full';
-                                            displayType = 'remaining';
-                                        } else if (messageText === '#完整出缺勤') {
-                                            mode = 'full';
-                                            displayType = 'attendance';
-                                        } else {
-                                            mode = 'compact';
-                                            displayType = 'remaining';
-                                        }
-                                        
-                                        if (matchingStudents.length === 1) {
-                                            const studentData = matchingStudents[0];
-                                            const flexMessage = createAttendanceFlexMessage(studentData, mode, displayType);
-                                            await sendLineFlexMessage(flexMessage, userId);
-                                            console.log(`✅ 出缺勤記錄已發送給: ${userId} (學生: ${studentData.name}, 模式: ${mode}, 顯示類型: ${displayType})`);
-                                        } else {
-                                            const multiStudentFlexMessage = createMultiStudentFlexMessage(matchingStudents, mode, displayType);
-                                            await sendLineFlexMessage(multiStudentFlexMessage, userId);
-                                            console.log(`✅ 多學生出缺勤記錄已發送給: ${userId} (共 ${matchingStudents.length} 個學生, 模式: ${mode}, 顯示類型: ${displayType})`);
-                                        }
-                                        await sendLineMessage(`📚 已顯示 ${matchingStudents.length} 位學生的出缺勤紀錄`, userId, false);
-                                    }
-                                } else {
-                                    await sendLineMessage('❌ 找不到您的出缺勤記錄\n\n可能原因：\n1. 您尚未綁定學生身份\n2. 系統中沒有您的課程資料\n\n如有疑問，請聯繫客服人員。', userId, false);
-                                }
+                        try {
+                            const guideFlex = buildParentPortalGuideFlex(guideType);
+                            const result = await sendLineFlexMessage(guideFlex, userId);
+                            if (result && result.success) {
+                                console.log(`✅ 已發送家長入口引導（${isAttendance ? '出缺勤' : '剩餘堂數'}）給: ${userId}`);
                             } else {
-                                console.log('❌ API 回應格式錯誤:', JSON.stringify(response.data, null, 2));
-                                throw new Error('API 回應格式錯誤');
+                                console.warn(`⚠️ Flex 發送失敗，退回純文字引導: ${userId}`, result);
+                                const fallback = `請至家長入口查看${isAttendance ? '出缺勤紀錄' : '剩餘堂數'}：\n${liffUrl}`;
+                                await sendLineMessage(fallback, userId, false);
                             }
-                            
                         } catch (error) {
-                            console.error('❌ 查詢出缺勤失敗:', error);
-                            const errorMessage = '❌ 查詢出缺勤記錄失敗，請稍後再試\n\n可能原因：\n1. 網路連線問題\n2. 系統暫時無法使用\n\n如有疑問，請聯繫客服人員。';
-                            await sendLineMessage(errorMessage, userId, false);
+                            console.error('❌ 發送家長入口引導失敗:', error);
+                            const fallback = `請至家長入口查看${isAttendance ? '出缺勤紀錄' : '剩餘堂數'}：\n${liffUrl}`;
+                            await sendLineMessage(fallback, userId, false);
                         }
-                        
+
                         return; // 處理完關鍵字後直接返回
                     }
                     

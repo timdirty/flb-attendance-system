@@ -226,6 +226,12 @@ const config = {
         reportQuery: process.env.KEYWORD_REPORT_QUERY || '#查詢報表'
     },
 
+    // ==================== 家長入口 ====================
+    parentPortal: {
+        // 統一引導家長到家長入口 LIFF
+        liffUrl: process.env.PARENT_PORTAL_LIFF_URL || 'https://liff.line.me/1657746214-Vbr2GNK7'
+    },
+
     // ==================== UI 配置 ====================
     ui: {
         // Flex Message 主題色彩
