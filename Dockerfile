@@ -1,5 +1,5 @@
-# 使用 Node.js 20 LTS
-FROM node:20-slim
+# 使用 Node.js 22 LTS（22.5+ 為 line-payment 模組必需 — node:sqlite 內建 API）
+FROM node:22-slim
 
 # 設定工作目錄
 WORKDIR /app
