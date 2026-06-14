@@ -1164,7 +1164,27 @@ async function handlePostback(event) {
             weekday: postbackData.weekday,
             timestamp: new Date().toISOString()
         });
-        
+
+        // [2026-06-14] 請假一鍵立即記「待補」：避免家長點請假後不選理由就完全沒寫入。
+        // 之後選理由 → leave_reason 分支會再 saveLeaveToFLB(實際理由)，
+        // calendar-nas /api/student-responses 對同一筆做理由更新（待補→實際）。
+        try {
+            await saveLeaveToFLB({
+                studentName: postbackData.studentName,
+                courseName: postbackData.courseName,
+                courseDate: postbackData.courseDate,
+                courseTime: postbackData.courseTime,
+                location: postbackData.location,
+                weekday: postbackData.weekday,
+                leaveReason: '待補',
+                userId,
+                timestamp: new Date().toISOString()
+            });
+            console.log('✅ 請假已即時記錄（待補），等待家長補選理由');
+        } catch (e) {
+            console.error('⚠️ 即時記錄請假(待補)失敗（不中斷理由流程）:', e.message);
+        }
+
         // 發送請假理由選項
         await sendLeaveReasonOptions(userId, postbackData, replyToken);
         
