@@ -27,8 +27,11 @@ function apiUrl(base) {
   try {
     const url = new URL(base);
     if (url.username || url.password || url.search || url.hash) return null;
+    // Same NAS private Docker network and stable blue/green service alias only.
+    const internalService = url.hostname === 'funlearnbar-student-api' &&
+      url.port === '5004' && url.pathname === '/';
     if (url.protocol !== 'https:' && !(url.protocol === 'http:' &&
-        ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname))) return null;
+        (['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) || internalService))) return null;
     return `${url.href.replace(/\/$/, '')}/api/internal/class-reminder-responses`;
   } catch { return null; }
 }
@@ -91,7 +94,7 @@ function createReminderWebhook({ post, env = process.env, logger = console, now 
       await respond(event, notice('這個按鈕無法使用', '請使用最新課程提醒，或從原卡片的「家長入口」查看課程。此次未提交回覆。'));
       return;
     }
-    const url = apiUrl(env.UNIFIED_STUDENT_API_URL);
+    const url = apiUrl(env.CLASS_REMINDER_API_BASE_URL ?? env.UNIFIED_STUDENT_API_URL);
     if (!url || !env.STUDENT_API_KEY || !env.INTERNAL_GATEWAY_SECRET) {
       logger.warn('[class-reminder] configuration_missing');
       await respond(event, notice('回覆服務暫時無法使用', '此次尚未提交回覆。請從原卡片的「家長入口」查看課程，或聯繫樂程坊。'));

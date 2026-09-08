@@ -56,6 +56,35 @@ function harness(options = {}) {
 }
 const replyMessage = h => h.calls.find(c => c[0].endsWith('/reply'))?.[1].messages[0];
 
+test('提醒可獨立使用正式 API prefix，不修改既有付款 base', async () => {
+  const h=harness({env:{CLASS_REMINDER_API_BASE_URL:'https://course.test/student-api/'}});
+  await h.run(request([event()]));
+  assert.equal(h.calls[0][0],'https://course.test/student-api/api/internal/class-reminder-responses');
+  assert.deepEqual(replyMessage(h),flex);
+  assert.equal(env.UNIFIED_STUDENT_API_URL,'https://course.test');
+});
+
+test('獨立提醒 API 設定非法時 fail closed，不回退到其他入口', async () => {
+  const h=harness({env:{CLASS_REMINDER_API_BASE_URL:'http://outside.test'}});
+  await h.run(request([event()]));
+  assert.equal(h.calls.filter(c=>!c[0].endsWith('/reply')).length,0);
+  assert.equal(replyMessage(h).type,'flex');
+  assert.equal(replyMessage(h).altText,'回覆服務暫時無法使用');
+});
+
+test('既有 Docker 內網穩定 API alias 可由提醒專用 base 使用', async () => {
+  const h=harness({env:{CLASS_REMINDER_API_BASE_URL:'http://funlearnbar-student-api:5004'}});
+  await h.run(request([event()]));
+  assert.equal(h.calls[0][0],'http://funlearnbar-student-api:5004/api/internal/class-reminder-responses');
+  assert.deepEqual(replyMessage(h),flex);
+});
+
+for(const base of ['http://funlearnbar-student-api:5005','http://funlearnbar-student-api:5004/other','http://funlearnbar-student-api.evil.test:5004','http://172.17.0.1:5004']) test(`內網例外不擴張到 ${base}`, async()=>{
+  const h=harness({env:{CLASS_REMINDER_API_BASE_URL:base}});
+  await h.run(request([event()]));
+  assert.equal(h.calls.filter(c=>!c[0].endsWith('/reply')).length,0);
+});
+
 test('簽章原文保留，不以重新 JSON stringify 取代', () => {
   const req = {};
   const raw = Buffer.from('{ "events": [] }');

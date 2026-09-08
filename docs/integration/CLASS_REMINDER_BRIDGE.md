@@ -24,7 +24,11 @@ State: 程式與本機驗證完成；待唯一 coordinator 處理正式切換，
 ## 部署設定與界線
 
 需要同一 primary channel 的 `LINE_CHANNEL_SECRET`、`LINE_CHANNEL_ACCESS_TOKEN`，以及
-`UNIFIED_STUDENT_API_URL`、`STUDENT_API_KEY`、`INTERNAL_GATEWAY_SECRET`。
+`CLASS_REMINDER_API_BASE_URL`（未設定時沿用 `UNIFIED_STUDENT_API_URL`）、`STUDENT_API_KEY`、`INTERNAL_GATEWAY_SECRET`。
+
+提醒入口可單獨設定實際 API base（含反向代理 prefix），不可為了修提醒而改寫共用付款 base。明確設定但不合法時不回退。部署前必須以無效 token 的無寫入 probe 確認內部路徑回 400，405/HTML/redirect 皆不是通過。
+
+正式內部回呼沿用 Gateway 的 Docker 穩定 alias：`CLASS_REMINDER_API_BASE_URL=http://funlearnbar-student-api:5004`。Bot 必須加入 API 所在的既有 private network；不得把內部 endpoint 加到公開 proxy。HTTP 例外只允許此精確 alias、5004 port 與根路徑，仍須雙重 server credentials，禁止 redirect；其他非 loopback HTTP 一律拒絕。使用 stable alias 而非 green/blue container 名稱，避免下一次全端切換失聯。
 API URL 必須為管理者設定的 HTTPS URL（本機合成測試可用 loopback HTTP）。
 新 secret 不可沿用付款的 `LINE_INTEGRATION_SECRET_CURRENT`。
 
