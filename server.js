@@ -8,6 +8,8 @@ const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
 const config = require('./src/config');
+const { captureRawBody, createReminderWebhook } = require('./src/class-reminder-webhook');
+const reminderWebhook = createReminderWebhook({ post: axios.post.bind(axios) });
 dayjs.extend(utc);
 dayjs.extend(timezone);
 // const DatabaseManager = require('./database'); // 已改用 Google Sheets 資料庫
@@ -39,7 +41,7 @@ const PORT = process.env.PORT || 3000;
 
 // 中間件
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({ verify: captureRawBody }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
@@ -7502,7 +7504,7 @@ app.post('/api/query-report', async (req, res) => {
 });
 
 // LINE Webhook 端點
-app.post('/webhook', async (req, res) => {
+app.post('/webhook', reminderWebhook, async (req, res) => {
     console.log('收到 LINE Webhook 請求:', req.body);
 
     // v2 critical: durable enqueue line-payment events BEFORE ACK (crash safety)

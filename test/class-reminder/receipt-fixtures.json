@@ -1,0 +1,290 @@
+{
+  "attend": {
+    "type": "flex",
+    "altText": "已登記會到｜測試學生 · 2026/09/08",
+    "contents": {
+      "type": "bubble",
+      "size": "kilo",
+      "header": {
+        "type": "box",
+        "layout": "vertical",
+        "spacing": "xs",
+        "backgroundColor": "#FFFFFF",
+        "paddingAll": "18px",
+        "paddingBottom": "10px",
+        "contents": [
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "spacing": "sm",
+            "alignItems": "center",
+            "contents": [
+              {
+                "type": "text",
+                "text": "回覆已儲存",
+                "size": "xs",
+                "weight": "bold",
+                "color": "#2E745E",
+                "flex": 1,
+                "wrap": true,
+                "scaling": true
+              },
+              {
+                "type": "box",
+                "layout": "horizontal",
+                "spacing": "xs",
+                "alignItems": "center",
+                "flex": 0,
+                "contents": [
+                  {
+                    "type": "image",
+                    "url": "https://course-viewer.funlearnbar.synology.me/parent-info-edit/logo.jpg?v=20260811-c390dd59",
+                    "size": "28px",
+                    "aspectMode": "cover",
+                    "aspectRatio": "1:1",
+                    "flex": 0
+                  },
+                  {
+                    "type": "text",
+                    "text": "樂程坊",
+                    "size": "xxs",
+                    "weight": "bold",
+                    "color": "#765827",
+                    "flex": 0,
+                    "wrap": true,
+                    "scaling": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "text",
+            "text": "已登記會到",
+            "size": "md",
+            "weight": "bold",
+            "color": "#151A19",
+            "wrap": true,
+            "scaling": true
+          }
+        ]
+      },
+      "body": {
+        "type": "box",
+        "layout": "vertical",
+        "spacing": "sm",
+        "contents": [
+          {
+            "type": "text",
+            "text": "測試學生",
+            "wrap": true,
+            "color": "#151A19",
+            "size": "sm",
+            "weight": "bold",
+            "scaling": true
+          },
+          {
+            "type": "text",
+            "text": "ESM 二",
+            "wrap": true,
+            "color": "#151A19",
+            "size": "sm",
+            "scaling": true
+          },
+          {
+            "type": "text",
+            "text": "2026/09/08 · 18:00-19:00",
+            "wrap": true,
+            "color": "#68716D",
+            "size": "xs",
+            "scaling": true
+          },
+          {
+            "type": "text",
+            "text": "這是到課意願，實際出席以老師點名為準。",
+            "wrap": true,
+            "color": "#68716D",
+            "size": "xs",
+            "margin": "md",
+            "scaling": true
+          }
+        ],
+        "backgroundColor": "#FFFFFF",
+        "paddingAll": "18px"
+      },
+      "footer": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "button",
+            "style": "link",
+            "color": "#765827",
+            "height": "md",
+            "flex": 1,
+            "action": {
+              "type": "uri",
+              "label": "查看課程",
+              "uri": "https://liff.line.me/1657746214-Vbr2GNK7/course/42/11111111-1111-4111-8111-111111111111"
+            },
+            "scaling": true,
+            "adjustMode": "shrink-to-fit"
+          }
+        ],
+        "backgroundColor": "#FFFFFF",
+        "paddingAll": "16px",
+        "spacing": "sm"
+      },
+      "styles": {
+        "footer": {
+          "separator": true,
+          "separatorColor": "#E8E4DC"
+        }
+      }
+    }
+  },
+  "pending": {
+    "type": "flex",
+    "altText": "已登記待確認｜測試學生 · 2026/09/08",
+    "contents": {
+      "type": "bubble",
+      "size": "kilo",
+      "header": {
+        "type": "box",
+        "layout": "vertical",
+        "spacing": "xs",
+        "backgroundColor": "#FFFFFF",
+        "paddingAll": "18px",
+        "paddingBottom": "10px",
+        "contents": [
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "spacing": "sm",
+            "alignItems": "center",
+            "contents": [
+              {
+                "type": "text",
+                "text": "回覆已儲存",
+                "size": "xs",
+                "weight": "bold",
+                "color": "#765827",
+                "flex": 1,
+                "wrap": true,
+                "scaling": true
+              },
+              {
+                "type": "box",
+                "layout": "horizontal",
+                "spacing": "xs",
+                "alignItems": "center",
+                "flex": 0,
+                "contents": [
+                  {
+                    "type": "image",
+                    "url": "https://course-viewer.funlearnbar.synology.me/parent-info-edit/logo.jpg?v=20260811-c390dd59",
+                    "size": "28px",
+                    "aspectMode": "cover",
+                    "aspectRatio": "1:1",
+                    "flex": 0
+                  },
+                  {
+                    "type": "text",
+                    "text": "樂程坊",
+                    "size": "xxs",
+                    "weight": "bold",
+                    "color": "#765827",
+                    "flex": 0,
+                    "wrap": true,
+                    "scaling": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "text",
+            "text": "已登記待確認",
+            "size": "md",
+            "weight": "bold",
+            "color": "#151A19",
+            "wrap": true,
+            "scaling": true
+          }
+        ]
+      },
+      "body": {
+        "type": "box",
+        "layout": "vertical",
+        "spacing": "sm",
+        "contents": [
+          {
+            "type": "text",
+            "text": "測試學生",
+            "wrap": true,
+            "color": "#151A19",
+            "size": "sm",
+            "weight": "bold",
+            "scaling": true
+          },
+          {
+            "type": "text",
+            "text": "ESM 二",
+            "wrap": true,
+            "color": "#151A19",
+            "size": "sm",
+            "scaling": true
+          },
+          {
+            "type": "text",
+            "text": "2026/09/08 · 18:00-19:00",
+            "wrap": true,
+            "color": "#68716D",
+            "size": "xs",
+            "scaling": true
+          },
+          {
+            "type": "text",
+            "text": "這是到課意願，實際出席以老師點名為準。",
+            "wrap": true,
+            "color": "#68716D",
+            "size": "xs",
+            "margin": "md",
+            "scaling": true
+          }
+        ],
+        "backgroundColor": "#FFFFFF",
+        "paddingAll": "18px"
+      },
+      "footer": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "button",
+            "style": "link",
+            "color": "#765827",
+            "height": "md",
+            "flex": 1,
+            "action": {
+              "type": "uri",
+              "label": "查看課程",
+              "uri": "https://liff.line.me/1657746214-Vbr2GNK7/course/42/11111111-1111-4111-8111-111111111111"
+            },
+            "scaling": true,
+            "adjustMode": "shrink-to-fit"
+          }
+        ],
+        "backgroundColor": "#FFFFFF",
+        "paddingAll": "16px",
+        "spacing": "sm"
+      },
+      "styles": {
+        "footer": {
+          "separator": true,
+          "separatorColor": "#E8E4DC"
+        }
+      }
+    }
+  }
+}
