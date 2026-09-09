@@ -56,6 +56,64 @@ function harness(options = {}) {
 }
 const replyMessage = h => h.calls.find(c => c[0].endsWith('/reply'))?.[1].messages[0];
 
+function flexNodes(value) {
+  if (!value || typeof value !== 'object') return [];
+  return [value, ...Object.values(value).flatMap(child =>
+    Array.isArray(child) ? child.flatMap(flexNodes) : flexNodes(child))];
+}
+
+for (const status of [400, 409, 410, 500]) test(`API ${status} 回條可直接開啟安全家長入口，不把未驗證課程帶入連結`, async () => {
+  const h = harness({ apiResult: { status, data: { error: 'private API detail' } } });
+  await h.run(request([event()]));
+  const message = replyMessage(h);
+  const actions = flexNodes(message).filter(n => n.type === 'uri');
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].label, '開啟家長入口');
+  const url = new URL(actions[0].uri);
+  assert.equal(url.origin, 'https://course-viewer.funlearnbar.synology.me');
+  assert.equal(url.pathname, '/parent-info-edit/');
+  assert.equal(url.search, '');
+  assert.equal(url.hash, '');
+  assert.ok(!JSON.stringify(message).includes('signed.test-token'));
+  assert.ok(!JSON.stringify(message).includes(uid));
+  assert.ok(!JSON.stringify(message).includes('private API detail'));
+});
+
+test('失效回條延續提醒白底品牌識別，正文與狀態分層且不截斷', async () => {
+  const h = harness({ apiResult: { status: 409, data: {} } });
+  await h.run(request([event()]));
+  const bubble = replyMessage(h).contents;
+  assert.equal(bubble.size, 'kilo');
+  assert.equal(bubble.header.backgroundColor, '#FFFFFF');
+  assert.ok(flexNodes(bubble.header).some(n => n.type === 'image' && n.url.startsWith('https://course-viewer.funlearnbar.synology.me/parent-info-edit/logo.jpg')));
+  assert.ok(flexNodes(bubble.header).some(n => n.type === 'text' && n.text === '尚未確認登記'));
+  for (const text of flexNodes(bubble).filter(n => n.type === 'text')) {
+    assert.equal(text.wrap, true);
+    assert.equal(text.maxLines, undefined);
+  }
+  assert.ok(!JSON.stringify(bubble).includes('已登記會到'));
+});
+
+test('連線結果未知回條不可宣稱未寫入，仍提供查詢入口而非重送按鈕', async () => {
+  const h = harness({ apiError: true });
+  await h.run(request([event()]));
+  const message = replyMessage(h);
+  assert.ok(flexNodes(message).some(n => n.type === 'text' && n.text === '儲存結果待確認'));
+  assert.ok(!JSON.stringify(message).includes('尚未提交'));
+  assert.equal(flexNodes(message).filter(n => n.type === 'uri').length, 1);
+  assert.equal(flexNodes(message).filter(n => n.type === 'postback').length, 0);
+});
+
+test('API 已儲存但缺少 renderer 時，白底確認卡仍提供家長入口', async () => {
+  const result = success(); delete result.data.data.flex_message;
+  const h = harness({ apiResult: result });
+  await h.run(request([event()]));
+  const bubble = replyMessage(h).contents;
+  assert.equal(bubble.header.backgroundColor, '#FFFFFF');
+  assert.ok(flexNodes(bubble.header).some(n => n.type === 'text' && n.text === '回覆已儲存'));
+  assert.equal(flexNodes(bubble).filter(n => n.type === 'uri').length, 1);
+});
+
 test('提醒可獨立使用正式 API prefix，不修改既有付款 base', async () => {
   const h=harness({env:{CLASS_REMINDER_API_BASE_URL:'https://course.test/student-api/'}});
   await h.run(request([event()]));

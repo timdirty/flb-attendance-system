@@ -3,6 +3,8 @@ const crypto = require('node:crypto');
 
 const ACTION = 'class_reminder_response';
 const REPLY_URL = 'https://api.line.me/v2/bot/message/reply';
+const PARENT_PORTAL_URL = 'https://course-viewer.funlearnbar.synology.me/parent-info-edit/';
+const BRAND_LOGO_URL = `${PARENT_PORTAL_URL}logo.jpg?v=20260811-c390dd59`;
 
 function captureRawBody(req, res, buffer) {
   req.rawBody = Buffer.from(buffer);
@@ -36,17 +38,30 @@ function apiUrl(base) {
   } catch { return null; }
 }
 
-function notice(title, detail, saved = false) {
+function notice(title, detail, saved = false, state = 'not_submitted') {
+  // 與課程系統白底收據一致；未驗證的 token 不可用來顯示姓名或組合深連結。
+  const label = saved ? '回覆已儲存' : state === 'unknown' ? '儲存結果待確認'
+    : state === 'stale' ? '尚未確認登記' : '尚未提交回覆';
+  const accent = saved ? '#2E745E' : '#8C611B';
   return {
     type: 'flex', altText: title,
     contents: {
       type: 'bubble', size: 'kilo',
-      header: { type: 'box', layout: 'vertical', backgroundColor: '#182522', paddingAll: '16px', contents: [
-        { type: 'text', text: saved ? '回覆已儲存' : '上課提醒 · 回覆狀態', size: 'xs', color: '#DCD1B8', wrap: true },
-        { type: 'text', text: title, size: 'lg', color: '#FFFFFF', weight: 'bold', wrap: true, margin: 'sm' },
+      header: { type: 'box', layout: 'vertical', backgroundColor: '#FFFFFF', paddingAll: '20px', paddingBottom: '12px', contents: [
+        { type: 'box', layout: 'horizontal', alignItems: 'center', spacing: 'sm', contents: [
+          { type: 'text', text: '上課提醒 · 回覆結果', size: 'xs', color: '#765827', wrap: true, flex: 1 },
+          { type: 'image', url: BRAND_LOGO_URL, size: '52px', aspectRatio: '2:1', aspectMode: 'fit', flex: 0 },
+        ] },
+        { type: 'text', text: title, size: 'lg', color: '#151A19', weight: 'bold', wrap: true, margin: 'lg' },
+        { type: 'text', text: label, size: 'xs', color: accent, weight: 'bold', wrap: true, margin: 'sm' },
       ] },
-      body: { type: 'box', layout: 'vertical', paddingAll: '16px', contents: [
-        { type: 'text', text: detail, size: 'sm', color: '#45534F', wrap: true },
+      body: { type: 'box', layout: 'vertical', backgroundColor: '#FFFFFF', paddingAll: '20px', paddingTop: '0px', paddingBottom: '16px', contents: [
+        { type: 'text', text: detail, size: 'sm', color: '#68716D', wrap: true, lineSpacing: '5px' },
+      ] },
+      footer: { type: 'box', layout: 'vertical', backgroundColor: '#FFFFFF', paddingAll: '12px', paddingTop: '0px', contents: [
+        { type: 'separator', color: '#E8E4DC' },
+        { type: 'button', style: 'link', height: 'sm', margin: 'sm', color: '#765827',
+          action: { type: 'uri', label: '開啟家長入口', uri: PARENT_PORTAL_URL } },
       ] },
     },
   };
@@ -109,7 +124,7 @@ function createReminderWebhook({ post, env = process.env, logger = console, now 
       });
     } catch {
       logger.warn('[class-reminder] persistence_unknown');
-      await respond(event, notice('尚未確認儲存結果', '連線暫時中斷，請稍後查看課程狀態或重新點擊原提醒。本訊息不代表已完成登記。'));
+      await respond(event, notice('尚未確認儲存結果', '連線暫時中斷，暫時無法確認是否已儲存。請先查看家長入口的課程狀態。', false, 'unknown'));
       return;
     }
     const record = result?.data?.data;
@@ -119,8 +134,8 @@ function createReminderWebhook({ post, env = process.env, logger = console, now 
       logger.warn('[class-reminder] persistence_unconfirmed', { status });
       const stale = [400, 409, 410].includes(status);
       await respond(event, stale
-        ? notice('請確認最新課程狀態', '此提醒可能已過期或課程已有異動。請從最新提醒或「家長入口」查看，本次未確認成功登記。')
-        : notice('尚未確認儲存結果', '回覆服務暫時無法確認結果。請稍後查看課程狀態或聯繫樂程坊，本訊息不代表已完成登記。'));
+        ? notice('請查看最新課程', '這張提醒可能已過期，或課程已有異動。請開啟家長入口，確認目前安排。', false, 'stale')
+        : notice('尚未確認儲存結果', '暫時無法確認是否已儲存。請先查看家長入口；若仍有疑問，請聯繫樂程坊。', false, 'unknown'));
       return;
     }
     logger.info('[class-reminder] response_saved', { target_id: record.target_id, response });
