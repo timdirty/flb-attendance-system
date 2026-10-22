@@ -544,6 +544,19 @@ sudo docker logs -f flb-line-bot
 
 ## 10. 最近重要更新
 
+### 2026-09-09｜家長提醒備援回條視覺一致性
+
+- `src/class-reminder-webhook.js` 備援回條改為白底品牌小卡、分離狀態與簡短說明，並提供固定 HTTPS 家長入口。
+- API 成功回條原樣轉送；沒有改寫入、驗簽、去重或付款流程。未知結果不得宣稱未寫入。
+- 詳細驗證與正式版本界線見 `docs/integration/CLASS_REMINDER_BRIDGE.md` 的 2026-09-09 紀錄。
+
+### 2026-09-08｜家長提醒回覆入口修復
+
+- 新增 `src/class-reminder-webhook.js`；僅接管 `class_reminder_response`，在 legacy handler 前驗 raw LINE signature。
+- 呼叫課程系統的既有 internal response API，僅以 primary bot reply Flex，不用多 Bot push。
+- 實作規劃、部署憑證名稱與回滾界線見 `docs/integration/CLASS_REMINDER_BRIDGE.md`。
+- `server.js` 修改前備份：`/tmp/flb-parent-postback-server.backup-20260908-1049.js`。
+
 ### 2025-11-12｜訊息中心（Message Center）M1 規劃與落地
 
 - ✅ 新增 `docs/features/MESSAGE_CENTER_SPEC.md`（持續回填）

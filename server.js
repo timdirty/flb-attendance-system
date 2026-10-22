@@ -8,6 +8,12 @@ const dayjs = require('dayjs');
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
 const config = require('./src/config');
+const { captureRawBody, createReminderWebhook } = require('./src/class-reminder-webhook');
+const reminderWebhook = createReminderWebhook({ post: axios.post.bind(axios) });
+const { createGudianRelay, createWebhookGuard, createStateStore, healthSummary } = require('./src/gudian-relay');
+const gudianState = createStateStore(process.env.GUDIAN_RELAY_STATE_FILE || path.join(__dirname, 'data', 'gudian-relay-state.json'));
+const gudianRelay = createGudianRelay({ post: axios.post.bind(axios), store: gudianState });
+const webhookGuard = createWebhookGuard({ http: { get: axios.get.bind(axios), put: axios.put.bind(axios) }, store: gudianState });
 dayjs.extend(utc);
 dayjs.extend(timezone);
 // const DatabaseManager = require('./database'); // 已改用 Google Sheets 資料庫
@@ -31,12 +37,15 @@ const {
     getNotionConfigStatus
 } = require('./src/notion-accounting');
 
+// 引入 LINE 匯款 → student-manager 整合層
+const linePayment = require('./src/line-payment/integration');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 中間件
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({ verify: captureRawBody }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
@@ -1161,7 +1170,27 @@ async function handlePostback(event) {
             weekday: postbackData.weekday,
             timestamp: new Date().toISOString()
         });
-        
+
+        // [2026-06-14] 請假一鍵立即記「待補」：避免家長點請假後不選理由就完全沒寫入。
+        // 之後選理由 → leave_reason 分支會再 saveLeaveToFLB(實際理由)，
+        // calendar-nas /api/student-responses 對同一筆做理由更新（待補→實際）。
+        try {
+            await saveLeaveToFLB({
+                studentName: postbackData.studentName,
+                courseName: postbackData.courseName,
+                courseDate: postbackData.courseDate,
+                courseTime: postbackData.courseTime,
+                location: postbackData.location,
+                weekday: postbackData.weekday,
+                leaveReason: '待補',
+                userId,
+                timestamp: new Date().toISOString()
+            });
+            console.log('✅ 請假已即時記錄（待補），等待家長補選理由');
+        } catch (e) {
+            console.error('⚠️ 即時記錄請假(待補)失敗（不中斷理由流程）:', e.message);
+        }
+
         // 發送請假理由選項
         await sendLeaveReasonOptions(userId, postbackData, replyToken);
         
@@ -7479,9 +7508,26 @@ app.post('/api/query-report', async (req, res) => {
 });
 
 // LINE Webhook 端點
-app.post('/webhook', async (req, res) => {
+app.post('/webhook', gudianRelay.middleware, reminderWebhook, async (req, res) => {
     console.log('收到 LINE Webhook 請求:', req.body);
-    
+
+    // v2 critical: durable enqueue line-payment events BEFORE ACK (crash safety)
+    // SQLite 同步 I/O，<10ms，不會超時 LINE 30s webhook 限制
+    if (linePayment.isInitialized()) {
+        const earlyEvents = req.body.events || [];
+        for (const event of earlyEvents) {
+            try {
+                if (event.type === 'postback') {
+                    linePayment.handlePostback(event);
+                } else if (event.type === 'message') {
+                    linePayment.handleWebhookEvent(event);
+                }
+            } catch (e) {
+                console.error('[line-payment] webhook pre-ACK enqueue err:', e);
+            }
+        }
+    }
+
     // 立即回應 LINE 伺服器
     res.status(200).send('OK');
     
@@ -8629,7 +8675,8 @@ app.get('/health', (req, res) => {
         timestamp: new Date().toISOString(),
         uptime: Math.floor(process.uptime()),
         memory: process.memoryUsage(),
-        version: '1.0.0'
+        version: '1.0.0',
+        lineWebhook: healthSummary(gudianState)
     });
 });
 
@@ -8711,6 +8758,20 @@ async function startServer() {
         app.listen(PORT, async () => {
     console.log(`伺服器運行在 http://localhost:${PORT}`);
             console.log('FLB講師簽到系統已啟動！');
+
+            // 啟動 LINE 匯款整合層（若 env 齊全才會啟動）
+            try {
+                linePayment.init({
+                    env: process.env,
+                    lineSendFn: async (userId, message) => sendLineMessageWithBot(message, userId, null, false),
+                });
+            } catch (e) {
+                console.warn('[line-payment] init failed:', e.message);
+            }
+
+            // 顧店 tunnel 重啟會改走 LINE webhook；守門把它收回並記下轉送目標。
+            webhookGuard.start();
+
             console.log('🎉 系統完全啟動完成！');
         });
     } catch (error) {
