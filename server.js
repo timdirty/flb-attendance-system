@@ -10,6 +10,10 @@ const timezone = require('dayjs/plugin/timezone');
 const config = require('./src/config');
 const { captureRawBody, createReminderWebhook } = require('./src/class-reminder-webhook');
 const reminderWebhook = createReminderWebhook({ post: axios.post.bind(axios) });
+const { createGudianRelay, createWebhookGuard, createStateStore, healthSummary } = require('./src/gudian-relay');
+const gudianState = createStateStore(process.env.GUDIAN_RELAY_STATE_FILE || path.join(__dirname, 'data', 'gudian-relay-state.json'));
+const gudianRelay = createGudianRelay({ post: axios.post.bind(axios), store: gudianState });
+const webhookGuard = createWebhookGuard({ http: { get: axios.get.bind(axios), put: axios.put.bind(axios) }, store: gudianState });
 dayjs.extend(utc);
 dayjs.extend(timezone);
 // const DatabaseManager = require('./database'); // 已改用 Google Sheets 資料庫
@@ -7504,7 +7508,7 @@ app.post('/api/query-report', async (req, res) => {
 });
 
 // LINE Webhook 端點
-app.post('/webhook', reminderWebhook, async (req, res) => {
+app.post('/webhook', gudianRelay.middleware, reminderWebhook, async (req, res) => {
     console.log('收到 LINE Webhook 請求:', req.body);
 
     // v2 critical: durable enqueue line-payment events BEFORE ACK (crash safety)
@@ -8671,7 +8675,8 @@ app.get('/health', (req, res) => {
         timestamp: new Date().toISOString(),
         uptime: Math.floor(process.uptime()),
         memory: process.memoryUsage(),
-        version: '1.0.0'
+        version: '1.0.0',
+        lineWebhook: healthSummary(gudianState)
     });
 });
 
@@ -8763,6 +8768,9 @@ async function startServer() {
             } catch (e) {
                 console.warn('[line-payment] init failed:', e.message);
             }
+
+            // 顧店 tunnel 重啟會改走 LINE webhook；守門把它收回並記下轉送目標。
+            webhookGuard.start();
 
             console.log('🎉 系統完全啟動完成！');
         });

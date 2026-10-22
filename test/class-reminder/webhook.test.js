@@ -312,5 +312,6 @@ test('稽核日誌不含 UID、response token、reply token 或憑證', async ()
 test('真實 server 接線位於 legacy route/日誌/付款之前且保留 raw body', () => {
   const server = fs.readFileSync(require.resolve('../../server.js'), 'utf8');
   assert.match(server, /bodyParser\.json\(\{ verify: captureRawBody \}\)/);
-  assert.match(server, /app\.post\('\/webhook', reminderWebhook, async/);
+  // 顧店轉送只排程背景送出、立即 next()，必須在提醒回條之前看到未改寫的 req.body。
+  assert.match(server, /app\.post\('\/webhook', gudianRelay\.middleware, reminderWebhook, async/);
 });
